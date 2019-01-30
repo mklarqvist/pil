@@ -7,13 +7,30 @@
 #include "columnstore.h"
 #include "record_builder.h"
 #include "third_party/xxhash/xxhash.h"
+#include "compression/variant_digest_manager.h"
 
 namespace pil {
 
 // Segment represent a contiguous slice of a columnstore.
 struct Segment {
+public:
     Segment(int32_t id, MemoryPool* pool) : init_marker(0), n_bytes(0), global_id(id), columnset(pool), eof_marker(0){}
 
+    int Write(std::ostream& stream);
+
+    int size() const { return(columnset.columns.size()); }
+
+    // Returns the total number of bytes the ColumnStore buffers use.
+    int64_t size_bytes() const {
+        int64_t total = 0;
+        for(int i = 0; i < columnset.size(); ++i) {
+            total += columnset.columns[i]->GetMemoryUsage();
+        }
+
+        return total;
+    }
+
+public:
     uint64_t init_marker; // initation marker for data
     uint32_t n_bytes;
     int32_t global_id; // have to guarantee parity between this parameter and that in columnset->columns
@@ -138,6 +155,7 @@ public:
         } std::cerr << "]" << std::endl;
         */
 
+        // Store pattern-id with each record.
         uint32_t pid = pattern_dict.FindOrAdd(pattern);
 
         // Check the local stack of Segments if the target identifier is present.
@@ -149,7 +167,7 @@ public:
                 // insert
                 _segid = s->second;
             } else {
-                std::cerr << "target column does NOT Exist in local stack: insert" << std::endl;
+                std::cerr << "target column does NOT Exist in local stack: insert -> " << pattern.ids[i] << std::endl;
                 _segid = _seg_stack.size();
                 _seg_map[pattern.ids[i]] = _segid;
                 MemoryPool* pool = pil::default_memory_pool();
@@ -159,11 +177,26 @@ public:
             //std::cerr << "inserting into stack: " << _segid << std::endl;
             //std::cerr << "stride=" << builder.slots[i]->stride << std::endl;
 
-            //
+            // Check for limit.
             ColumnSet& _seg = _seg_stack[_segid]->columnset;
             if(_seg.columns.size()){
-                if(_seg.columns.front()->n >= 4096){
-                    std::cerr << "limit reached for _seg column" << std::endl;
+                // The first ColumnSet is guaranteed to be the longest.
+                // If the number of elements in a ColumnStore in a ColumnSet surpasses or
+                // equals the desired size of a Batch then emit this temporary Segment.
+                if(_seg.columns.front()->size() >= 4096) {
+                    std::cerr << "limit reached for _seg column: " << _seg.size() << "->" << _seg.GetMemoryUsage() << std::endl;
+                    // 1: Flush this ColumnSet
+                    std::unique_ptr<Segment>& segment = _seg_stack[_segid];
+                    segment->global_id = _segid;
+                    segment->columnset.global_id = _segid;
+                    std::cerr << "stride_size=" << segment->columnset.stride->GetMemoryUsage() << std::endl;
+                    uint8_t md5sum[16];
+                    Digest::GenerateMd5(segment->columnset.columns.front()->buffer->mutable_data(), segment->columnset.columns.front()->mem_use, md5sum);
+                    for(int i = 0; i < 16; ++i) std::cerr << (int)md5sum[i];
+                    std::cerr << std::endl;
+
+                    // 2: Clear it and start over.
+                    _seg.clear();
                 }
             }
 

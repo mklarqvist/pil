@@ -1,3 +1,4 @@
+#include "pil.h"
 #include "memory_pool.h"
 #include "allocator.h"
 #include "columnstore.h"
@@ -90,8 +91,14 @@ int main(void){
         table.Append(rbuild);
     }
 
+    for(int i = 0; i < 5000; ++i){
+        rbuild.Add<float>("AF", pil::PIL_TYPE_FLOAT, 45);
+        rbuild.Add<int32_t>("RAND", pil::PIL_TYPE_INT32, 21);
+        table.Append(rbuild);
+    }
+
     for(int i = 0; i < table._seg_stack.size(); ++i){
-        std::cerr << table._seg_stack[i]->global_id << ": " << table._seg_stack[i]->columnset.columns.size() << " columns. first=" << table._seg_stack[i]->columnset.columns.front()->n << std::endl;
+        std::cerr << table._seg_stack[i]->global_id << ": " << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->size_bytes() << " columns/b. first=" << table._seg_stack[i]->columnset.columns.front()->n << std::endl;
     }
 
     return(1);

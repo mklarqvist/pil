@@ -4,23 +4,17 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../buffer.cpp \
-../main.cpp \
-../memory_pool.cpp 
+../compression/zstd_codec.cpp 
 
 OBJS += \
-./buffer.o \
-./main.o \
-./memory_pool.o 
+./compression/zstd_codec.o 
 
 CPP_DEPS += \
-./buffer.d \
-./main.d \
-./memory_pool.d 
+./compression/zstd_codec.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-%.o: ../%.cpp
+compression/%.o: ../compression/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: Cross G++ Compiler'
 	g++ -std=c++0x -I/usr/local/include/ -O3 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@)" -o "$@" "$<"

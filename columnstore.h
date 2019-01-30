@@ -7,6 +7,7 @@
 #include <cassert>
 #include <iostream>
 
+#include "pil.h"
 #include "buffer.h"
 
 namespace pil {
@@ -25,7 +26,7 @@ namespace pil {
 struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
-        sorted(false), n(0), m(0), ptype(0), checksum(0), pool_(pool)
+        sorted(false), n(0), m(0), mem_use(0), ptype(PIL_TYPE_UNKNOWN), ptype_array(PIL_TYPE_UNKNOWN), checksum(0), pool_(pool)
     {
     }
 
@@ -33,19 +34,22 @@ public:
     //int64_t GetOffset() const { return buffer.data->offset; }
 
     int GetType() const { return ptype; }
+    uint32_t size() const { return n; }
+    uint32_t capacity() const { return m; }
+    uint32_t GetMemoryUsage() const { return mem_use; }
 
     // Pointer to data.
-    //std::shared_ptr<ResizableBuffer> data() { return buffer; }
-    //std::shared_ptr<ResizableBuffer> bitmap() { return bitmap; }
-    //std::shared_ptr<ResizableBuffer> stats() { return segment_statistics_buffer; }
+    std::shared_ptr<ResizableBuffer> data() { return buffer; }
+    std::shared_ptr<ResizableBuffer> transforms() { return transformation_args; }
+    std::shared_ptr<ResizableBuffer> segment_stats() { return segment_statistics_buffer; }
 
     // PrettyPrint representation of array suitable for debugging.
     std::string ToString() const;
 
 public:
     bool sorted; // is this ColumnStore sorted (relative itself)
-    uint32_t n, m; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
-    uint32_t ptype; // primtive type encoding, possible bit use for signedness
+    uint32_t n, m, mem_use; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
+    uint32_t ptype, ptype_array; // primtive type encoding, possible bit use for signedness
     uint32_t checksum; // checksum for buffer
     std::vector<uint32_t> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
@@ -75,11 +79,12 @@ public:
 
         if(n == m){
             std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
-            assert(buffer->Resize(n*sizeof(T) + 4096*sizeof(T)) == 1);
+            assert(buffer->Reserve(n*sizeof(T) + 4096*sizeof(T)) == 1);
             m = n + 4096;
         }
 
         reinterpret_cast<T*>(buffer->mutable_data())[n++] = value;
+        mem_use += sizeof(T);
         return(1);
     }
 
@@ -103,8 +108,24 @@ public:
 struct ColumnSet {
 public:
     ColumnSet(MemoryPool* pool) :
-        global_id(-1), n(0), m(0), checksum(0), pool_(pool), stride(std::make_shared<ColumnStore>(pool))
+        global_id(-1), n(0), m(0), checksum(0), pool_(pool), stride(std::make_shared<ColumnStore>(pool_))
     {
+    }
+
+    size_t size() const { return(columns.size()); }
+    uint32_t GetMemoryUsage() const {
+        uint32_t total = 0;
+        for(int i = 0; i < size(); ++i)
+            total += columns[i]->GetMemoryUsage();
+
+        return(total);
+    }
+
+    void clear() {
+        n = 0;
+        checksum = 0;
+        stride = std::make_shared<ColumnStore>(pool_);
+        columns.clear();
     }
 
 public:
