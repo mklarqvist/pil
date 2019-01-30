@@ -1,0 +1,115 @@
+#ifndef RECORD_BUILDER_H_
+#define RECORD_BUILDER_H_
+
+#include <cstdint>
+#include <string>
+#include <algorithm>
+#include <vector>
+
+namespace pil {
+
+/*------ Core enums --------*/
+typedef enum {
+    PIL_TYPE_UNKNOWN,
+    PIL_TYPE_INT8,
+    PIL_TYPE_UINT8,
+    PIL_TYPE_INT16,
+    PIL_TYPE_UINT16,
+    PIL_TYPE_INT32,
+    PIL_TYPE_UINT32,
+    PIL_TYPE_INT64,
+    PIL_TYPE_UINT64,
+    PIL_TYPE_FLOAT,
+    PIL_TYPE_DOUBLE,
+    PIL_TYPE_BOOLEAN,
+    PIL_TYPE_BYTE_ARRAY, // these must be followed by a second PIL_PRIMITIVE_TYPE in their implementation
+    PIL_TYPE_FIXED_LEN_BYTE_ARRAY
+} PIL_PRIMITIVE_TYPE;
+
+/*------ Record importer --------*/
+
+// Supportive structure for importing abstract schemas that can be
+// different for every record.
+struct RecordBuilderFields {
+public:
+    RecordBuilderFields() : primitive_type(PIL_TYPE_UNKNOWN), array_primitive_type(PIL_TYPE_UNKNOWN), n(0), m(1024), stride(0), data(new uint8_t[1024]){}
+    ~RecordBuilderFields(){ delete[] data; }
+
+public:
+    std::string field_name;
+    PIL_PRIMITIVE_TYPE primitive_type; // primary type
+    PIL_PRIMITIVE_TYPE array_primitive_type; // if primary type is an array then this secondary primary type is used to denote the "actual" primitive type of the byte array
+    int32_t n, m; // number of used bytes, allocated bytes
+    uint32_t stride; // number of elements
+    uint8_t* data; // actual data
+};
+
+struct RecordBuilder {
+public:
+    template <class T>
+    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, T value) {
+        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        slots.back()->field_name = id;
+        slots.back()->stride = 1;
+        slots.back()->primitive_type = ptype;
+        reinterpret_cast<T*>(slots.back()->data)[0] = value;
+        slots.back()->n = sizeof(T);
+
+        // Success
+        return(1);
+    }
+
+    template <class T>
+    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, T* value, uint32_t n_values) {
+        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        slots.back()->field_name = id;
+        slots.back()->stride = n_values;
+        slots.back()->primitive_type = ptype;
+        for(int i = 0; i < n_values; ++i){
+            reinterpret_cast<T*>(slots.back()->data)[i] = value[i];
+        }
+        slots.back()->n = sizeof(T) * n_values;
+
+        // Success
+        return(1);
+    }
+
+    template <class T>
+    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::vector<T>& values) {
+        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        slots.back()->field_name = id;
+        slots.back()->stride = values.size();
+        slots.back()->primitive_type = ptype;
+        for(int i = 0; i < values.size(); ++i){
+            reinterpret_cast<T*>(slots.back()->data)[i] = values[i];
+        }
+        slots.back()->n = sizeof(T) * values.size();
+
+        // Success
+        return(1);
+    }
+
+    // Partial specialization for std::string
+    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::string& values);
+
+    int PrintDebug() {
+        for(int i = 0; i < slots.size(); ++i){
+            std::cerr << "field-" << i << ": " << slots[i]->field_name << ":" << slots[i]->primitive_type << " bytelen=" << slots[i]->n << " n=" << slots[i]->stride << std::endl;
+        }
+
+        return(1);
+    }
+
+public:
+    int n_added;
+    uint32_t batch_size;
+
+    // Vector of slots.
+    std::vector< std::unique_ptr<RecordBuilderFields> > slots;
+};
+
+}
+
+
+
+#endif /* RECORD_BUILDER_H_ */
