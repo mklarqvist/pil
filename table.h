@@ -123,6 +123,34 @@ struct PatternDictionary {
     std::unordered_map<uint64_t, uint32_t> map; // Reverse lookup of Hash of pattern -> pattern ID.
 };
 
+struct ColumnSetOffset {
+    uint32_t id, segment_id, element_offset;
+};
+
+// This inverted index allows us to map each record to the ColumnSet values it
+// has in a 1:1 fashion. This index allows us to maintain the individual schema
+//
+// Every ColumnSet (by default 4096 elements) are emitted as a Segment.
+// A collection of Segments are called a Batch. If a particular ColumnSet
+// does not appear in the Batch that column identifier will not be used.
+//
+// We can perform efficient predicate evaluation using vectorized
+// instructions (SIMD) on multiple consequtive elements of the dictionary
+// encoded patterns.
+struct RecordBatch {
+    // Dictionary-encoding of dictionary-encoded of field identifiers as a _Pattern_
+    std::vector<uint32_t> dict; // number of UNIQUE patterns (multi-sets). Note that different permutations of the same values are considered different patterns.
+    std::unordered_map<uint64_t, uint32_t> map; // Reverse lookup of Hash of pattern -> pattern ID.
+    std::unordered_map<uint64_t, uint32_t> global_local_map; // Lookup table for global identifiers to the local offset in the Bitmaps.
+
+    std::vector<ColumnSetOffset> batch_offsets; // (identifier, batch_offset, batch_el_offset)-tuple for the ColumnSets that exist in this Batch and what the corresponding Segment offset is and the element-wise offset in that Segment.
+
+    // Important!
+    // example: lookup[(pos << 20 | rid)] -> 45
+    std::unordered_map<uint64_t, uint32_t> key_value_map; // map packed tuple (rid, pos) to record offset (constant time).
+    ColumnSet patterns; // Array storage of the local dictionary-encoded BatchPatterns.
+};
+
 struct Table {
 public:
     // Accessors
@@ -233,6 +261,7 @@ protected:
 protected:
     FieldDictionary field_dict;
     PatternDictionary pattern_dict;
+    std::vector<RecordBatch> record_batches;
 
     // Indices.
     //ColumnIndex colindex; // ColumnIndex is updated every time a ColumnSet (Segment) is written to disk.
