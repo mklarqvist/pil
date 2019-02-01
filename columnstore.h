@@ -26,7 +26,7 @@ namespace pil {
 struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
-        sorted(false), n(0), m(0), mem_use(0), ptype(PIL_TYPE_UNKNOWN), ptype_array(PIL_TYPE_UNKNOWN), checksum(0), pool_(pool)
+        sorted(false), n(0), m(0), mem_use(0), ptype(PIL_TYPE_UNKNOWN), ptype_array(PIL_TYPE_UNKNOWN), checksum(0), stats_surrogate_min(std::numeric_limits<int64_t>::min()), stats_surrogate_max(std::numeric_limits<int64_t>::max()), pool_(pool)
     {
     }
 
@@ -41,7 +41,6 @@ public:
     // Pointer to data.
     std::shared_ptr<ResizableBuffer> data() { return buffer; }
     std::shared_ptr<ResizableBuffer> transforms() { return transformation_args; }
-    std::shared_ptr<ResizableBuffer> segment_stats() { return segment_statistics_buffer; }
 
     // PrettyPrint representation of array suitable for debugging.
     std::string ToString() const;
@@ -51,6 +50,7 @@ public:
     uint32_t n, m, mem_use; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t ptype, ptype_array; // primtive type encoding, possible bit use for signedness
     uint32_t checksum; // checksum for buffer
+    int64_t stats_surrogate_min, stats_surrogate_max;
     std::vector<uint32_t> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                            // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
@@ -59,7 +59,6 @@ public:
     MemoryPool* pool_;
     std::shared_ptr<ResizableBuffer> buffer; // Actual data BLOB
     std::shared_ptr<ResizableBuffer> transformation_args; // BLOB storing the parameters for the transformation operations.
-    std::shared_ptr<ResizableBuffer> segment_statistics_buffer; // when searching for overlap this MUST be cast to the appropriate primitive type};
 };
 
 template <class T>

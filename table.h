@@ -138,10 +138,37 @@ struct ColumnSetOffset {
 // instructions (SIMD) on multiple consequtive elements of the dictionary
 // encoded patterns.
 struct RecordBatch {
+    RecordBatch(MemoryPool* pool) : n_rec(0), patterns(pool){}
+
+    void operator++(){ ++n_rec; }
+
+    // Insert a global pattern id into the record batch
+    int AddPattern(uint32_t pid) {
+        int32_t local = FindGlobalPattern(pid);
+        if(local == -1) {
+            std::cerr << "inserting: " << pid << std::endl;
+            global_local_map[pid] = dict.size();
+            dict.push_back(pid);
+        }
+
+        int insert_status = static_cast<ColumnSetBuilder<uint32_t>*>(&patterns)->Append(pid);
+        ++n_rec;
+        return(insert_status);
+    }
+
+public:
+    uint32_t n_rec;
+
+    int32_t FindGlobalPattern(const uint32_t id) const {
+        std::unordered_map<uint32_t, uint32_t>::const_iterator ret = global_local_map.find(id);
+        if(ret != global_local_map.end()){
+            return(ret->second);
+        } else return(-1);
+    }
+
     // Dictionary-encoding of dictionary-encoded of field identifiers as a _Pattern_
-    std::vector<uint32_t> dict; // number of UNIQUE patterns (multi-sets). Note that different permutations of the same values are considered different patterns.
-    std::unordered_map<uint64_t, uint32_t> map; // Reverse lookup of Hash of pattern -> pattern ID.
-    std::unordered_map<uint64_t, uint32_t> global_local_map; // Lookup table for global identifiers to the local offset in the Bitmaps.
+    std::vector<uint32_t> dict; // local dict-encoded pattern vector
+    std::unordered_map<uint32_t, uint32_t> global_local_map; // Map from global pattern id -> local pattern id
 
     std::vector<ColumnSetOffset> batch_offsets; // (identifier, batch_offset, batch_el_offset)-tuple for the ColumnSets that exist in this Batch and what the corresponding Segment offset is and the element-wise offset in that Segment.
 
@@ -167,6 +194,15 @@ public:
     //   c) Add value(s) to the current ColumnSet with that identifier.
     // 3) Update RecordIndex
     int Append(RecordBuilder& builder) {
+        if(record_batches.size() == 0) record_batches.push_back(std::make_shared<RecordBatch>(pil::default_memory_pool()));
+        // Check for limit
+        if(record_batches.back()->n_rec >= 4096) {
+            std::cerr << "record limit reached: " << record_batches.back()->patterns.columns[0]->size() << ":" << record_batches.back()->patterns.GetMemoryUsage() << std::endl;
+            // Todo: finalize a record batch
+            record_batches.push_back(std::make_shared<RecordBatch>(pil::default_memory_pool()));
+        }
+
+
         // Foreach field name string in the builder record we check if it
         // exists in the dictionary. If it exists we return that value, otherwise
         // we insert it into the dictionary and return the new value.
@@ -185,6 +221,8 @@ public:
 
         // Store pattern-id with each record.
         uint32_t pid = pattern_dict.FindOrAdd(pattern);
+        // Adding a pattern automatically increments the record count in a RecordBatch.
+        record_batches.back()->AddPattern(pid);
 
         // Check the local stack of Segments if the target identifier is present.
         for(int i = 0; i < pattern.ids.size(); ++i) {
@@ -200,7 +238,9 @@ public:
                 _seg_map[pattern.ids[i]] = _segid;
                 MemoryPool* pool = pil::default_memory_pool();
                 _seg_stack.push_back(std::unique_ptr<Segment>(new Segment(pattern.ids[i], pool)));
+                // todo: insert padding from 0 to current offset in record batch
             }
+
 
             //std::cerr << "inserting into stack: " << _segid << std::endl;
             //std::cerr << "stride=" << builder.slots[i]->stride << std::endl;
@@ -249,6 +289,9 @@ public:
             //std::cerr << "pool in " << _segid << ": " << _seg.pool_->bytes_allocated() << std::endl;
         }
 
+        // todo: for all columns that were NOT in the pattern
+        // we have to pad those columns with a NA value
+
         ++builder.n_added;
         builder.slots.clear();
         return(1); // success
@@ -258,10 +301,10 @@ protected:
     int FindFieldIdentifier(const std::string& field_name) const;
     int AppendRecord();
 
-protected:
+public:
     FieldDictionary field_dict;
     PatternDictionary pattern_dict;
-    std::vector<RecordBatch> record_batches;
+    std::vector< std::shared_ptr<RecordBatch> > record_batches;
 
     // Indices.
     //ColumnIndex colindex; // ColumnIndex is updated every time a ColumnSet (Segment) is written to disk.

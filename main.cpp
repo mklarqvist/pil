@@ -97,8 +97,26 @@ int main(void){
         table.Append(rbuild);
     }
 
+    std::cerr << "stacks:" << std::endl;
     for(int i = 0; i < table._seg_stack.size(); ++i){
         std::cerr << table._seg_stack[i]->global_id << ": " << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->size_bytes() << " columns/b. first=" << table._seg_stack[i]->columnset.columns.front()->n << std::endl;
+    }
+
+    std::cerr << "recordbatches:" << std::endl;
+    for(int i = 0; i < table.record_batches.size(); ++i){
+        std::cerr << table.record_batches[i]->n_rec << ": " << table.record_batches[i]->patterns.GetMemoryUsage() << std::endl;
+        std::cerr << "n=" << table.record_batches[i]->dict.size() << ": ";
+        for(int j = 0; j < table.record_batches[i]->dict.size(); ++j) {
+            std::cerr << table.record_batches[i]->dict[j] << ",";
+        }
+        std::cerr << std::endl;
+        /*
+        uint32_t* vals = reinterpret_cast<uint32_t*>(table.record_batches[i]->patterns.columns[0]->buffer->mutable_data());
+        for(int j = 0; j < table.record_batches[i]->n_rec; ++j){
+            std::cerr << vals[j] << ",";
+        }
+        std::cerr << std::endl;
+        */
     }
 
     return(1);
