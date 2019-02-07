@@ -1,6 +1,7 @@
 #ifndef TABLE_H_
 #define TABLE_H_
 
+#include <algorithm>
 #include <unordered_map>
 
 #include "memory_pool.h"
@@ -11,10 +12,10 @@
 
 namespace pil {
 
-// Segment represent a contiguous slice of a columnstore.
+// Segment represent a contiguous slice of a columnstore on DISK
 struct Segment {
 public:
-    Segment(int32_t id, MemoryPool* pool) : init_marker(0), n_bytes(0), global_id(id), columnset(pool), eof_marker(0){}
+    Segment(int32_t id) : init_marker(0), n_bytes(0), global_id(id), columnset(), eof_marker(0){}
 
     int Write(std::ostream& stream);
 
@@ -70,8 +71,9 @@ struct SchemaPattern {
 // This means that all returned values should be compatibile with
 // this assigned primitive type.
 struct DictionaryFieldType {
-    std::string file_name;
+    std::string field_name;
     PIL_PRIMITIVE_TYPE ptype;
+    PIL_PRIMITIVE_TYPE ptype_array;
 };
 
 struct FieldDictionary {
@@ -80,13 +82,17 @@ struct FieldDictionary {
         std::unordered_map<std::string, uint32_t>::const_iterator s = map.find(field_name);
         if(s != map.end()){
             //std::cerr << "found: " << s->first << "@" << s->second << std::endl;
+            if(dict[s->second].ptype != ptype) {
+                std::cerr << "ptype mismatch: illegal! -> " << (int)ptype << "!=" << (int)dict[s->second].ptype << std::endl;
+                exit(1);
+            }
             column_id = s->second;
         } else {
             std::cerr << "did not find: " << field_name << std::endl;
             column_id = dict.size();
             map[field_name] = column_id;
             dict.push_back(DictionaryFieldType());
-            dict.back().file_name = field_name;
+            dict.back().field_name = field_name;
             dict.back().ptype = ptype;
 
         }
@@ -100,7 +106,7 @@ struct FieldDictionary {
     std::unordered_map<std::string, uint32_t> map; // Field dictonary
 };
 
-struct PatternDictionary {
+struct SchemaDictionary {
     uint32_t FindOrAdd(const SchemaPattern& pattern) {
         const uint64_t phash = pattern.Hash();
         std::unordered_map<uint64_t, uint32_t>::const_iterator s = map.find(phash);
@@ -138,44 +144,40 @@ struct ColumnSetOffset {
 // instructions (SIMD) on multiple consequtive elements of the dictionary
 // encoded patterns.
 struct RecordBatch {
-    RecordBatch(MemoryPool* pool) : n_rec(0), patterns(pool){}
+    RecordBatch() : n_rec(0), schemas(){}
 
     void operator++(){ ++n_rec; }
 
-    // Insert a global pattern id into the record batch
-    int AddPattern(uint32_t pid) {
+    // Insert a global schema id into the record batch
+    int AddSchema(uint32_t pid) {
         int32_t local = FindGlobalPattern(pid);
         if(local == -1) {
             std::cerr << "inserting: " << pid << std::endl;
-            global_local_map[pid] = dict.size();
+            global_local_schema_map[pid] = dict.size();
             dict.push_back(pid);
         }
 
-        int insert_status = static_cast<ColumnSetBuilder<uint32_t>*>(&patterns)->Append(pid);
+        int insert_status = static_cast<ColumnSetBuilder<uint32_t>*>(&schemas)->Append(pid);
         ++n_rec;
         return(insert_status);
     }
 
 public:
-    uint32_t n_rec;
-
     int32_t FindGlobalPattern(const uint32_t id) const {
-        std::unordered_map<uint32_t, uint32_t>::const_iterator ret = global_local_map.find(id);
-        if(ret != global_local_map.end()){
+        std::unordered_map<uint32_t, uint32_t>::const_iterator ret = global_local_schema_map.find(id);
+        if(ret != global_local_schema_map.end()){
             return(ret->second);
         } else return(-1);
     }
 
-    // Dictionary-encoding of dictionary-encoded of field identifiers as a _Pattern_
-    std::vector<uint32_t> dict; // local dict-encoded pattern vector
-    std::unordered_map<uint32_t, uint32_t> global_local_map; // Map from global pattern id -> local pattern id
+public:
+    uint32_t n_rec; // Guarantee parity with schemas.columns[0]->n
 
-    std::vector<ColumnSetOffset> batch_offsets; // (identifier, batch_offset, batch_el_offset)-tuple for the ColumnSets that exist in this Batch and what the corresponding Segment offset is and the element-wise offset in that Segment.
-
-    // Important!
-    // example: lookup[(pos << 20 | rid)] -> 45
-    std::unordered_map<uint64_t, uint32_t> key_value_map; // map packed tuple (rid, pos) to record offset (constant time).
-    ColumnSet patterns; // Array storage of the local dictionary-encoded BatchPatterns.
+    // Dictionary-encoding of dictionary-encoded of field identifiers as a _Schema_
+    std::vector<uint32_t> dict; // local dict-encoded schema vector
+    std::unordered_map<uint32_t, uint32_t> global_local_schema_map; // Map from global schema id -> local schema id
+    // ColumnStore for Schemas. ALWAYS cast as uint32_t
+    ColumnSet schemas; // Array storage of the local dictionary-encoded BatchPatterns.
 };
 
 struct Table {
@@ -194,13 +196,18 @@ public:
     //   c) Add value(s) to the current ColumnSet with that identifier.
     // 3) Update RecordIndex
     int Append(RecordBuilder& builder) {
-        if(record_batches.size() == 0) record_batches.push_back(std::make_shared<RecordBatch>(pil::default_memory_pool()));
-        // Check for limit
-        if(record_batches.back()->n_rec >= 4096) {
-            std::cerr << "record limit reached: " << record_batches.back()->patterns.columns[0]->size() << ":" << record_batches.back()->patterns.GetMemoryUsage() << std::endl;
+        if(record_batch.get() == nullptr)
+            record_batch = std::make_shared<RecordBatch>();
+
+        // Check if the current RecordBatch has reached its Batch limit.
+        // If it has then finalize the Batch.
+        if(record_batch->n_rec >= 4096) {
+            std::cerr << "record limit reached: " << record_batch->schemas.columns[0]->size() << ":" << record_batch->schemas.GetMemoryUsage() << std::endl;
             // Todo: finalize a record batch
-            record_batches.push_back(std::make_shared<RecordBatch>(pil::default_memory_pool()));
+            record_batch = std::make_shared<RecordBatch>();
         }
+
+        std::cerr << "before pattern check: " << std::endl;
 
 
         // Foreach field name string in the builder record we check if it
@@ -208,24 +215,20 @@ public:
         // we insert it into the dictionary and return the new value.
         SchemaPattern pattern;
         for(int i = 0; i < builder.slots.size(); ++i) {
+            std::cerr << "schema slot " << i << "/" << builder.slots.size() << std::endl;
             int32_t column_id = field_dict.FindOrAdd(builder.slots[i]->field_name, builder.slots[i]->primitive_type);
             pattern.ids.push_back(column_id);
         }
 
-        // We now have the target column id and the pattern
-        /*std::cerr << "pattern=[";
-        for(int i = 0; i < pattern.ids.size(); ++i) {
-            std::cerr << pattern.ids[i] << ",";
-        } std::cerr << "]" << std::endl;
-        */
+        std::cerr << "pattern=" << pattern.ids.size() << std::endl;
 
-        // Store pattern-id with each record.
-        uint32_t pid = pattern_dict.FindOrAdd(pattern);
-        // Adding a pattern automatically increments the record count in a RecordBatch.
-        record_batches.back()->AddPattern(pid);
+        // Store Schema-id with each record.
+        uint32_t pid = schema_dict.FindOrAdd(pattern);
+        std::cerr << "pid=" << pid << std::endl;
 
-        // Check the local stack of Segments if the target identifier is present.
+        // Check the local stack of ColumnSets if the target identifier is present.
         for(int i = 0; i < pattern.ids.size(); ++i) {
+            std::cerr << "checking: " << pattern.ids[i] << "..." << std::endl;
             int32_t _segid = -1;
             std::unordered_map<uint32_t,uint32_t>::const_iterator s = _seg_map.find(pattern.ids[i]);
             if(s != _seg_map.end()){
@@ -236,52 +239,50 @@ public:
                 std::cerr << "target column does NOT Exist in local stack: insert -> " << pattern.ids[i] << std::endl;
                 _segid = _seg_stack.size();
                 _seg_map[pattern.ids[i]] = _segid;
-                MemoryPool* pool = pil::default_memory_pool();
-                _seg_stack.push_back(std::unique_ptr<Segment>(new Segment(pattern.ids[i], pool)));
+                _seg_stack.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
+
+                PIL_PRIMITIVE_TYPE ptype = builder.slots[i]->primitive_type;
+
                 // todo: insert padding from 0 to current offset in record batch
-            }
-
-
-            //std::cerr << "inserting into stack: " << _segid << std::endl;
-            //std::cerr << "stride=" << builder.slots[i]->stride << std::endl;
-
-            // Check for limit.
-            ColumnSet& _seg = _seg_stack[_segid]->columnset;
-            if(_seg.columns.size()){
-                // The first ColumnSet is guaranteed to be the longest.
-                // If the number of elements in a ColumnStore in a ColumnSet surpasses or
-                // equals the desired size of a Batch then emit this temporary Segment.
-                if(_seg.columns.front()->size() >= 4096) {
-                    std::cerr << "limit reached for _seg column: " << _seg.size() << "->" << _seg.GetMemoryUsage() << std::endl;
-                    // 1: Flush this ColumnSet
-                    std::unique_ptr<Segment>& segment = _seg_stack[_segid];
-                    segment->global_id = _segid;
-                    segment->columnset.global_id = _segid;
-                    std::cerr << "stride_size=" << segment->columnset.stride->GetMemoryUsage() << std::endl;
-                    uint8_t md5sum[16];
-                    Digest::GenerateMd5(segment->columnset.columns.front()->buffer->mutable_data(), segment->columnset.columns.front()->mem_use, md5sum);
-                    for(int i = 0; i < 16; ++i) std::cerr << (int)md5sum[i];
-                    std::cerr << std::endl;
-
-                    // 2: Clear it and start over.
-                    _seg.clear();
+                const uint32_t padding_to = record_batch->n_rec;
+                std::cerr << "padding up to: " << padding_to << std::endl;
+                for(int j = 0; j < padding_to; ++j){
+                    int ret_status = 0;
+                   switch(ptype) {
+                   case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack.back().get())->Append(0); break;
+                   default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
+                   }
+                   assert(ret_status == 1);
                 }
             }
+
+
+            std::cerr << "inserting into stack: " << _segid << std::endl;
+            std::cerr << "stride=" << builder.slots[i]->stride << std::endl;
 
             // Append data to the current (unflushed) Segment.
             PIL_PRIMITIVE_TYPE ptype = builder.slots[i]->primitive_type;
             int ret_status = 0;
             switch(ptype) {
-            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(&_seg)->Append(reinterpret_cast<int8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(&_seg)->Append(reinterpret_cast<int16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(&_seg)->Append(reinterpret_cast<int32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(&_seg)->Append(reinterpret_cast<int64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(&_seg)->Append(reinterpret_cast<uint8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(&_seg)->Append(reinterpret_cast<uint16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(&_seg)->Append(reinterpret_cast<uint32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(&_seg)->Append(reinterpret_cast<uint64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(&_seg)->Append(reinterpret_cast<float*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(&_seg)->Append(reinterpret_cast<double*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<float*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<double*>(builder.slots[i]->data), builder.slots[i]->stride); break;
             default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
             }
             assert(ret_status == 1);
@@ -289,8 +290,35 @@ public:
             //std::cerr << "pool in " << _segid << ": " << _seg.pool_->bytes_allocated() << std::endl;
         }
 
+        // Note: Adding a pattern automatically increments the record count in a RecordBatch.
+        record_batch->AddSchema(pid);
+
         // todo: for all columns that were NOT in the pattern
-        // we have to pad those columns with a NA value
+        // we have to pad those columns with a NULL value
+        // compare two sorted lists in O(A + B + 1)-time.
+        std::sort(pattern.ids.begin(), pattern.ids.end());
+        uint32_t finger = 0;
+        for(int i = 0; i < field_dict.dict.size(); ++i){
+            if(pattern.ids[finger] == i){ std::cerr << "skipping: " << i << std::endl; continue; }
+            // pad with nulls
+            std::cerr << "padding id: " << i << std::endl;
+            PIL_PRIMITIVE_TYPE ptype = field_dict.dict[i].ptype;
+            int ret_status = 0;
+            switch(ptype) {
+            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack[i].get())->PadNull(); break;
+            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack[i].get())->PadNull(); break;
+            default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
+            }
+            assert(ret_status == 1);
+        }
 
         ++builder.n_added;
         builder.slots.clear();
@@ -299,12 +327,11 @@ public:
 
 protected:
     int FindFieldIdentifier(const std::string& field_name) const;
-    int AppendRecord();
 
 public:
     FieldDictionary field_dict;
-    PatternDictionary pattern_dict;
-    std::vector< std::shared_ptr<RecordBatch> > record_batches;
+    SchemaDictionary schema_dict;
+    std::shared_ptr<RecordBatch> record_batch;
 
     // Indices.
     //ColumnIndex colindex; // ColumnIndex is updated every time a ColumnSet (Segment) is written to disk.
@@ -313,7 +340,7 @@ public:
 public: // private:
     // Construction helpers
     std::unordered_map<uint32_t, uint32_t> _seg_map; // Reverse lookup of current loaded Segment stacks and a provided FieldDict identifier.
-    std::vector< std::unique_ptr<Segment> > _seg_stack; // temporary Segments used during construction.
+    std::vector< std::unique_ptr<ColumnSet> > _seg_stack; // temporary Segments used during construction.
 };
 
 

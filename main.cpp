@@ -60,6 +60,7 @@ int main(void){
     pil::Table table;
 
     pil::RecordBuilder rbuild;
+    /*
     rbuild.Add<float>("AF", pil::PIL_TYPE_FLOAT, 45);
     rbuild.Add<double>("DP", pil::PIL_TYPE_DOUBLE, 21);
     rbuild.Add<int32_t>("POS", pil::PIL_TYPE_INT32, 21511);
@@ -96,28 +97,70 @@ int main(void){
         rbuild.Add<int32_t>("RAND", pil::PIL_TYPE_INT32, 21);
         table.Append(rbuild);
     }
+    */
+
+    std::vector<float> vecvals2 = {1};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    table.Append(rbuild);
+
+    vecvals2 = {1,2};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    table.Append(rbuild);
+
+    vecvals2 = {1,2,3};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    table.Append(rbuild);
+
+    vecvals2 = {1,2};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    table.Append(rbuild);
+
+    vecvals2 = {1};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    table.Append(rbuild);
+
+    std::vector<uint32_t> vecvals3 = {1};
+    rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals3);
+    table.Append(rbuild);
+
+    vecvals2 = {1};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    table.Append(rbuild);
+
+    std::vector<uint32_t> vecvals4 = {1};
+    rbuild.Add<uint32_t>("FIELD3", pil::PIL_TYPE_UINT32, vecvals4);
+    table.Append(rbuild);
+
+    std::vector<uint32_t> vecvals2504;
+    for(int i = 0; i < 275; ++i) vecvals2504.push_back(i);
+    rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
+    std::cerr << "after add to recordbuilder" << std::endl;
+    table.Append(rbuild);
+
+
+    std::cerr << "n=" << table._seg_stack.front()->size() << std::endl;
+    for(int i = 0; i < table._seg_stack.front()->size(); ++i){
+        std::cerr << i << ": " << table._seg_stack[i]->columns.front()->n << std::endl;
+    }
 
     std::cerr << "stacks:" << std::endl;
     for(int i = 0; i < table._seg_stack.size(); ++i){
-        std::cerr << table._seg_stack[i]->global_id << ": " << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->size_bytes() << " columns/b. first=" << table._seg_stack[i]->columnset.columns.front()->n << std::endl;
+        std::cerr << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->GetMemoryUsage() << std::endl;
     }
 
     std::cerr << "recordbatches:" << std::endl;
-    for(int i = 0; i < table.record_batches.size(); ++i){
-        std::cerr << table.record_batches[i]->n_rec << ": " << table.record_batches[i]->patterns.GetMemoryUsage() << std::endl;
-        std::cerr << "n=" << table.record_batches[i]->dict.size() << ": ";
-        for(int j = 0; j < table.record_batches[i]->dict.size(); ++j) {
-            std::cerr << table.record_batches[i]->dict[j] << ",";
-        }
-        std::cerr << std::endl;
-        /*
-        uint32_t* vals = reinterpret_cast<uint32_t*>(table.record_batches[i]->patterns.columns[0]->buffer->mutable_data());
-        for(int j = 0; j < table.record_batches[i]->n_rec; ++j){
-            std::cerr << vals[j] << ",";
-        }
-        std::cerr << std::endl;
-        */
+    std::cerr << "recs=" << table.record_batch->n_rec << ", unique=" << table.record_batch->dict.size() << ": " << table.record_batch->schemas.GetMemoryUsage() << ": ";
+    for(int j = 0; j < table.record_batch->dict.size(); ++j) {
+        std::cerr << table.record_batch->dict[j] << ",";
     }
+    std::cerr << std::endl;
+    /*
+    uint32_t* vals = reinterpret_cast<uint32_t*>(table.record_batch->patterns.columns[0]->buffer->mutable_data());
+    for(int j = 0; j < table.record_batch->n_rec; ++j){
+        std::cerr << vals[j] << ",";
+    }
+    std::cerr << std::endl;
+    */
 
     return(1);
 }

@@ -26,14 +26,16 @@ namespace pil {
 struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
-        sorted(false), n(0), m(0), mem_use(0), ptype(PIL_TYPE_UNKNOWN), ptype_array(PIL_TYPE_UNKNOWN), checksum(0), stats_surrogate_min(std::numeric_limits<int64_t>::min()), stats_surrogate_max(std::numeric_limits<int64_t>::max()), pool_(pool)
+        sorted(false), n(0), m(0), mem_use(0), checksum(0),
+        stats_surrogate_min(std::numeric_limits<int64_t>::min()), stats_surrogate_max(std::numeric_limits<int64_t>::max()),
+        pool_(pool)
     {
     }
 
     //int64_t GetLength() const { return buffer.data->n; }
     //int64_t GetOffset() const { return buffer.data->offset; }
 
-    int GetType() const { return ptype; }
+    //int GetType() const { return ptype; }
     uint32_t size() const { return n; }
     uint32_t capacity() const { return m; }
     uint32_t GetMemoryUsage() const { return mem_use; }
@@ -48,7 +50,7 @@ public:
 public:
     bool sorted; // is this ColumnStore sorted (relative itself)
     uint32_t n, m, mem_use; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
-    uint32_t ptype, ptype_array; // primtive type encoding, possible bit use for signedness
+    //uint32_t ptype, ptype_array; // primtive type encoding, possible bit use for signedness
     uint32_t checksum; // checksum for buffer
     int64_t stats_surrogate_min, stats_surrogate_max;
     std::vector<uint32_t> transformations; // order of transformations:
@@ -106,8 +108,8 @@ public:
 // processed and flushed.
 struct ColumnSet {
 public:
-    ColumnSet(MemoryPool* pool) :
-        global_id(-1), n(0), m(0), checksum(0), pool_(pool), stride(std::make_shared<ColumnStore>(pool_))
+    ColumnSet() :
+        global_id(-1), n(0), m(0), checksum(0)
     {
     }
 
@@ -123,7 +125,6 @@ public:
     void clear() {
         n = 0;
         checksum = 0;
-        stride = std::make_shared<ColumnStore>(pool_);
         columns.clear();
     }
 
@@ -131,27 +132,23 @@ public:
     int32_t global_id;
     uint32_t n, m; // batch size of vectors are set to 4096 by default.
     uint32_t checksum; // checksum of the checksum vector -> md5(&checksums, n); this check is to guarantee there is no accidental reordering of the set
-    // Any memory is owned by the respective Buffer instance (or its parents).
-    MemoryPool* pool_;
-    std::shared_ptr<ColumnStore> stride; // "Stride" size of columns for each record.
     std::vector< std::shared_ptr<ColumnStore> > columns;
 };
 
 template <class T>
 struct ColumnSetBuilder : public ColumnSet {
 public:
-    ColumnSetBuilder(MemoryPool* pool) : ColumnSet(pool){}
+    ColumnSetBuilder(MemoryPool* pool) : ColumnSet(){}
 
     int Append(const T& value) {
         // Check if columns[0] is set
         //std::cerr << "appending single value: " << value << std::endl;
         if(columns.size() == 0){
             std::cerr << "pushing back first column" << std::endl;
-            columns.push_back( std::make_shared<ColumnStore>(pool_) );
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             ++n;
         }
         std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[0])->Append(value);
-        UpdateDictionary(1);
         return(1);
     }
 
@@ -161,16 +158,26 @@ public:
             std::cerr << "adding more columns: " << columns.size() << "->" << values.size() << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < values.size(); ++i, ++n)
-                columns.push_back( std::make_shared<ColumnStore>(pool_) );
+                columns.push_back( std::make_shared<ColumnStore>() );
 
             assert(n >= values.size());
+
+            // todo: insert padding from 0 to current offset in record batch
+            const uint32_t padding_to = columns[0]->n;
+            // Pad every column added this way.
+            for(int i = start_size; i < values.size(); ++i){
+                std::cerr << i << "/" << values.size() << " -> (WIDTH) padding up to: " << padding_to << std::endl;
+                for(int j = 0; j < padding_to; ++j){
+                   int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+                   assert(ret == 1);
+                }
+            }
         }
         //std::cerr << columns.size() << "/" << values.size() << "/" << n << std::endl;
 
         for(int i = 0; i < values.size(); ++i){
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(values[i]);
         }
-        UpdateDictionary(values.size());
 
         //std::cerr << "addition done" << std::endl;
 
@@ -185,19 +192,48 @@ public:
             std::cerr << "adding more columns: " << columns.size() << "->" << n_values << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < n_values; ++i, ++n)
-                columns.push_back( std::make_shared<ColumnStore>(pool_) );
+                columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
 
             assert((int)n >= n_values);
+
+            // todo: insert padding from 0 to current offset in record batch
+            const uint32_t padding_to = columns[0]->n;
+            // Pad every column added this way.
+            for(int i = start_size; i < n_values; ++i){
+                std::cerr << i << "/" << n_values << " -> (WIDTH) padding up to: " << padding_to << std::endl;
+                for(int j = 0; j < padding_to; ++j){
+                   int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+                   assert(ret == 1);
+                }
+            }
         }
         //std::cerr << columns.size() << "/" << n_values << "/" << n << std::endl;
 
         for(int i = 0; i < n_values; ++i){
-            std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(value[i]);
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(value[i]);
+            assert(ret == 1);
         }
-        UpdateDictionary(n_values);
+
+        std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
+        for(int i = n_values; i < columns.size(); ++i){
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+            assert(ret == 1);
+        }
 
         //std::cerr << "addition done" << std::endl;
 
+        return(1);
+    }
+
+    /**<
+     * Pad all the ColumnStores in this ColumnSet with NULL values.
+     * @return
+     */
+    int PadNull() {
+        for(int i = 0; i < columns.size(); ++i){
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+            assert(ret == 1);
+        }
         return(1);
     }
 
@@ -207,13 +243,6 @@ public:
             lengths.push_back(columns[i]->n);
 
         return(lengths);
-    }
-
-private:
-    int UpdateDictionary(int32_t value) {
-        std::static_pointer_cast< ColumnStoreBuilder<int32_t> >(stride)->Append(value);
-        //std::cerr << "dict size=" << std::static_pointer_cast< ColumnStoreBuilder<int32_t> >(dict)->n << std::endl;
-        return(1);
     }
 
 public:
