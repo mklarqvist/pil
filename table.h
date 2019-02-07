@@ -216,6 +216,7 @@ public:
         SchemaPattern pattern;
         for(int i = 0; i < builder.slots.size(); ++i) {
             std::cerr << "schema slot " << i << "/" << builder.slots.size() << std::endl;
+            std::cerr << "test=" << builder.slots[i]->field_name << std::endl;
             int32_t column_id = field_dict.FindOrAdd(builder.slots[i]->field_name, builder.slots[i]->primitive_type);
             pattern.ids.push_back(column_id);
         }

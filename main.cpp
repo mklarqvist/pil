@@ -132,9 +132,15 @@ int main(void){
     table.Append(rbuild);
 
     std::vector<uint32_t> vecvals2504;
-    for(int i = 0; i < 275; ++i) vecvals2504.push_back(i);
+    for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
     rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
-    std::cerr << "after add to recordbuilder" << std::endl;
+    table.Append(rbuild);
+
+    vecvals2504.clear();
+    vecvals2 = {1,2};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+    for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
+    rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
     table.Append(rbuild);
 
 

@@ -19,6 +19,18 @@ public:
     RecordBuilderFields() : primitive_type(PIL_TYPE_UNKNOWN), array_primitive_type(PIL_TYPE_UNKNOWN), n(0), m(1024), stride(0), data(new uint8_t[1024]){}
     ~RecordBuilderFields(){ delete[] data; }
 
+    int resize(uint32_t new_size) {
+        if(new_size <= m) return 1;
+
+        uint8_t* old = data;
+        data = new uint8_t[new_size];
+        memcpy(data, old, n);
+        delete[] old;
+        m = new_size;
+
+        return 1;
+    }
+
 public:
     std::string field_name;
     PIL_PRIMITIVE_TYPE primitive_type; // primary type
@@ -49,6 +61,10 @@ public:
         slots.back()->field_name = id;
         slots.back()->stride = n_values;
         slots.back()->primitive_type = ptype;
+
+        if(n_values * sizeof(T) > slots.back()->m)
+            slots.back()->resize(n_values * sizeof(T) + 1024);
+
         for(int i = 0; i < n_values; ++i){
             reinterpret_cast<T*>(slots.back()->data)[i] = value[i];
         }
@@ -64,6 +80,10 @@ public:
         slots.back()->field_name = id;
         slots.back()->stride = values.size();
         slots.back()->primitive_type = ptype;
+
+        if(values.size() * sizeof(T) > slots.back()->m)
+            slots.back()->resize(values.size() * sizeof(T) + 1024);
+
         for(int i = 0; i < values.size(); ++i){
             reinterpret_cast<T*>(slots.back()->data)[i] = values[i];
         }
