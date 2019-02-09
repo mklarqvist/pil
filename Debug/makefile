@@ -45,7 +45,7 @@ all: pil
 pil: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: Cross G++ Linker'
-	g++ -L/usr/local/lib/openssl -o "pil" $(OBJS) $(USER_OBJS) $(LIBS)
+	g++ -L/usr/local/lib/openssl -L/usr/local/opt/openssl/lib/ -o "pil" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

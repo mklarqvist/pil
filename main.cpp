@@ -136,17 +136,19 @@ int main(void){
     rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
     table.Append(rbuild);
 
-    vecvals2504.clear();
-    vecvals2 = {1,2};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
-    rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
-    table.Append(rbuild);
+    for(int j = 0; j < 10000; ++j) {
+        vecvals2504.clear();
+        vecvals2 = {1,2};
+        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
+        rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
+        table.Append(rbuild);
+    }
 
 
-    std::cerr << "n=" << table._seg_stack.front()->size() << std::endl;
-    for(int i = 0; i < table._seg_stack.front()->size(); ++i){
-        std::cerr << i << ": " << table._seg_stack[i]->columns.front()->n << std::endl;
+    std::cerr << "cset n=" << table._seg_stack.size() << std::endl;
+    for(int i = 0; i < table._seg_stack.size(); ++i){
+        std::cerr << i << ": " << table._seg_stack[i]->columns.size() << " cols. first n= " << table._seg_stack[i]->columns.front()->n << std::endl;
     }
 
     std::cerr << "stacks:" << std::endl;

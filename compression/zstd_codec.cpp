@@ -27,7 +27,7 @@ int ZSTDCodec::Compress(const uint8_t* src, const uint32_t n_src, uint8_t* dst, 
         return(-1);
     }
 
-    return(1);
+    return(ret);
 }
 
 /*

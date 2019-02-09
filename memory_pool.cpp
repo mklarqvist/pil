@@ -1,5 +1,6 @@
 #include "memory_pool.h"
 
+#include <cerrno>
 #include <cassert>
 #include <cstring>
 

@@ -32,10 +32,6 @@ public:
     {
     }
 
-    //int64_t GetLength() const { return buffer.data->n; }
-    //int64_t GetOffset() const { return buffer.data->offset; }
-
-    //int GetType() const { return ptype; }
     uint32_t size() const { return n; }
     uint32_t capacity() const { return m; }
     uint32_t GetMemoryUsage() const { return mem_use; }
@@ -70,10 +66,10 @@ public:
 
     int Append(const T& value) {
         if(buffer.get() == nullptr){
-            std::cerr << "first allocation" << std::endl;
+            //std::cerr << "first allocation" << std::endl;
             assert(AllocateResizableBuffer(pool_, 4096*sizeof(T), &buffer) == 1);
             m = 4096;
-            std::cerr << "buffer=" << buffer->capacity() << std::endl;
+            //std::cerr << "buffer=" << buffer->capacity() << std::endl;
         }
 
         //std::cerr << n << "/" << m << ":" << buffer->capacity() << std::endl;
@@ -92,9 +88,6 @@ public:
     const T* data() const { return reinterpret_cast<const T*>(buffer->mutable_data()); }
     T front() const { return data()[0]; }
     T back() const { return data()[n - 1]; }
-
-public:
-
 };
 
 
@@ -109,7 +102,7 @@ public:
 struct ColumnSet {
 public:
     ColumnSet() :
-        global_id(-1), n(0), m(0), checksum(0)
+        n(0), m(0), checksum(0)
     {
     }
 
@@ -129,7 +122,6 @@ public:
     }
 
 public:
-    int32_t global_id;
     uint32_t n, m; // batch size of vectors are set to 4096 by default.
     uint32_t checksum; // checksum of the checksum vector -> md5(&checksums, n); this check is to guarantee there is no accidental reordering of the set
     std::vector< std::shared_ptr<ColumnStore> > columns;
@@ -144,18 +136,19 @@ public:
         // Check if columns[0] is set
         //std::cerr << "appending single value: " << value << std::endl;
         if(columns.size() == 0){
-            std::cerr << "pushing back first column" << std::endl;
+            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             ++n;
         }
-        std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[0])->Append(value);
+        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[0])->Append(value);
+        assert(ret == 1);
         return(1);
     }
 
     int Append(const std::vector<T>& values) {
         // Add values up until N
         if(n < values.size()){
-            std::cerr << "adding more columns: " << columns.size() << "->" << values.size() << std::endl;
+            //std::cerr << "adding more columns: " << columns.size() << "->" << values.size() << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < values.size(); ++i, ++n)
                 columns.push_back( std::make_shared<ColumnStore>() );
@@ -166,7 +159,7 @@ public:
             const uint32_t padding_to = columns[0]->n;
             // Pad every column added this way.
             for(int i = start_size; i < values.size(); ++i){
-                std::cerr << i << "/" << values.size() << " -> (WIDTH) padding up to: " << padding_to << std::endl;
+                //std::cerr << i << "/" << values.size() << " -> (WIDTH) padding up to: " << padding_to << std::endl;
                 for(int j = 0; j < padding_to; ++j){
                    int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
                    assert(ret == 1);
@@ -176,7 +169,8 @@ public:
         //std::cerr << columns.size() << "/" << values.size() << "/" << n << std::endl;
 
         for(int i = 0; i < values.size(); ++i){
-            std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(values[i]);
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(values[i]);
+            assert(ret == 1);
         }
 
         //std::cerr << "addition done" << std::endl;
@@ -189,7 +183,7 @@ public:
         //std::cerr << "addding=" << n_values << " values" << std::endl;
         // Add values up until N
         if((int)n < n_values){
-            std::cerr << "adding more columns: " << columns.size() << "->" << n_values << std::endl;
+            //std::cerr << "adding more columns: " << columns.size() << "->" << n_values << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < n_values; ++i, ++n)
                 columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
@@ -200,7 +194,7 @@ public:
             const uint32_t padding_to = columns[0]->n;
             // Pad every column added this way.
             for(int i = start_size; i < n_values; ++i){
-                std::cerr << i << "/" << n_values << " -> (WIDTH) padding up to: " << padding_to << std::endl;
+                //std::cerr << i << "/" << n_values << " -> (WIDTH) padding up to: " << padding_to << std::endl;
                 for(int j = 0; j < padding_to; ++j){
                    int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
                    assert(ret == 1);
@@ -214,7 +208,7 @@ public:
             assert(ret == 1);
         }
 
-        std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
+        //std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
         for(int i = n_values; i < columns.size(); ++i){
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
             assert(ret == 1);
