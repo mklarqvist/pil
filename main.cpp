@@ -4,6 +4,7 @@
 #include "columnstore.h"
 #include "table.h"
 
+#include <fstream>
 #include <iostream>
 
 int main(void){
@@ -99,52 +100,80 @@ int main(void){
     }
     */
 
-    std::vector<float> vecvals2 = {1};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    table.Append(rbuild);
+    std::ifstream ss;
+    ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+    if(ss.good() == false){
+        std::cerr << "not good: " << ss.badbit << std::endl;
+        return 1;
+    }
 
-    vecvals2 = {1,2};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    table.Append(rbuild);
+    std::string line;
+    uint32_t ltype = 0;
+    while(std::getline(ss, line)){
+        if(ltype == 1) {
+            rbuild.Add<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            //std::cerr << line << std::endl;
+        }
+        if(ltype == 3) {
+            rbuild.Add<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            //std::cerr << line << std::endl;
+        }
+        ++ltype;
+        if(ltype == 4){
+            table.Append(rbuild);
+            ltype = 0;
+        }
+    }
 
-    vecvals2 = {1,2,3};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    table.Append(rbuild);
 
-    vecvals2 = {1,2};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    table.Append(rbuild);
+    if(0){
+        std::vector<float> vecvals2 = {1};
+        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        table.Append(rbuild);
 
-    vecvals2 = {1};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    table.Append(rbuild);
-
-    std::vector<uint32_t> vecvals3 = {1};
-    rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals3);
-    table.Append(rbuild);
-
-    vecvals2 = {1};
-    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-    table.Append(rbuild);
-
-    std::vector<uint32_t> vecvals4 = {1};
-    rbuild.Add<uint32_t>("FIELD3", pil::PIL_TYPE_UINT32, vecvals4);
-    table.Append(rbuild);
-
-    std::vector<uint32_t> vecvals2504;
-    for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
-    rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
-    table.Append(rbuild);
-
-    for(int j = 0; j < 10000; ++j) {
-        vecvals2504.clear();
         vecvals2 = {1,2};
         rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        table.Append(rbuild);
+
+        vecvals2 = {1,2,3};
+        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        table.Append(rbuild);
+
+        vecvals2 = {1,2};
+        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        table.Append(rbuild);
+
+        vecvals2 = {1};
+        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        table.Append(rbuild);
+
+        std::vector<uint32_t> vecvals3 = {1};
+        rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals3);
+        table.Append(rbuild);
+
+        vecvals2 = {1};
+        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+        table.Append(rbuild);
+
+        std::vector<uint32_t> vecvals4 = {1};
+        rbuild.Add<uint32_t>("FIELD3", pil::PIL_TYPE_UINT32, vecvals4);
+        table.Append(rbuild);
+
+        std::vector<uint32_t> vecvals2504;
         for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
         rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
         table.Append(rbuild);
-    }
 
+        for(int j = 0; j < 10000; ++j) {
+            vecvals2504.clear();
+            vecvals2 = {1,2};
+            rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
+            for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
+            rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
+            table.Append(rbuild);
+        }
+
+    }
 
     std::cerr << "cset n=" << table._seg_stack.size() << std::endl;
     for(int i = 0; i < table._seg_stack.size(); ++i){
@@ -169,6 +198,8 @@ int main(void){
     }
     std::cerr << std::endl;
     */
+
+    std::cerr << "memory in: " << table.c_in << " memory out: " << table.c_out << " -> " << (float)table.c_in / table.c_out << std::endl;
 
     return(1);
 }

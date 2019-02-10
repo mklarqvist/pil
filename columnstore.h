@@ -26,7 +26,7 @@ namespace pil {
 struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
-        sorted(false), n(0), m(0), mem_use(0), checksum(0),
+        sorted(false), n(0), m(0), uncompressed_size(0), compressed_size(0), checksum(0),
         stats_surrogate_min(std::numeric_limits<int64_t>::min()), stats_surrogate_max(std::numeric_limits<int64_t>::max()),
         pool_(pool)
     {
@@ -34,7 +34,7 @@ public:
 
     uint32_t size() const { return n; }
     uint32_t capacity() const { return m; }
-    uint32_t GetMemoryUsage() const { return mem_use; }
+    uint32_t GetMemoryUsage() const { return uncompressed_size; }
 
     // Pointer to data.
     std::shared_ptr<ResizableBuffer> data() { return buffer; }
@@ -45,10 +45,9 @@ public:
 
 public:
     bool sorted; // is this ColumnStore sorted (relative itself)
-    uint32_t n, m, mem_use; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
-    //uint32_t ptype, ptype_array; // primtive type encoding, possible bit use for signedness
+    uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t checksum; // checksum for buffer
-    int64_t stats_surrogate_min, stats_surrogate_max;
+    int64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
     std::vector<uint32_t> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                            // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
@@ -81,7 +80,30 @@ public:
         }
 
         reinterpret_cast<T*>(buffer->mutable_data())[n++] = value;
-        mem_use += sizeof(T);
+        uncompressed_size += sizeof(T);
+        return(1);
+    }
+
+    int Append(const T* value, uint32_t n_values) {
+        if(buffer.get() == nullptr){
+            //std::cerr << "first allocation" << std::endl;
+            assert(AllocateResizableBuffer(pool_, 4096*sizeof(T), &buffer) == 1);
+            m = 4096;
+            //std::cerr << "buffer=" << buffer->capacity() << std::endl;
+        }
+
+        //std::cerr << n << "/" << m << ":" << buffer->capacity() << std::endl;
+
+        if(n == m || n + n_values >= m){
+            //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
+            assert(buffer->Reserve(n*sizeof(T) + 4096*sizeof(T)) == 1);
+            m = n + 4096;
+        }
+
+        T* dat = reinterpret_cast<T*>(buffer->mutable_data());
+        memcpy(&dat[n], value, n_values * sizeof(T));
+        n += n_values;
+        uncompressed_size += n_values * sizeof(T);
         return(1);
     }
 
@@ -116,13 +138,13 @@ public:
     }
 
     void clear() {
-        n = 0;
+        n = 0, m = 0;
         checksum = 0;
         columns.clear();
     }
 
 public:
-    uint32_t n, m; // batch size of vectors are set to 4096 by default.
+    uint32_t n, m;
     uint32_t checksum; // checksum of the checksum vector -> md5(&checksums, n); this check is to guarantee there is no accidental reordering of the set
     std::vector< std::shared_ptr<ColumnStore> > columns;
 };
@@ -238,6 +260,127 @@ public:
     int PadNull() {
         for(int i = 0; i < columns.size(); ++i){
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+            assert(ret == 1);
+        }
+        return(1);
+    }
+
+    std::vector<int64_t> ColumnLengths() const{
+        std::vector<int64_t> lengths;
+        for(int i = 0; i < n; ++i)
+            lengths.push_back(columns[i]->n);
+
+        return(lengths);
+    }
+
+public:
+
+};
+
+template <class T>
+struct ColumnSetBuilderTensor : public ColumnSet {
+public:
+    ColumnSetBuilderTensor(MemoryPool* pool) : ColumnSet(){}
+
+    int Append(const T& value) {
+        // Check if columns[0] is set
+        //std::cerr << "appending single value: " << value << std::endl;
+        if(columns.size() == 0) {
+            //std::cerr << "pushing back first column" << std::endl;
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            n += 2;
+        }
+        assert(n == 2);
+
+        if(columns[0]->n == 0) {
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
+            assert(ret == 1);
+            ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(1);
+            assert(ret == 1);
+        } else {
+            const uint32_t n_recs = columns[0]->n;
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 1);
+            assert(ret == 1);
+        }
+
+        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(value);
+        assert(ret == 1);
+
+        return(1);
+    }
+
+    int Append(const std::vector<T>& values) {
+        if(columns.size() == 0) {
+            //std::cerr << "pushing back first column" << std::endl;
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            n += 2;
+        }
+        assert(n == 2);
+
+        for(int i = 0; i < values.size(); ++i){
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(values[i]);
+            assert(ret == 1);
+        }
+
+        if(columns[0]->n == 0) {
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
+            assert(ret == 1);
+            ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(values.size());
+            assert(ret == 1);
+        } else {
+            const uint32_t n_recs = columns[0]->n;
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + values.size());
+            assert(ret == 1);
+        }
+
+        return(1);
+    }
+
+    int Append(T* value, int n_values) {
+        if(columns.size() == 0) {
+            //std::cerr << "pushing back first column" << std::endl;
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            n += 2;
+        }
+        assert(n == 2);
+
+        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(value, n_values);
+        assert(ret == 1);
+
+        if(columns[0]->n == 0) {
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
+            assert(ret == 1);
+            ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(n_values);
+            assert(ret == 1);
+        } else {
+            const uint32_t n_recs = columns[0]->n;
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + n_values);
+            assert(ret == 1);
+        }
+
+        return(1);
+    }
+
+    /**<
+     * Padding a Tensor-style ColumnStore simply involves adding an offset of 0.
+     * @return
+     */
+    int PadNull() {
+        if(columns[0]->n == 0) {
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
+            assert(ret == 1);
+            ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
+            assert(ret == 1);
+        } else {
+            const uint32_t n_recs = columns[0]->n;
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 0);
             assert(ret == 1);
         }
         return(1);

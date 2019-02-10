@@ -19,8 +19,7 @@ ZSTDCodec::~ZSTDCodec(){
 	ZSTD_freeDCtx(this->decompression_context_);
 }
 
-int ZSTDCodec::Compress(const uint8_t* src, const uint32_t n_src, uint8_t* dst, uint32_t n_dst, const int compression_level){
-
+int ZSTDCodec::Compress(const uint8_t* src, const uint32_t n_src, uint8_t* dst, uint32_t n_dst, const int compression_level) {
     const int32_t ret = ZSTD_compress(dst, n_dst, src, n_src, compression_level);
     if(ZSTD_isError(ret)){
         std::cerr << "zstd error: " << ZSTD_getErrorString(ZSTD_getErrorCode(ret)) << std::endl;

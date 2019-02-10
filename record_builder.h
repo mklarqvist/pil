@@ -43,7 +43,7 @@ public:
 struct RecordBuilder {
 public:
     template <class T>
-    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, T value) {
+    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T value) {
         slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
         slots.back()->field_name = id;
         slots.back()->stride = 1;
@@ -56,7 +56,7 @@ public:
     }
 
     template <class T>
-    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, T* value, uint32_t n_values) {
+    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T* value, uint32_t n_values) {
         slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
         slots.back()->field_name = id;
         slots.back()->stride = n_values;

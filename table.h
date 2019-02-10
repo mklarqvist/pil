@@ -49,11 +49,11 @@ struct SchemaPattern {
 // This means that all returned values should be compatibile with
 // this assigned primitive type.
 struct DictionaryFieldType {
-	DictionaryFieldType() : ptype(PIL_TYPE_UNKNOWN), ptype_array(PIL_TYPE_UNKNOWN){}
+	DictionaryFieldType() : cstore(PIL_CSTORE_UNKNOWN), ptype(PIL_TYPE_UNKNOWN){}
 
     std::string field_name;
+    PIL_CSTORE_TYPE cstore;
     PIL_PRIMITIVE_TYPE ptype;
-    PIL_PRIMITIVE_TYPE ptype_array;
 };
 
 /**<
@@ -134,11 +134,10 @@ struct SchemaDictionary {
  * the local map is 21 -> 0, 26 -> 1, and 51 -> 2.
  */
 struct RecordBatch {
+public:
     RecordBatch() : n_rec(0), schemas(){}
 
-    void operator++(){ ++n_rec; }
-
-    // Insert a global schema id into the record batch
+    // Insert a GLOBAL Schema id into the record batch
     int AddSchema(uint32_t pid) {
         int insert_status = static_cast<ColumnSetBuilder<uint32_t>*>(&schemas)->Append(pid);
         ++n_rec;
@@ -187,6 +186,8 @@ public:
 
 struct Table {
 public:
+    Table() : c_in(0), c_out(0){}
+
 	/**<
 	 * Convert a tuple into ColumnStore representation. This function will accept
 	 * a RecordBuilder reference with properly overloaded data and described slots
@@ -200,7 +201,7 @@ public:
 
         // Check if the current RecordBatch has reached its Batch limit.
         // If it has then finalize the Batch.
-        if(record_batch->n_rec >= 4096) {
+        if(record_batch->n_rec >= 8000) {
             std::cerr << "record limit reached: " << record_batch->schemas.columns[0]->size() << ":" << record_batch->schemas.GetMemoryUsage() << std::endl;
             // Todo: finalize a record batch
             record_batch = std::make_shared<RecordBatch>();
@@ -212,27 +213,33 @@ public:
             uint32_t mem_in = 0, mem_out = 0;
 
             for(int i = 0; i < _seg_stack.size(); ++i){
+                uint32_t col_u = 0, col_c = 0;
                 for(int j = 0; j < _seg_stack[i]->size(); ++j) {
-                    if(_seg_stack[i]->columns[j]->mem_use > m_out) {
+                    if(_seg_stack[i]->columns[j]->uncompressed_size > m_out) {
                         delete[] out;
-                        m_out = _seg_stack[i]->columns[j]->mem_use + 1000000;
+                        m_out = _seg_stack[i]->columns[j]->uncompressed_size + 1000000;
                         out = new uint8_t[m_out];
                     }
 
                     int c_ret = zstd.Compress(_seg_stack[i]->columns[j]->buffer->mutable_data(),
-                                              _seg_stack[i]->columns[j]->mem_use,
+                                              _seg_stack[i]->columns[j]->uncompressed_size,
                                               out, m_out, 1);
 
-                    mem_in += _seg_stack[i]->columns[j]->mem_use;
+                    mem_in += _seg_stack[i]->columns[j]->uncompressed_size;
                     mem_out += c_ret;
-                    //std::cerr << "compressed " << _seg_stack[i]->columns[j]->mem_use << "->" << c_ret << std::endl;
+                    std::cerr << "compressed: " << i << ":" << j << ": n_rec=" <<_seg_stack[i]->columns[j]->n << " -> " << _seg_stack[i]->columns[j]->uncompressed_size << "->" << c_ret << " (" << (float)_seg_stack[i]->columns[j]->uncompressed_size/c_ret << "-fold)" << std::endl;
+                    col_u += _seg_stack[i]->columns[j]->uncompressed_size;
+                    col_c += c_ret;
 
                     _seg_stack[i]->columns[j]->n = 0;
-                    _seg_stack[i]->columns[j]->mem_use = 0;
+                    _seg_stack[i]->columns[j]->uncompressed_size = 0;
                 }
+                //std::cerr << "column: compressed: " << col_u << "->" << col_c << "(" << (float)col_u/col_c << "-fold)" << std::endl;
             }
             _seg_stack.clear();
-            std::cerr << "compressed: " << mem_in << "->" << mem_out << "(" << (float)mem_in/mem_out << "-fold)" << std::endl;
+            std::cerr << "total: compressed: " << mem_in << "->" << mem_out << "(" << (float)mem_in/mem_out << "-fold)" << std::endl;
+            c_in += mem_in;
+            c_out += mem_out;
 
             delete[] out;
         }
@@ -263,19 +270,19 @@ public:
                 // todo: insert padding from 0 to current offset in record batch
                 const uint32_t padding_to = record_batch->n_rec;
                 std::cerr << "padding up to: " << padding_to << std::endl;
-                for(int j = 0; j < padding_to; ++j){
-                    int ret_status = 0;
+                for(int j = 0; j < padding_to; ++j) {
+                   int ret_status = 0;
                    switch(ptype) {
-                   case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack.back().get())->Append(0);   break;
-                   case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack.back().get())->Append(0);  break;
-                   case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack.back().get())->Append(0);  break;
-                   case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack.back().get())->Append(0);  break;
-                   case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack.back().get())->Append(0);  break;
-                   case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack.back().get())->Append(0); break;
-                   case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack.back().get())->Append(0); break;
-                   case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack.back().get())->Append(0); break;
-                   case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack.back().get())->Append(0);    break;
-                   case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack.back().get())->Append(0);   break;
+                   case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilderTensor<int8_t>*>(_seg_stack.back().get())->Append(0);   break;
+                   case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilderTensor<int16_t>*>(_seg_stack.back().get())->Append(0);  break;
+                   case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilderTensor<int32_t>*>(_seg_stack.back().get())->Append(0);  break;
+                   case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilderTensor<int64_t>*>(_seg_stack.back().get())->Append(0);  break;
+                   case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilderTensor<uint8_t>*>(_seg_stack.back().get())->Append(0);  break;
+                   case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilderTensor<uint16_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilderTensor<uint32_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilderTensor<uint64_t>*>(_seg_stack.back().get())->Append(0); break;
+                   case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilderTensor<float>*>(_seg_stack.back().get())->Append(0);    break;
+                   case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilderTensor<double>*>(_seg_stack.back().get())->Append(0);   break;
                    default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
                    }
                    assert(ret_status == 1);
@@ -291,16 +298,16 @@ public:
             PIL_PRIMITIVE_TYPE ptype = builder.slots[i]->primitive_type;
             int ret_status = 0;
             switch(ptype) {
-            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<float*>(builder.slots[i]->data), builder.slots[i]->stride); break;
-            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<double*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilderTensor<int8_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilderTensor<int16_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilderTensor<int32_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilderTensor<int64_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<int64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilderTensor<uint8_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint8_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilderTensor<uint16_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint16_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilderTensor<uint32_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint32_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilderTensor<uint64_t>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<uint64_t*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilderTensor<float>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<float*>(builder.slots[i]->data), builder.slots[i]->stride); break;
+            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilderTensor<double>*>(_seg_stack[_segid].get())->Append(reinterpret_cast<double*>(builder.slots[i]->data), builder.slots[i]->stride); break;
             default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
             }
             assert(ret_status == 1);
@@ -316,34 +323,30 @@ public:
         // Every Field in the current RecordBatch that is NOT in the current
         // Schema MUST be padded with NULLs for the current Schema. This is to
         // maintain the matrix-relationship between tuples and the ColumnSets.
-        // Currently, we compare two sorted lists in O(A + B + 1)-time.
-
-        //std::sort(pattern.ids.begin(), pattern.ids.end()); // sort the vector
-        //uint32_t finger = 0; // offset into the second vector.
 
         std::vector<uint32_t> pad_tgts;
-        std::set_intersection(record_batch->dict.begin(), record_batch->dict.end(),
-                              pattern.ids.begin(),pattern.ids.end(),
+        std::set_difference(record_batch->dict.begin(), record_batch->dict.end(),
+                              pattern.ids.begin(), pattern.ids.end(),
                               back_inserter(pad_tgts));
 
         for(int i = 0; i < pad_tgts.size(); ++i) {
             // pad with nulls
             int32_t tgt_id = record_batch->FindLocalField(pad_tgts[i]);
 
-            //std::cerr << "padding id: " << i << "->" << tgt_id << std::endl;
+            std::cerr << "padding id: " << i << "->" << tgt_id << std::endl;
             PIL_PRIMITIVE_TYPE ptype = field_dict.dict[pad_tgts[i]].ptype;
             int ret_status = 0;
             switch(ptype) {
-            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack[tgt_id].get())->PadNull();   break;
-            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
-            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
-            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
-            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
-            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
-            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
-            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
-            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack[tgt_id].get())->PadNull();    break;
-            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack[tgt_id].get())->PadNull();   break;
+            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilderTensor<int8_t>*>(_seg_stack[tgt_id].get())->PadNull();   break;
+            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilderTensor<int16_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilderTensor<int32_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilderTensor<int64_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilderTensor<uint8_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilderTensor<uint16_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
+            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilderTensor<uint32_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
+            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilderTensor<uint64_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
+            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilderTensor<float>*>(_seg_stack[tgt_id].get())->PadNull();    break;
+            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilderTensor<double>*>(_seg_stack[tgt_id].get())->PadNull();   break;
             default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
             }
             assert(ret_status == 1);
@@ -355,13 +358,14 @@ public:
     }
 
 public:
+    int32_t format_version; // 4 bytes
     FieldDictionary field_dict;
     SchemaDictionary schema_dict;
 
 public: // private:
     // Construction helpers
+    uint64_t c_in, c_out;
     std::shared_ptr<RecordBatch> record_batch;
-    //std::unordered_map<uint32_t, uint32_t> _seg_map; // Reverse lookup of current loaded Segment stacks and a provided FieldDict identifier.
     std::vector< std::unique_ptr<ColumnSet> > _seg_stack; // temporary Segments used during construction.
 };
 

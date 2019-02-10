@@ -21,6 +21,12 @@ typedef enum {
     PIL_TYPE_FIXED_LEN_BYTE_ARRAY
 } PIL_PRIMITIVE_TYPE;
 
+typedef enum {
+    PIL_CSTORE_UNKNOWN,
+    PIL_CSTORE_TENSOR,
+    PIL_CSTORE_COLUMN
+} PIL_CSTORE_TYPE;
+
 }
 
 #endif /* PIL_H_ */
