@@ -75,7 +75,7 @@ public:
         //std::cerr << n << "/" << m << ":" << buffer->capacity() << std::endl;
 
         if(n == m){
-            std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
+            //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
             assert(buffer->Reserve(n*sizeof(T) + 4096*sizeof(T)) == 1);
             m = n + 4096;
         }
@@ -135,23 +135,29 @@ public:
     int Append(const T& value) {
         // Check if columns[0] is set
         //std::cerr << "appending single value: " << value << std::endl;
-        if(columns.size() == 0){
+        if(columns.size() == 0) {
             //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             ++n;
         }
         int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[0])->Append(value);
         assert(ret == 1);
+
+        for(int i = 1; i < columns.size(); ++i){
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+            assert(ret == 1);
+        }
+
         return(1);
     }
 
     int Append(const std::vector<T>& values) {
         // Add values up until N
-        if(n < values.size()){
+        if(n < values.size()) {
             //std::cerr << "adding more columns: " << columns.size() << "->" << values.size() << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < values.size(); ++i, ++n)
-                columns.push_back( std::make_shared<ColumnStore>() );
+                columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
 
             assert(n >= values.size());
 
@@ -173,6 +179,12 @@ public:
             assert(ret == 1);
         }
 
+        //std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
+        for(int i = values.size(); i < columns.size(); ++i){
+            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
+            assert(ret == 1);
+        }
+
         //std::cerr << "addition done" << std::endl;
 
         return(1);
@@ -180,7 +192,7 @@ public:
 
     int Append(T* value, int n_values) {
         //std::cerr << "in append" << std::endl;
-        //std::cerr << "addding=" << n_values << " values" << std::endl;
+        //std::cerr << "adding=" << n_values << " values @ " << columns.size() << std::endl;
         // Add values up until N
         if((int)n < n_values){
             //std::cerr << "adding more columns: " << columns.size() << "->" << n_values << std::endl;

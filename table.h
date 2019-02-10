@@ -179,8 +179,8 @@ public:
 
 public:
     uint32_t n_rec; // Guarantee parity with schemas.columns[0]->n
-    std::vector<uint32_t> dict; // local dict-encoded Schema ID vector
-    std::unordered_map<uint32_t, uint32_t> global_local_field_map; // Map from global schema id -> local field id
+    std::vector<uint32_t> dict; // local field ID vector
+    std::unordered_map<uint32_t, uint32_t> global_local_field_map; // Map from global field id -> local field id
     // ColumnStore for Schemas. ALWAYS cast as uint32_t
     ColumnSet schemas; // Array storage of the local dictionary-encoded BatchPatterns.
 };
@@ -220,8 +220,8 @@ public:
                     }
 
                     int c_ret = zstd.Compress(_seg_stack[i]->columns[j]->buffer->mutable_data(),
-                                  _seg_stack[i]->columns[j]->mem_use,
-                                  out, m_out, 1);
+                                              _seg_stack[i]->columns[j]->mem_use,
+                                              out, m_out, 1);
 
                     mem_in += _seg_stack[i]->columns[j]->mem_use;
                     mem_out += c_ret;
@@ -231,6 +231,7 @@ public:
                     _seg_stack[i]->columns[j]->mem_use = 0;
                 }
             }
+            _seg_stack.clear();
             std::cerr << "compressed: " << mem_in << "->" << mem_out << "(" << (float)mem_in/mem_out << "-fold)" << std::endl;
 
             delete[] out;
@@ -251,16 +252,10 @@ public:
         // Check the local stack of ColumnSets if the target identifier is present.
         for(int i = 0; i < pattern.ids.size(); ++i) {
             //std::cerr << "checking: " << pattern.ids[i] << "..." << std::endl;
-            int32_t _segid = -1;
-            std::unordered_map<uint32_t,uint32_t>::const_iterator s = _seg_map.find(pattern.ids[i]);
-            if(s != _seg_map.end()){
-                //std::cerr << "Target column exist in local stack: " << s->first << "->" << s->second << std::endl;
-                // insert
-                _segid = s->second;
-            } else {
+            int32_t _segid = record_batch->FindLocalField(pattern.ids[i]);
+            if(_segid == -1) {
                 std::cerr << "target column does NOT Exist in local stack: insert -> " << pattern.ids[i] << std::endl;
-                _segid = _seg_stack.size();
-                _seg_map[pattern.ids[i]] = _segid;
+                _segid = record_batch->AddGlobalField(pattern.ids[i]);
                 _seg_stack.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
 
                 PIL_PRIMITIVE_TYPE ptype = builder.slots[i]->primitive_type;
@@ -287,6 +282,8 @@ public:
                 }
             }
 
+            //std::cerr << "_segid=" << _segid << "/" << _seg_stack.size() << std::endl;
+
             //std::cerr << "inserting into stack: " << _segid << std::endl;
             //std::cerr << "stride=" << builder.slots[i]->stride << std::endl;
 
@@ -308,43 +305,45 @@ public:
             }
             assert(ret_status == 1);
 
-            //std::cerr << "pool in " << _segid << ": " << _seg.pool_->bytes_allocated() << std::endl;
+           //std::cerr << "insert complete" << std::endl;
         }
 
         // Map GLOBAL to LOCAL Schema in the current RecordBatch.
         // Note: Adding a pattern automatically increments the record count in a RecordBatch.
         record_batch->AddSchema(pid);
-        record_batch->AddGlobalField(pattern.ids);
+        //record_batch->AddGlobalField(pattern.ids);
 
         // Every Field in the current RecordBatch that is NOT in the current
         // Schema MUST be padded with NULLs for the current Schema. This is to
         // maintain the matrix-relationship between tuples and the ColumnSets.
         // Currently, we compare two sorted lists in O(A + B + 1)-time.
-        std::sort(pattern.ids.begin(), pattern.ids.end()); // sort the vector
-        uint32_t finger = 0; // offset into the second vector.
 
-        for(int i = 0; i < field_dict.dict.size(); ++i) {
-            if(pattern.ids[finger] == i){
-                //std::cerr << "skipping: " << i << "->" << field_dict.dict[i].field_name << std::endl;
-                ++finger;
-                continue;
-            }
+        //std::sort(pattern.ids.begin(), pattern.ids.end()); // sort the vector
+        //uint32_t finger = 0; // offset into the second vector.
 
+        std::vector<uint32_t> pad_tgts;
+        std::set_intersection(record_batch->dict.begin(), record_batch->dict.end(),
+                              pattern.ids.begin(),pattern.ids.end(),
+                              back_inserter(pad_tgts));
+
+        for(int i = 0; i < pad_tgts.size(); ++i) {
             // pad with nulls
-            //std::cerr << "padding id: " << i << "->" << field_dict.dict[i].field_name << std::endl;
-            PIL_PRIMITIVE_TYPE ptype = field_dict.dict[i].ptype;
+            int32_t tgt_id = record_batch->FindLocalField(pad_tgts[i]);
+
+            //std::cerr << "padding id: " << i << "->" << tgt_id << std::endl;
+            PIL_PRIMITIVE_TYPE ptype = field_dict.dict[pad_tgts[i]].ptype;
             int ret_status = 0;
             switch(ptype) {
-            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack[i].get())->PadNull();   break;
-            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack[i].get())->PadNull();  break;
-            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack[i].get())->PadNull();  break;
-            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack[i].get())->PadNull();  break;
-            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack[i].get())->PadNull();  break;
-            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack[i].get())->PadNull(); break;
-            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack[i].get())->PadNull(); break;
-            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack[i].get())->PadNull(); break;
-            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack[i].get())->PadNull();    break;
-            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack[i].get())->PadNull();   break;
+            case(PIL_TYPE_INT8):   ret_status = static_cast<ColumnSetBuilder<int8_t>*>(_seg_stack[tgt_id].get())->PadNull();   break;
+            case(PIL_TYPE_INT16):  ret_status = static_cast<ColumnSetBuilder<int16_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_INT32):  ret_status = static_cast<ColumnSetBuilder<int32_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_INT64):  ret_status = static_cast<ColumnSetBuilder<int64_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_UINT8):  ret_status = static_cast<ColumnSetBuilder<uint8_t>*>(_seg_stack[tgt_id].get())->PadNull();  break;
+            case(PIL_TYPE_UINT16): ret_status = static_cast<ColumnSetBuilder<uint16_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
+            case(PIL_TYPE_UINT32): ret_status = static_cast<ColumnSetBuilder<uint32_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
+            case(PIL_TYPE_UINT64): ret_status = static_cast<ColumnSetBuilder<uint64_t>*>(_seg_stack[tgt_id].get())->PadNull(); break;
+            case(PIL_TYPE_FLOAT):  ret_status = static_cast<ColumnSetBuilder<float>*>(_seg_stack[tgt_id].get())->PadNull();    break;
+            case(PIL_TYPE_DOUBLE): ret_status = static_cast<ColumnSetBuilder<double>*>(_seg_stack[tgt_id].get())->PadNull();   break;
             default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
             }
             assert(ret_status == 1);
@@ -355,9 +354,6 @@ public:
         return(1); // success
     }
 
-protected:
-    int FindFieldIdentifier(const std::string& field_name) const;
-
 public:
     FieldDictionary field_dict;
     SchemaDictionary schema_dict;
@@ -365,7 +361,7 @@ public:
 public: // private:
     // Construction helpers
     std::shared_ptr<RecordBatch> record_batch;
-    std::unordered_map<uint32_t, uint32_t> _seg_map; // Reverse lookup of current loaded Segment stacks and a provided FieldDict identifier.
+    //std::unordered_map<uint32_t, uint32_t> _seg_map; // Reverse lookup of current loaded Segment stacks and a provided FieldDict identifier.
     std::vector< std::unique_ptr<ColumnSet> > _seg_stack; // temporary Segments used during construction.
 };
 
