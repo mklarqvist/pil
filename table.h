@@ -6,11 +6,12 @@
 
 #include "memory_pool.h"
 #include "columnstore.h"
+#include "compression/compressor.h"
 #include "record_builder.h"
 #include "third_party/xxhash/xxhash.h"
 #include "compression/variant_digest_manager.h"
 
-#include "compression/zstd_codec.h"
+#include "encoder.h"
 #include "compression/fastdelta.h"
 
 namespace pil {
@@ -62,6 +63,15 @@ struct DictionaryFieldType {
  * from a field name string to a number representing the global identifier.
  */
 struct FieldDictionary {
+    int32_t Find(const std::string& field_name) {
+        std::unordered_map<std::string, uint32_t>::const_iterator s = map.find(field_name);
+        if(s != map.end()){
+            return(s->second);
+        } else {
+            return(-1);
+        }
+    }
+
     uint32_t FindOrAdd(const std::string& field_name, PIL_PRIMITIVE_TYPE ptype, PIL_PRIMITIVE_TYPE ptype_arr) {
         int32_t column_id = -1;
         std::unordered_map<std::string, uint32_t>::const_iterator s = map.find(field_name);
@@ -215,7 +225,7 @@ public:
 
         // Check if the current RecordBatch has reached its Batch limit.
         // If it has then finalize the Batch.
-        if(record_batch->n_rec >= 8000) { FinalizeBatch(); }
+        if(record_batch->n_rec >= 4096*8) { FinalizeBatch(); }
 
         // Foreach field name string in the builder record we check if it
         // exists in the dictionary. If it exists we return that value, otherwise
@@ -409,35 +419,53 @@ public:
         std::cerr << "record limit reached: " << record_batch->schemas.columns[0]->size() << ":" << record_batch->schemas.GetMemoryUsage() << std::endl;
 
         // Ugly reset of all data.
-        uint32_t m_out = 1000000;
-        uint8_t* out = new uint8_t[m_out];
-        ZSTDCodec zstd;
+        Compressor compressor;
         uint32_t mem_in = 0, mem_out = 0;
+        DictionaryEncoder enc;
+
+        // which one is qual?
+        int qual_col = record_batch->global_local_field_map[field_dict.Find("QUAL")];
+
 
         for(int i = 0; i < _seg_stack.size(); ++i){
             uint32_t col_u = 0, col_c = 0;
-            // Todo: How relate local ID to global ID for checks?
-            std::cerr << "dict size=" << record_batch->dict.size() << std::endl;
-            std::cerr << "checking: " << record_batch->dict[i] << "/" << field_dict.dict.size() << std::endl;
 
+            // If the current ColumnStore is using the Tensor model then we
+            // use Delta compression on the offsets to get the individual strides.
+            // These tend to compress better on average.
             if(field_dict.dict[record_batch->dict[i]].cstore == PIL_CSTORE_TENSOR) {
                 std::cerr << "computing deltas" << std::endl;
                 compute_deltas_inplace(reinterpret_cast<uint32_t*>(_seg_stack[i]->columns[0]->buffer->mutable_data()),
                                        _seg_stack[i]->columns[0]->n,
                                        0);
+
+                /*
+                if( i == 1) {
+                    int rec2 = enc.Encode<uint8_t>(reinterpret_cast<const uint8_t*>(_seg_stack[i]->columns[1]->buffer->mutable_data()), _seg_stack[i]->columns[1]->n);
+                    _seg_stack[i]->columns[1]->buffer = enc.data();
+                }
+                */
+
+                if(i == qual_col) {
+                    std::cerr << "buffer believe=" << _seg_stack[i]->columns[1]->buffer->size() << " and " << _seg_stack[i]->columns[1]->uncompressed_size << std::endl;
+                    int rec2 = static_cast<QualityCompressor*>(&compressor)->Compress(_seg_stack[i]->columns[1]->buffer->mutable_data(), _seg_stack[i]->columns[1]->uncompressed_size, reinterpret_cast<uint32_t*>(_seg_stack[i]->columns[0]->buffer->mutable_data()), _seg_stack[i]->columns[0]->n);
+                    col_u += _seg_stack[i]->columns[1]->uncompressed_size;
+                    col_c += rec2;
+                    mem_in += _seg_stack[i]->columns[1]->uncompressed_size;
+                    mem_out += rec2;
+                    _seg_stack[i]->columns[1]->n = 0;
+                    _seg_stack[i]->columns[1]->uncompressed_size = 0;
+                }
             }
 
-
             for(int j = 0; j < _seg_stack[i]->size(); ++j) {
-                if(_seg_stack[i]->columns[j]->uncompressed_size > m_out) {
-                    delete[] out;
-                    m_out = _seg_stack[i]->columns[j]->uncompressed_size + 1000000;
-                    out = new uint8_t[m_out];
-                }
+                if(i == qual_col && j == 1){ std::cerr << "skip" << std::endl; continue; }
 
-                int c_ret = zstd.Compress(_seg_stack[i]->columns[j]->buffer->mutable_data(),
-                                          _seg_stack[i]->columns[j]->uncompressed_size,
-                                          out, m_out, 1);
+                // Compress using Zstd
+                int c_ret = static_cast<ZstdCompressor*>(&compressor)->Compress(
+                        _seg_stack[i]->columns[j]->buffer->mutable_data(),
+                        _seg_stack[i]->columns[j]->uncompressed_size,
+                        6);
 
                 mem_in += _seg_stack[i]->columns[j]->uncompressed_size;
                 mem_out += c_ret;
@@ -455,8 +483,6 @@ public:
         c_in += mem_in;
         c_out += mem_out;
 
-        delete[] out;
-        // Todo: finalize a record batch
         record_batch = std::make_shared<RecordBatch>();
 
         return(1);

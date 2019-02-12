@@ -4,6 +4,8 @@
 #include "columnstore.h"
 #include "table.h"
 
+#include "encoder.h"
+
 #include <fstream>
 #include <iostream>
 
@@ -109,9 +111,16 @@ int main(void){
 
     std::string line;
     uint32_t ltype = 0;
+    pil::BaseBitEncoder enc;
+
+    // We control wether we create a Tensor-model or Column-split-model ColumnStore
+    // by using either Add (split-model) or AddArray (Tensor-model).
     while(std::getline(ss, line)){
         if(ltype == 1) {
-            rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
+
             //std::cerr << line << std::endl;
         }
         if(ltype == 3) {
