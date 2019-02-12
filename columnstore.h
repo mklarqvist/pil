@@ -66,17 +66,18 @@ public:
     int Append(const T& value) {
         if(buffer.get() == nullptr){
             //std::cerr << "first allocation" << std::endl;
-            assert(AllocateResizableBuffer(pool_, 4096*sizeof(T), &buffer) == 1);
-            m = 4096;
+            assert(AllocateResizableBuffer(pool_, 16384*sizeof(T), &buffer) == 1);
+            m = 16384;
             //std::cerr << "buffer=" << buffer->capacity() << std::endl;
         }
 
         //std::cerr << n << "/" << m << ":" << buffer->capacity() << std::endl;
 
         if(n == m){
-            //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
-            assert(buffer->Reserve(n*sizeof(T) + 4096*sizeof(T)) == 1);
-            m = n + 4096;
+            std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
+            assert(buffer->Reserve(n*sizeof(T) + 16384*sizeof(T)) == 1);
+            m = n + 16384;
+            std::cerr << "now=" << buffer->capacity() << std::endl;
         }
 
         reinterpret_cast<T*>(buffer->mutable_data())[n++] = value;
@@ -87,8 +88,8 @@ public:
     int Append(const T* value, uint32_t n_values) {
         if(buffer.get() == nullptr){
             //std::cerr << "first allocation" << std::endl;
-            assert(AllocateResizableBuffer(pool_, 4096*sizeof(T), &buffer) == 1);
-            m = 4096;
+            assert(AllocateResizableBuffer(pool_, 16384*sizeof(T), &buffer) == 1);
+            m = 16384;
             //std::cerr << "buffer=" << buffer->capacity() << std::endl;
         }
 
@@ -96,8 +97,8 @@ public:
 
         if(n == m || n + n_values >= m){
             //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
-            assert(buffer->Reserve(n*sizeof(T) + 4096*sizeof(T)) == 1);
-            m = n + 4096;
+            assert(buffer->Reserve(n*sizeof(T) + 16384*sizeof(T)) == 1);
+            m = n + 16384;
         }
 
         T* dat = reinterpret_cast<T*>(buffer->mutable_data());
@@ -300,7 +301,7 @@ public:
             assert(ret == 1);
         } else {
             const uint32_t n_recs = columns[0]->n;
-            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs - 1];
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 1);
             assert(ret == 1);
         }
@@ -332,7 +333,7 @@ public:
             assert(ret == 1);
         } else {
             const uint32_t n_recs = columns[0]->n;
-            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs - 1];
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + values.size());
             assert(ret == 1);
         }
@@ -359,7 +360,8 @@ public:
             assert(ret == 1);
         } else {
             const uint32_t n_recs = columns[0]->n;
-            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs];
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->buffer->mutable_data())[n_recs - 1];
+            //std::cerr << "appending: " << n_recs << " for " << cum + n_values << " as " << cum << "+" << n_values << std::endl;
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + n_values);
             assert(ret == 1);
         }
@@ -368,7 +370,8 @@ public:
     }
 
     /**<
-     * Padding a Tensor-style ColumnStore simply involves adding an offset of 0.
+     * Padding a Tensor-style ColumnStore simply involves adding an offset of 0 and
+     * setting the appropriate Null-vector bit.
      * @return
      */
     int PadNull() {

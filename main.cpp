@@ -111,11 +111,11 @@ int main(void){
     uint32_t ltype = 0;
     while(std::getline(ss, line)){
         if(ltype == 1) {
-            rbuild.Add<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
             //std::cerr << line << std::endl;
         }
         if(ltype == 3) {
-            rbuild.Add<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
             //std::cerr << line << std::endl;
         }
         ++ltype;
@@ -124,6 +124,7 @@ int main(void){
             ltype = 0;
         }
     }
+    table.FinalizeBatch();
 
 
     if(0){

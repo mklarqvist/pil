@@ -4,12 +4,15 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
+../compression/fastdelta.cpp \
 ../compression/zstd_codec.cpp 
 
 OBJS += \
+./compression/fastdelta.o \
 ./compression/zstd_codec.o 
 
 CPP_DEPS += \
+./compression/fastdelta.d \
 ./compression/zstd_codec.d 
 
 
