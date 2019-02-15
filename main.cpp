@@ -109,6 +109,12 @@ int main(void){
         return 1;
     }
 
+    table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+    if(table.out_stream.good() == false) {
+        std::cerr << "failed to open output file" << std::endl;
+        return 1;
+    }
+
     std::string line;
     uint32_t ltype = 0;
 
@@ -145,7 +151,7 @@ int main(void){
     }
     table.FinalizeBatch();
 
-    table.Describe(std::cout);
+    table.Describe(std::cerr);
 
 
     if(0){
@@ -195,31 +201,25 @@ int main(void){
             table.Append(rbuild);
         }
 
-    }
+        std::cerr << "cset n=" << table._seg_stack.size() << std::endl;
+        for(int i = 0; i < table._seg_stack.size(); ++i){
+            std::cerr << i << ": " << table._seg_stack[i]->columns.size() << " cols. first n= " << table._seg_stack[i]->columns.front()->n << std::endl;
+        }
 
-    std::cerr << "cset n=" << table._seg_stack.size() << std::endl;
-    for(int i = 0; i < table._seg_stack.size(); ++i){
-        std::cerr << i << ": " << table._seg_stack[i]->columns.size() << " cols. first n= " << table._seg_stack[i]->columns.front()->n << std::endl;
-    }
+        std::cerr << "stacks:" << std::endl;
+        for(int i = 0; i < table._seg_stack.size(); ++i){
+            std::cerr << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->GetMemoryUsage() << std::endl;
+        }
 
-    std::cerr << "stacks:" << std::endl;
-    for(int i = 0; i < table._seg_stack.size(); ++i){
-        std::cerr << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->GetMemoryUsage() << std::endl;
-    }
 
-    std::cerr << "recordbatches:" << std::endl;
-    std::cerr << "recs=" << table.record_batch->n_rec << ", unique=" << table.record_batch->local_dict.size() << ": " << table.record_batch->schemas.GetMemoryUsage() << ": ";
-    for(int j = 0; j < table.record_batch->local_dict.size(); ++j) {
-        std::cerr << table.record_batch->local_dict[j] << ",";
+        /*
+        uint32_t* vals = reinterpret_cast<uint32_t*>(table.record_batch->patterns.columns[0]->buffer->mutable_data());
+        for(int j = 0; j < table.record_batch->n_rec; ++j){
+            std::cerr << vals[j] << ",";
+        }
+        std::cerr << std::endl;
+        */
     }
-    std::cerr << std::endl;
-    /*
-    uint32_t* vals = reinterpret_cast<uint32_t*>(table.record_batch->patterns.columns[0]->buffer->mutable_data());
-    for(int j = 0; j < table.record_batch->n_rec; ++j){
-        std::cerr << vals[j] << ",";
-    }
-    std::cerr << std::endl;
-    */
 
     std::cerr << "memory in: " << table.c_in << " memory out: " << table.c_out << " -> " << (float)table.c_in / table.c_out << std::endl;
 

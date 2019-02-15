@@ -3,12 +3,12 @@
 namespace pil {
 
 int Table::Append(RecordBuilder& builder) {
-    if(record_batch.get() == nullptr)
-        record_batch = std::make_shared<RecordBatch>();
+    if(meta_data.batches.size() == 0)
+        meta_data.batches.push_back(std::make_shared<RecordBatch>());
 
     // Check if the current RecordBatch has reached its Batch limit.
     // If it has then finalize the Batch.
-    if(record_batch->n_rec >= 4096) { FinalizeBatch(); }
+    if(meta_data.batches.back()->n_rec >= 4096) { FinalizeBatch(); }
 
     // Foreach field name string in the builder record we check if it
     // exists in the dictionary. If it exists we return that value, otherwise
@@ -17,6 +17,9 @@ int Table::Append(RecordBuilder& builder) {
     std::unordered_map<uint32_t, uint32_t> pattern_map;
 
     for(int i = 0; i < builder.slots.size(); ++i) {
+        if(field_dict.Find(builder.slots[i]->field_name) == -1) {
+            meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
+        }
         int32_t column_id = field_dict.FindOrAdd(builder.slots[i]->field_name, builder.slots[i]->primitive_type, builder.slots[i]->array_primitive_type);
         pattern.ids.push_back(column_id);
         pattern_map[column_id] = 1;
@@ -31,7 +34,7 @@ int Table::Append(RecordBuilder& builder) {
     // to the current offset.
     for(int i = 0; i < pattern.ids.size(); ++i) {
         //std::cerr << "checking: " << pattern.ids[i] << "..." << std::endl;
-        int32_t _segid = record_batch->FindLocalField(pattern.ids[i]);
+        int32_t _segid = meta_data.batches.back()->FindLocalField(pattern.ids[i]);
         if(_segid == -1) {
             std::cerr << "target column does NOT Exist in local stack: insert -> " << pattern.ids[i] << std::endl;
             _segid = BatchAddColumn(builder.slots[i]->primitive_type, builder.slots[i]->array_primitive_type, pattern.ids[i]);
@@ -45,7 +48,7 @@ int Table::Append(RecordBuilder& builder) {
 
     // Map GLOBAL to LOCAL Schema in the current RecordBatch.
     // Note: Adding a pattern automatically increments the record count in a RecordBatch.
-    record_batch->AddSchema(pid);
+    meta_data.batches.back()->AddSchema(pid);
 
     // CRITICAL!
     // Every Field in the current RecordBatch that is NOT in the current
@@ -54,14 +57,14 @@ int Table::Append(RecordBuilder& builder) {
 
     std::vector<uint32_t> pad_tgts;
 
-    for(int i = 0; i < record_batch->local_dict.size(); ++i) {
-        std::unordered_map<uint32_t, uint32_t>::const_iterator it = pattern_map.find(record_batch->local_dict[i]);
+    for(int i = 0; i < meta_data.batches.back()->local_dict.size(); ++i) {
+        std::unordered_map<uint32_t, uint32_t>::const_iterator it = pattern_map.find(meta_data.batches.back()->local_dict[i]);
         if(it == pattern_map.end()) pad_tgts.push_back(i); // if not in set append it to vector
     }
 
     for(int i = 0; i < pad_tgts.size(); ++i) {
         // pad with nulls
-        int32_t tgt_id = record_batch->FindLocalField(pad_tgts[i]);
+        int32_t tgt_id = meta_data.batches.back()->FindLocalField(pad_tgts[i]);
         assert(_seg_stack[tgt_id].get() != nullptr);
 
         std::cerr << "padding id: " << i << "->" << tgt_id << std::endl;
@@ -111,15 +114,15 @@ int Table::Append(RecordBuilder& builder) {
 // private
 int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype, PIL_PRIMITIVE_TYPE ptype_arr, uint32_t global_id) {
     std::cerr << "target column does NOT Exist in local stack: insert -> " << global_id << std::endl;
-    if(record_batch.get() == nullptr) {
+    if(meta_data.batches.size() == 0) {
         std::cerr << "need to allocate record batch" << std::endl;
-        record_batch = std::make_shared<RecordBatch>();
+        meta_data.batches.push_back(std::make_shared<RecordBatch>());
     }
-    int col_id = record_batch->AddGlobalField(global_id);
+    int col_id = meta_data.batches.back()->AddGlobalField(global_id);
 
     _seg_stack.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
 
-    const uint32_t padding_to = record_batch->n_rec;
+    const uint32_t padding_to = meta_data.batches.back()->n_rec;
     std::cerr << "padding up to: " << padding_to << std::endl;
 
     int ret_status = 0;
@@ -209,7 +212,7 @@ int Table::AppendData(const RecordBuilder& builder, const uint32_t slot_offset, 
 }
 
 int Table::FinalizeBatch() {
-    std::cerr << "record limit reached: " << record_batch->schemas.columns[0]->size() << ":" << record_batch->schemas.GetMemoryUsage() << std::endl;
+    std::cerr << "record limit reached: " << meta_data.batches.back()->schemas->columns[0]->size() << ":" << meta_data.batches.back()->schemas->GetMemoryUsage() << std::endl;
 
     // Ugly reset of all data.
     Compressor compressor;
@@ -217,33 +220,41 @@ int Table::FinalizeBatch() {
     DictionaryEncoder enc;
 
     // which one is qual?
-    //int qual_col = record_batch->global_local_field_map[field_dict.Find("QUAL")];
+    //int qual_col = meta_data.batches.back()->global_local_field_map[field_dict.Find("QUAL")];
     //field_dict.dict[field_dict.Find("QUAL")].compression_mode = PIL_COMPRESS_RC_QUAL;
 
 
+    //
     for(int i = 0; i < _seg_stack.size(); ++i) {
+        meta_data.field_meta[meta_data.batches.back()->local_dict[i]]->AddBatch(_seg_stack[i], meta_data.batches.size() - 1);
+
         int ret_status = -1;
-        switch(field_dict.dict[record_batch->local_dict[i]].ptype) {
-        case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilder<int8_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int16_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int32_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int64_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilder<uint8_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint16_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint64_t> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilder<float> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilder<double> >(_seg_stack[i])->ComputeSegmentStats(); break;
-        default: std::cerr << "no known type: " << field_dict.dict[record_batch->local_dict[i]].ptype << std::endl; ret_status = -1; break;
+        std::shared_ptr<ColumnSetMetaData> tgt_cset = meta_data.field_meta[meta_data.batches.back()->local_dict[i]]->cset_meta.back();
+        switch(field_dict.dict[meta_data.batches.back()->local_dict[i]].ptype) {
+        case(PIL_TYPE_INT8):   ret_status = tgt_cset->ComputeSegmentStats<int8_t>(_seg_stack[i]);   break;
+        case(PIL_TYPE_INT16):  ret_status = tgt_cset->ComputeSegmentStats<int16_t>(_seg_stack[i]);  break;
+        case(PIL_TYPE_INT32):  ret_status = tgt_cset->ComputeSegmentStats<int32_t>(_seg_stack[i]);  break;
+        case(PIL_TYPE_INT64):  ret_status = tgt_cset->ComputeSegmentStats<int64_t>(_seg_stack[i]);  break;
+        case(PIL_TYPE_UINT8):  ret_status = tgt_cset->ComputeSegmentStats<uint8_t>(_seg_stack[i]);  break;
+        case(PIL_TYPE_UINT16): ret_status = tgt_cset->ComputeSegmentStats<uint16_t>(_seg_stack[i]); break;
+        case(PIL_TYPE_UINT32): ret_status = tgt_cset->ComputeSegmentStats<uint32_t>(_seg_stack[i]); break;
+        case(PIL_TYPE_UINT64): ret_status = tgt_cset->ComputeSegmentStats<uint64_t>(_seg_stack[i]); break;
+        case(PIL_TYPE_FLOAT):  ret_status = tgt_cset->ComputeSegmentStats<float>(_seg_stack[i]);    break;
+        case(PIL_TYPE_DOUBLE): ret_status = tgt_cset->ComputeSegmentStats<double>(_seg_stack[i]);   break;
+        default: std::cerr << "no known type: " << field_dict.dict[meta_data.batches.back()->local_dict[i]].ptype << std::endl; ret_status = -1; break;
         }
 
         mem_in += _seg_stack[i]->GetMemoryUsage();
 
-        std::cerr << "global->local: " << record_batch->local_dict[i] << "->" << i << " with n=" << _seg_stack[i]->size() << std::endl;
-        //std::cerr << "compressing: " << record_batch->dict[i] << std::endl;
-        int ret = compressor.Compress(_seg_stack[i], field_dict.dict[record_batch->local_dict[i]]);
+        std::cerr << "global->local: " << meta_data.batches.back()->local_dict[i] << "->" << i << " with n=" << _seg_stack[i]->size() << std::endl;
+        //std::cerr << "compressing: " << meta_data.batches.back()->dict[i] << std::endl;
+        int ret = compressor.Compress(_seg_stack[i], field_dict.dict[meta_data.batches.back()->local_dict[i]]);
         std::cerr << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
         mem_out += ret;
+
+        //std::cerr << "segstack size=" << _seg_stack[i]->columns.size() << std::endl;
+        //std::cerr << "field_meta size=" << meta_data.field_meta.size() << std::endl;
+
 
     }
     _seg_stack.clear();
@@ -251,7 +262,8 @@ int Table::FinalizeBatch() {
     c_in += mem_in;
     c_out += mem_out;
 
-    record_batch = std::make_shared<RecordBatch>();
+    meta_data.batches.back()->Serialize(out_stream);
+    meta_data.batches.push_back(std::make_shared<RecordBatch>());
 
     return(1);
 }
@@ -269,6 +281,30 @@ void Table::Describe(std::ostream& stream) {
         stream << std::endl;
     }
     stream << "---------------------------------" << std::endl;
+
+    stream << "Batches=" << meta_data.batches.size() << std::endl;
+    for(int i = 0; i < meta_data.batches.size(); ++i) {
+        // Residual RecordBatch.
+        if(meta_data.batches[i]->file_offset == 0 && i != 0) break;
+        stream << "Offset=" << meta_data.batches[i]->file_offset << ", n=" << meta_data.batches[i]->n_rec << " fields=[" << field_dict.dict[meta_data.batches[i]->local_dict[0]].field_name;
+
+        for(int j = 1; j < meta_data.batches[i]->local_dict.size(); ++j) {
+            stream << ", " << field_dict.dict[meta_data.batches[i]->local_dict[j]].field_name;
+        }
+        stream << "]" << std::endl;
+    }
+    stream << "---------------------------------" << std::endl;
+
+    stream << "Fields=" << meta_data.field_meta.size() << std::endl;
+    for(int i = 0; i < meta_data.field_meta.size(); ++i) {
+        stream << "\t" << field_dict.dict[i].field_name << ": " << meta_data.field_meta[i]->cset_meta.size() << std::endl;
+        stream << "\t\tbatches=[";
+        if(meta_data.field_meta[i]->cset_meta[0]->column_meta_data.size()) stream << meta_data.field_meta[i]->cset_meta[0]->record_batch_id;
+        for(int j = 1; j < meta_data.field_meta[i]->cset_meta.size(); ++j) {
+            stream << "," << meta_data.field_meta[i]->cset_meta[j]->record_batch_id;
+        }
+        stream << "]" << std::endl;
+    }
 }
 
 }

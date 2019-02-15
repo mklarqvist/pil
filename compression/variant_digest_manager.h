@@ -10,7 +10,6 @@ namespace pil {
 
 class Digest {
 public:
-
 	template <class T>
 	static void GenerateMd5(const T& value, uint8_t* dst){
 	   // uint8_t hash[MD5_DIGEST_LENGTH];

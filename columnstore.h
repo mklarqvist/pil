@@ -12,21 +12,6 @@
 
 namespace pil {
 
-// The ColumnMetaData is stored separate from the ColumnSet and ColumnStores
-// themselves and is used in an Indexing capacity. For example, to perform
-// Segmental Elimination for predicate pushdown in selection queries.
-struct ColumnMetaData {
-    bool sorted; // is this ColumnStore sorted (relative itself)
-    uint32_t n, m, uncompressed_size, compressed_size; // number of elements
-    uint8_t md5_checksum[16]; // checksum for buffer
-    int64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
-    uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
-};
-
-struct ColumnSetMetaData {
-    std::vector< std::shared_ptr<ColumnMetaData> > column_meta_data;
-};
-
 // ColumnStore can store ANY primitive type: e.g. CHROM, POS
 // Initiate the ColumnStore with the largest word size of a primitive family type.
 // For example, if you are working with uint8_t values then initiate the ptype
@@ -42,7 +27,6 @@ struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
         sorted(false), n(0), m(0), uncompressed_size(0), compressed_size(0),
-        stats_surrogate_min(std::numeric_limits<int64_t>::min()), stats_surrogate_max(std::numeric_limits<int64_t>::max()),
         pool_(pool)
     {
     }
@@ -62,8 +46,6 @@ public:
 public:
     bool sorted; // is this ColumnStore sorted (relative itself)
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
-    uint8_t md5_checksum[16]; // checksum for buffer
-    int64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
     std::vector<uint32_t> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                            // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
@@ -78,28 +60,6 @@ template <class T>
 struct ColumnStoreBuilder : public ColumnStore {
 public:
     ColumnStoreBuilder(MemoryPool* pool) : ColumnStore(pool){}
-
-    int ComputeSegmentStats() {
-        T* values = reinterpret_cast<T*>(mutable_data());
-        if(uncompressed_size / sizeof(T) != n){
-            std::cerr << "ERROR: " << uncompressed_size/sizeof(T) << "!=" << n << std::endl;
-        }
-        T min = std::numeric_limits<T>::max();
-        T max = std::numeric_limits<T>::min();
-
-        for(int i = 0; i < n; ++i) {
-            min = std::min(min, values[i]);
-            max = std::max(max, values[i]);
-        }
-
-        // Cast the placeholder bytes to the target type and assign
-        // the minimum and maximum values to it.
-        *reinterpret_cast<T*>(&stats_surrogate_min) = min;
-        *reinterpret_cast<T*>(&stats_surrogate_max) = max;
-
-        std::cerr << "min-max: " << (int)min << "-" << (int)max << std::endl;
-        return(1);
-    }
 
     int Append(const T& value) {
         if(buffer.get() == nullptr){
@@ -146,7 +106,7 @@ public:
         return(1);
     }
 
-    const T* data() const { return reinterpret_cast<const T*>(mutable_data()); }
+    const T* data() const { return reinterpret_cast<const T*>(buffer->mutable_data()); }
     T front() const { return data()[0]; }
     T back() const { return data()[n - 1]; }
 };
@@ -193,14 +153,6 @@ template <class T>
 struct ColumnSetBuilder : public ColumnSet {
 public:
     ColumnSetBuilder(MemoryPool* pool) : ColumnSet(){}
-
-    int ComputeSegmentStats() {
-        for(int i = 0; i < columns.size(); ++i) {
-            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->ComputeSegmentStats();
-            assert(ret != -1);
-        }
-        return(1);
-    }
 
     int Append(const T& value) {
         // Check if columns[0] is set
@@ -329,14 +281,6 @@ template <class T>
 struct ColumnSetBuilderTensor : public ColumnSet {
 public:
     ColumnSetBuilderTensor(MemoryPool* pool) : ColumnSet(){}
-
-    int ComputeSegmentStats() {
-        for(int i = 0; i < columns.size(); ++i) {
-            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->ComputeSegmentStats();
-            assert(ret != -1);
-        }
-        return(1);
-    }
 
     int Append(const T& value) {
         // Check if columns[0] is set
