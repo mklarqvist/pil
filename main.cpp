@@ -111,22 +111,32 @@ int main(void){
 
     std::string line;
     uint32_t ltype = 0;
+
     pil::BaseBitEncoder enc;
+
+    std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
+    ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
+    ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+    table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+    ctypes.clear();
+    ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
+    //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+    table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
     // We control wether we create a Tensor-model or Column-split-model ColumnStore
     // by using either Add (split-model) or AddArray (Tensor-model).
     while(std::getline(ss, line)){
         if(ltype == 1) {
-            int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
-
-            //std::cerr << line << std::endl;
+            //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+            //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
         }
+
         if(ltype == 3) {
             rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
             //std::cerr << line << std::endl;
         }
+
         ++ltype;
         if(ltype == 4){
             table.Append(rbuild);
@@ -134,6 +144,8 @@ int main(void){
         }
     }
     table.FinalizeBatch();
+
+    table.Describe(std::cout);
 
 
     if(0){
@@ -196,9 +208,9 @@ int main(void){
     }
 
     std::cerr << "recordbatches:" << std::endl;
-    std::cerr << "recs=" << table.record_batch->n_rec << ", unique=" << table.record_batch->dict.size() << ": " << table.record_batch->schemas.GetMemoryUsage() << ": ";
-    for(int j = 0; j < table.record_batch->dict.size(); ++j) {
-        std::cerr << table.record_batch->dict[j] << ",";
+    std::cerr << "recs=" << table.record_batch->n_rec << ", unique=" << table.record_batch->local_dict.size() << ": " << table.record_batch->schemas.GetMemoryUsage() << ": ";
+    for(int j = 0; j < table.record_batch->local_dict.size(); ++j) {
+        std::cerr << table.record_batch->local_dict[j] << ",";
     }
     std::cerr << std::endl;
     /*

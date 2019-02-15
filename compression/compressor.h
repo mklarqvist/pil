@@ -6,8 +6,11 @@
 #include "zstd.h"
 #include "zstd_errors.h"
 
+#include "../table_dict.h"
 #include "../columnstore.h"
 #include "frequency_model.h"
+#include "fastdelta.h"
+#include "base_model.h"
 
 namespace pil {
 
@@ -16,9 +19,8 @@ public:
     Compressor() : pool_(pil::default_memory_pool()){}
     virtual ~Compressor(){}
 
-    int Compress(const uint8_t* src, const uint32_t n_src){ return 1; }
-    int Compress(std::shared_ptr<ResizableBuffer> in_buffer){ return 1; }
-    int Compress(std::shared_ptr<ColumnStore> cstore){ return 1; }
+    int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     virtual int Decompress(){ return 1; }
 
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
@@ -39,6 +41,25 @@ public:
 	ZstdCompressor();
 	~ZstdCompressor();
 
+	int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const int compression_level = 1) {
+	    if(cset.get() == nullptr) return(-1);
+
+	    int ret = 0;
+        if(field.cstore == PIL_CSTORE_COLUMN) {
+           std::cerr << "in cstore col: n=" << cset->size() << std::endl;
+           for(int i = 0; i < cset->size(); ++i) {
+               ret += Compress(
+                       cset->columns[i]->buffer->mutable_data(),
+                       cset->columns[i]->uncompressed_size,
+                       compression_level);
+           }
+           return(ret);
+        } else if(field.cstore == PIL_CSTORE_TENSOR) {
+
+        }
+        return(ret);
+	}
+
 	int Compress(const uint8_t* src, const uint32_t n_src, const int compression_level = 1) {
 	    if(buffer.get() == nullptr) {
             assert(AllocateResizableBuffer(pool_, n_src + 16384, &buffer) == 1);
@@ -58,13 +79,13 @@ public:
         return(ret);
 	}
 
-    int Compress(std::shared_ptr<ResizableBuffer> in_buffer, const int compression_level = 1) { return 1; }
-    int Compress(std::shared_ptr<ColumnStore> cstore, const int compression_level = 1) { return 1; }
+    //int Compress(std::shared_ptr<ResizableBuffer> in_buffer, const int compression_level = 1) { return 1; }
+    //int Compress(std::shared_ptr<ColumnStore> cstore, const int compression_level = 1) { return 1; }
     int Decompress() override{ return 1; }
 };
 
-#define QMAX 64
 
+#define QMAX 64
 /* QBITS is the size of the quality context, 2x quals */
 #define QBITS 12
 #define QSIZE (1 << QBITS)
@@ -84,13 +105,45 @@ class QualityCompressor : public Compressor {
 public:
     QualityCompressor(){}
 
-    int Compress(std::shared_ptr<ResizableBuffer> buffer) {
-        if(buffer.get() == nullptr) return(-1);
-        //return(Compress(buffer->mutable_data(), buffer->size()));
-        return(1);
+    int Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore) {
+        if(cset.get() == nullptr) return(-1);
+
+        int ret = 0;
+        if(cstore == PIL_CSTORE_COLUMN) {
+            std::cerr << "in cstore col" << std::endl;
+            for(int i = 0; i < cset->columns.size(); ++i) {
+                uint32_t n_l = cset->columns[i]->n;
+                ret += Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
+            }
+        } else if(cstore == PIL_CSTORE_TENSOR) {
+            std::cerr << "in cstore tensor" << std::endl;
+            //std::cerr << "buffer believe=" << cset->columns[1]->buffer->size() << " and " << cset->columns[1]->uncompressed_size << " and n=" << cset->columns[0]->n << std::endl;
+            std::cerr << "computing deltas in place" << std::endl;
+            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+                                   cset->columns[0]->n,
+                                   0);
+
+            cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
+
+            ret += Compress(cset->columns[1]->buffer->mutable_data(),
+                            cset->columns[1]->uncompressed_size,
+                            reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+                            cset->columns[0]->n);
+
+            cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
+            cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
+
+            std::cerr << "done: " << ret << std::endl;
+        } else {
+            //std::cerr << "unknown cstore type" << std::endl;
+            return(-1);
+        }
+
+        return(ret);
     }
 
-    int Compress(const uint8_t* qual, const uint32_t n_src, uint32_t qlevel, RangeCoder* rc, SIMPLE_MODEL<QMAX>* model_qual) {
+    int Compress(const uint8_t* qual, const uint32_t n_src, uint32_t qlevel, RangeCoder* rc, FrequencyModel<QMAX>* model_qual) {
         uint32_t last = 0;
         int delta = 5;
         int i, len2 = n_src;
@@ -158,7 +211,7 @@ public:
         int qsize = QSIZE;
         if (qlevel > 1) qsize *= 16;
         if (qlevel > 2) qsize *= 16;
-        SIMPLE_MODEL<QMAX>* model_qual = new SIMPLE_MODEL<QMAX>[qsize];
+        FrequencyModel<QMAX>* model_qual = new FrequencyModel<QMAX>[qsize];
 
         RangeCoder rc;
         rc.StartEncode();
@@ -176,6 +229,102 @@ public:
         delete[] model_qual;
 
         return(rc.size_out());
+    }
+};
+
+class SequenceCompressor : public Compressor {
+public:
+    int Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore) {
+        if(cset.get() == nullptr) return(-1);
+
+        int ret = 0;
+        if(cstore == PIL_CSTORE_COLUMN) {
+            std::cerr << "in cstore col: COMPUTING BASES" << std::endl;
+            for(int i = 0; i < cset->columns.size(); ++i) {
+                uint32_t n_l = cset->columns[i]->n;
+                ret += Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_BASES);
+            }
+        } else if(cstore == PIL_CSTORE_TENSOR) {
+            std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
+            //std::cerr << "buffer believe=" << cset->columns[1]->buffer->size() << " and " << cset->columns[1]->uncompressed_size << " and n=" << cset->columns[0]->n << std::endl;
+            std::cerr << "computing deltas in place" << std::endl;
+            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+                                   cset->columns[0]->n,
+                                   0);
+
+            cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
+
+            ret += Compress(cset->columns[1]->buffer->mutable_data(),
+                            cset->columns[1]->uncompressed_size,
+                            reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+                            cset->columns[0]->n);
+
+            cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_BASES);
+            cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
+
+            std::cerr << "done: " << ret << std::endl;
+        } else {
+            //std::cerr << "unknown cstore type" << std::endl;
+            return(-1);
+        }
+
+        return(ret);
+    }
+
+    int Compress(const uint8_t* bases, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths) {
+        if(buffer.get() == nullptr) {
+            assert(AllocateResizableBuffer(pool_, n_src + 16384, &buffer) == 1);
+        }
+
+        if(buffer->capacity() < n_src + 16384){
+            assert(buffer->Reserve(n_src + 16384) == 1);
+        }
+
+        // slevel in range [1,9);
+        int slevel = 3; // Number of bases of sequence context.
+        int NS = 7 + slevel;
+        BaseModel<uint16_t>* model_seq16 = new BaseModel<uint16_t>[1 << (2 * NS)];
+
+        int last, last2;
+
+        const int NS_MASK = ((1 << (2*NS)) - 1);
+        uint32_t cum_offset = 0;
+
+        int L[256];
+        /* ACGTN* */
+        for (int i = 0; i < 256; i++) L[i] = 0;
+        L['A'] = L['a'] = 0;
+        L['C'] = L['c'] = 1;
+        L['G'] = L['g'] = 2;
+        L['T'] = L['t'] = 3;
+        L['N'] = L['n'] = 4; // is this correct?
+
+        RangeCoder rc;
+        rc.StartEncode();
+        rc.output(reinterpret_cast<char*>(buffer->mutable_data()));
+
+
+        for(int i = 0; i < n_lengths; ++i) {
+            /* Corresponds to a 12-mer word that doesn't occur in human genome. */
+            last  = 0x7616c7 & NS_MASK;
+            last2 = (0x2c6b62ff >> (32 - 2*NS)) & NS_MASK;
+
+            for (int j = 0; j < lengths[i]; ++j) {
+                unsigned char  b = L[(unsigned char)bases[cum_offset + j]];
+                model_seq16[last].EncodeSymbol(&rc, b);
+                last = (last*4 + b) & NS_MASK;
+                //volatile int p = *(int *)&model_seq16[last];
+                _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
+            }
+            cum_offset += lengths[i];
+        }
+
+       rc.FinishEncode();
+       std::cerr << "BASES encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;
+
+       delete[] model_seq16;
+       return(rc.size_out());
     }
 };
 

@@ -29,10 +29,10 @@
 namespace pil {
 
 template <int NSYM>
-struct SIMPLE_MODEL {
+struct FrequencyModel {
     enum { STEP=8 };
 
-    SIMPLE_MODEL();
+    FrequencyModel();
     inline void EncodeSymbol(RangeCoder *rc, uint16_t sym);
     inline int EncodeNearSymbol(RangeCoder *rc, uint16_t sym, int dist);
     inline uint16_t DecodeSymbol(RangeCoder *rc);
@@ -52,7 +52,7 @@ protected:
 
 
 template <int NSYM>
-SIMPLE_MODEL<NSYM>::SIMPLE_MODEL() {
+FrequencyModel<NSYM>::FrequencyModel() {
     for ( int i=0; i<NSYM; i++ ) {
         F[i].Symbol = i;
         F[i].Freq   = 1;
@@ -68,7 +68,7 @@ SIMPLE_MODEL<NSYM>::SIMPLE_MODEL() {
 
 
 template <int NSYM>
-void SIMPLE_MODEL<NSYM>::Normalize() {
+void FrequencyModel<NSYM>::Normalize() {
     /* Faster than F[i].Freq for 0 <= i < NSYM */
     TotFreq=0;
     for (SymFreqs *s = F; s->Freq; s++) {
@@ -78,7 +78,7 @@ void SIMPLE_MODEL<NSYM>::Normalize() {
 }
 
 template <int NSYM>
-inline void SIMPLE_MODEL<NSYM>::EncodeSymbol(RangeCoder *rc, uint16_t sym) {
+inline void FrequencyModel<NSYM>::EncodeSymbol(RangeCoder *rc, uint16_t sym) {
     SymFreqs *s = F;
     uint32_t AccFreq  = 0;
 
@@ -99,7 +99,7 @@ inline void SIMPLE_MODEL<NSYM>::EncodeSymbol(RangeCoder *rc, uint16_t sym) {
 }
 
 template <int NSYM>
-inline int SIMPLE_MODEL<NSYM>::EncodeNearSymbol(RangeCoder *rc, uint16_t sym, int dist) {
+inline int FrequencyModel<NSYM>::EncodeNearSymbol(RangeCoder *rc, uint16_t sym, int dist) {
     SymFreqs *s = F;
     uint32_t AccFreq  = 0;
     int new_sym;
@@ -126,7 +126,7 @@ inline int SIMPLE_MODEL<NSYM>::EncodeNearSymbol(RangeCoder *rc, uint16_t sym, in
 }
 
 template <int NSYM>
-inline uint16_t SIMPLE_MODEL<NSYM>::DecodeSymbol(RangeCoder *rc) {
+inline uint16_t FrequencyModel<NSYM>::DecodeSymbol(RangeCoder *rc) {
     SymFreqs* s = F;
     uint32_t freq = rc->GetFreq(TotFreq);
     uint32_t AccFreq;

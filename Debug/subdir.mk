@@ -6,17 +6,20 @@
 CPP_SRCS += \
 ../buffer.cpp \
 ../main.cpp \
-../memory_pool.cpp 
+../memory_pool.cpp \
+../table.cpp 
 
 OBJS += \
 ./buffer.o \
 ./main.o \
-./memory_pool.o 
+./memory_pool.o \
+./table.o 
 
 CPP_DEPS += \
 ./buffer.d \
 ./main.d \
-./memory_pool.d 
+./memory_pool.d \
+./table.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes

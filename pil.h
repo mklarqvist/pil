@@ -1,6 +1,8 @@
 #ifndef PIL_H_
 #define PIL_H_
 
+#include <string>
+
 namespace pil {
 
 /*------ Core enums --------*/
@@ -21,11 +23,33 @@ typedef enum {
     PIL_TYPE_FIXED_LEN_BYTE_ARRAY
 } PIL_PRIMITIVE_TYPE;
 
+const std::string PIL_PRIMITIVE_TYPE_STRING[14] = {
+        "UNKNOWN",
+        "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64",
+        "FLOAT", "DOUBLE",
+        "BYTE_ARRAY", "FIXED_LEN_BYTE_ARRAY"
+};
+
 typedef enum {
     PIL_CSTORE_UNKNOWN,
     PIL_CSTORE_TENSOR,
     PIL_CSTORE_COLUMN
 } PIL_CSTORE_TYPE;
+
+const std::string PIL_CSTORE_TYPE_STRING[3] = {"UNKNOWN", "TENSOR", "COLUMN-SPLIT"};
+
+typedef enum {
+    PIL_COMPRESS_AUTO,
+    PIL_COMPRESS_ZSTD,
+    PIL_COMPRESS_NONE,
+    PIL_COMPRESS_RC_QUAL,
+    PIL_COMPRESS_RC_BASES,
+    PIL_COMPRESS_RC_NAME,
+    PIL_ENCODE_DICT,
+    PIL_ENCODE_DELTA,
+    PIL_ENCODE_DELTA_DELTA,
+    PIL_ENCODE_BASES_2BIT
+} PIL_COMPRESSION_TYPE;
 
 }
 

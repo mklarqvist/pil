@@ -55,7 +55,6 @@ public:
         slots.back()->primitive_type = PIL_TYPE_BYTE_ARRAY;
         slots.back()->array_primitive_type = ptype;
 
-
         if(n_values * sizeof(T) > slots.back()->m)
             slots.back()->resize(n_values * sizeof(T) + 1024);
 
