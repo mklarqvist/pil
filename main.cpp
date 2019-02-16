@@ -166,7 +166,7 @@ int main(void){
     if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-        ss.open("/media/mdrk/NVMe/NA12878D_HiSeqX.bam.head.txt", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -194,13 +194,71 @@ int main(void){
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
+        std::unordered_map<std::string, uint32_t> RNAME_map;
+        std::vector<std::string> RNAME_dict;
+
         // We control wether we create a Tensor-model or Column-split-model ColumnStore
         // by using either Add (split-model) or AddArray (Tensor-model).
         while(std::getline(ss, line)){
+            if(line[0] == '@') continue;
+            //std::cerr << line << std::endl;
+
             std::stringstream ss(line);
             std::string s;
             uint32_t l = 0;
             while (std::getline(ss, s, '\t')) {
+                if(l == 1) {
+                    uint16_t flag = std::atoi(s.data());
+                    rbuild.Add<uint16_t>("FLAG", pil::PIL_TYPE_UINT16, flag);
+                }
+
+                if(l == 2) {
+                    uint32_t rname = 0;
+                    auto rname_hit = RNAME_map.find(s);
+                    if(rname_hit == RNAME_map.end()) {
+                       RNAME_map[s] = RNAME_dict.size();
+                       rname = RNAME_dict.size();
+                       RNAME_dict.push_back(s);
+                    } else rname = rname_hit->second;
+                    rbuild.Add<uint32_t>("RNAME", pil::PIL_TYPE_UINT32, rname);
+                }
+
+                if(l == 3) {
+                   uint32_t pos = std::atoi(s.data());
+                   rbuild.Add<uint32_t>("POS", pil::PIL_TYPE_UINT32, pos);
+               }
+
+                if(l == 4) {
+                   uint8_t mapq = std::atoi(s.data());
+                   rbuild.Add<uint8_t>("MAPQ", pil::PIL_TYPE_UINT8, mapq);
+               }
+
+                if(l == 5) {
+                   rbuild.AddArray<uint8_t>("CIGAR", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(s.data()), s.size());
+               }
+
+                if(l == 6) {
+                    uint32_t rnext = 0;
+                    auto rnext_hit = RNAME_map.find(s);
+                    if(rnext_hit == RNAME_map.end()) {
+                       RNAME_map[s] = RNAME_dict.size();
+                       rnext = RNAME_dict.size();
+                       RNAME_dict.push_back(s);
+                    } else rnext = rnext_hit->second;
+                    rbuild.Add<uint32_t>("RNEXT", pil::PIL_TYPE_UINT32, rnext);
+                   //rbuild.AddArray<uint8_t>("RNEXT", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(s.data()), s.size());
+               }
+
+                if(l == 7) {
+                   uint32_t pnext = std::atoi(s.data());
+                   rbuild.Add<uint32_t>("PNEXT", pil::PIL_TYPE_UINT32, pnext);
+               }
+
+                if(l == 8) {
+                   int32_t tlen = std::atoi(s.data());
+                   rbuild.Add<int32_t>("TLEN", pil::PIL_TYPE_INT32, tlen);
+               }
+
                 if(l == 9) {
                     //std::cout << s << std::endl;
                     //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
@@ -214,11 +272,32 @@ int main(void){
                     //std::cerr << line << std::endl;
                 }
 
+                if(l >= 11) {
+                   // std::cerr << "token: " << s << std::endl;
+                    std::stringstream ss2(s);
+                    std::string s2;
+                    std::vector<std::string> tk2;
+                    while (std::getline(ss2, s2, ':')) {
+                        //std::cerr << s2 << " and ";
+                        tk2.push_back(s2);
+                    }
+                    //std::cerr << std::endl;
+                    if(tk2[1].size() == 1 && tk2[1][0] == 'i') {
+                        //std::cerr << "is integer type" << std::endl;
+                        uint32_t val = std::atoi(tk2[2].data());
+                        rbuild.Add<uint32_t>(tk2[0], pil::PIL_TYPE_UINT32, val);
+                    } else {
+                        rbuild.AddArray<uint8_t>(tk2[0], pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(s.data()), s.size());
+                    }
+                }
+
                 ++l;
             }
             table.Append(rbuild);
         }
 
+        table.FinalizeBatch();
+        table.Describe(std::cerr);
     }
 
     if(0){
@@ -290,5 +369,5 @@ int main(void){
 
     std::cerr << "memory in: " << table.c_in << " memory out: " << table.c_out << " -> " << (float)table.c_in / table.c_out << std::endl;
 
-    return(1);
+    return(0);
 }

@@ -77,10 +77,10 @@ public:
             column_meta_data.back()->Set(cset->columns[i]);
             column_meta_data.back()->ComputeChecksum(cset->columns[i]);
 
-            std::cerr << "MD5: ";
-            for(int j = 0; j < 12; ++j)
-                std::cerr << (int)column_meta_data.back()->md5_checksum[j] << " ";
-            std::cerr << std::endl;
+            //std::cerr << "MD5: ";
+            //for(int j = 0; j < 12; ++j)
+            //    std::cerr << (int)column_meta_data.back()->md5_checksum[j] << " ";
+            //std::cerr << std::endl;
         }
     }
 
@@ -92,6 +92,13 @@ public:
             assert(ret != -1);
         }
         return(1);
+    }
+
+    int Set(std::shared_ptr<ColumnSet> cset) {
+        for(int i = 0; i < cset->size(); ++i) {
+            column_meta_data.back()->Set(cset->columns[i]);
+        }
+        return 1;
     }
 
     int Serialize(std::ostream& stream);
@@ -115,6 +122,48 @@ public:
 
         return(1);
     }
+
+    double AverageColumns() const {
+        if(cset_meta.size() == 0) return 0;
+        double tot = 0;
+
+        for(int i = 0; i < cset_meta.size(); ++i) {
+            tot += cset_meta[i]->column_meta_data.size();
+        }
+
+        return(tot / cset_meta.size());
+    }
+
+    double AverageCompressionFold() const {
+        if(cset_meta.size() == 0) return 0;
+        double uc = 0, c = 0;
+
+        for(int i = 0; i < cset_meta.size(); ++i) {
+            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+                uc += cset_meta[i]->column_meta_data[j]->uncompressed_size;
+                c += cset_meta[i]->column_meta_data[j]->compressed_size;
+            }
+        }
+
+        //std::cerr << "uc = " << uc << " and c = " << c << std::endl;
+        if(c == 0) return 0;
+        return(uc / c);
+    }
+
+    uint64_t TotalOccurences() const {
+        if(cset_meta.size() == 0) return 0;
+        uint64_t n = 0;
+
+        for(int i = 0; i < cset_meta.size(); ++i) {
+            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+                n += cset_meta[i]->column_meta_data[j]->n;
+            }
+        }
+
+        return(n);
+    }
+
+    inline size_t TotalCount() const { return(cset_meta.size()); }
 
     int Serialize(std::ostream& stream);
     int Deserialize(std::ostream& stream);
@@ -156,7 +205,7 @@ public:
         for(int i = 0; i < global_ids.size(); ++i){
             int32_t local = FindLocalField(global_ids[i]);
             if(local == -1) {
-                std::cerr << "inserting field: " << global_ids[i] << " into local map" << std::endl;
+                //std::cerr << "inserting field: " << global_ids[i] << " into local map" << std::endl;
                 global_local_field_map[global_ids[i]] = local_dict.size();
                 local = local_dict.size();
                 local_dict.push_back(global_ids[i]);
@@ -168,7 +217,7 @@ public:
     int AddGlobalField(const uint32_t global_id) {
         int32_t local = FindLocalField(global_id);
         if(local == -1) {
-            std::cerr << "inserting field: " << global_id << " into local map" << std::endl;
+            //std::cerr << "inserting field: " << global_id << " into local map @ " << local_dict.size() << std::endl;
             global_local_field_map[global_id] = local_dict.size();
             local = local_dict.size();
             local_dict.push_back(global_id);
@@ -178,7 +227,7 @@ public:
 
     int FindLocalField(const uint32_t global_id) const {
         std::unordered_map<uint32_t, uint32_t>::const_iterator ret = global_local_field_map.find(global_id);
-        if(ret != global_local_field_map.end()){
+        if(ret != global_local_field_map.end()) {
             return(ret->second);
         } else return(-1);
     }
@@ -188,7 +237,7 @@ public:
 
         uint64_t curpos = stream.tellp();
         file_offset = curpos;
-        std::cerr << "SERIALIZE offset=" << curpos << std::endl;
+        //std::cerr << "SERIALIZE offset=" << curpos << std::endl;
 
         stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&n_rec), sizeof(uint32_t));

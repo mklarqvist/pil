@@ -48,10 +48,13 @@ public:
         if(field.cstore == PIL_CSTORE_COLUMN) {
            std::cerr << "in cstore col: n=" << cset->size() << std::endl;
            for(int i = 0; i < cset->size(); ++i) {
-               ret += Compress(
+               int ret2 = Compress(
                        cset->columns[i]->buffer->mutable_data(),
                        cset->columns[i]->uncompressed_size,
                        compression_level);
+
+               cset->columns[i]->compressed_size = ret2;
+               ret += ret2;
            }
            return(ret);
         } else if(field.cstore == PIL_CSTORE_TENSOR) {
@@ -113,8 +116,10 @@ public:
             std::cerr << "in cstore col" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
                 uint32_t n_l = cset->columns[i]->n;
-                ret += Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                int ret2 = Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                cset->columns[i]->compressed_size = ret2;
                 cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
+                ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "in cstore tensor" << std::endl;
@@ -126,13 +131,15 @@ public:
 
             cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
 
-            ret += Compress(cset->columns[1]->buffer->mutable_data(),
+            int ret2 = Compress(cset->columns[1]->buffer->mutable_data(),
                             cset->columns[1]->uncompressed_size,
                             reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
                             cset->columns[0]->n);
 
+            cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
             cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
+            ret += ret2;
 
             std::cerr << "done: " << ret << std::endl;
         } else {
@@ -242,8 +249,10 @@ public:
             std::cerr << "in cstore col: COMPUTING BASES" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
                 uint32_t n_l = cset->columns[i]->n;
-                ret += Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                int ret2 = Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
                 cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_BASES);
+                cset->columns[i]->compressed_size = ret2;
+                ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
@@ -255,14 +264,16 @@ public:
 
             cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
 
-            ret += Compress(cset->columns[1]->buffer->mutable_data(),
+            int ret2 = Compress(cset->columns[1]->buffer->mutable_data(),
                             cset->columns[1]->uncompressed_size,
                             reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
                             cset->columns[0]->n);
 
+            cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_BASES);
             cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
 
+            ret += ret2;
             std::cerr << "done: " << ret << std::endl;
         } else {
             //std::cerr << "unknown cstore type" << std::endl;

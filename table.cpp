@@ -8,7 +8,13 @@ int Table::Append(RecordBuilder& builder) {
 
     // Check if the current RecordBatch has reached its Batch limit.
     // If it has then finalize the Batch.
-    if(meta_data.batches.back()->n_rec >= 4096) { FinalizeBatch(); }
+    if(meta_data.batches.back()->n_rec >= 8192) { FinalizeBatch(); }
+
+    //std::cerr << "ADDING: " << builder.slots[0]->field_name;
+    //for(int i = 1; i < builder.slots.size(); ++i) {
+    //    std::cerr << "," << builder.slots[i]->field_name;
+    //}
+    //std::cerr << std::endl;
 
     // Foreach field name string in the builder record we check if it
     // exists in the dictionary. If it exists we return that value, otherwise
@@ -20,9 +26,13 @@ int Table::Append(RecordBuilder& builder) {
         if(field_dict.Find(builder.slots[i]->field_name) == -1) {
             meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
         }
-        int32_t column_id = field_dict.FindOrAdd(builder.slots[i]->field_name, builder.slots[i]->primitive_type, builder.slots[i]->array_primitive_type);
+        int32_t column_id = field_dict.FindOrAdd(builder.slots[i]->field_name,
+                                                 builder.slots[i]->primitive_type,
+                                                 builder.slots[i]->array_primitive_type);
+        assert(column_id != -1);
         pattern.ids.push_back(column_id);
         pattern_map[column_id] = 1;
+        //std::cerr << "pattern_map = " << column_id << std::endl;
     }
 
     // Store Schema-id with each record.
@@ -36,9 +46,9 @@ int Table::Append(RecordBuilder& builder) {
         //std::cerr << "checking: " << pattern.ids[i] << "..." << std::endl;
         int32_t _segid = meta_data.batches.back()->FindLocalField(pattern.ids[i]);
         if(_segid == -1) {
-            std::cerr << "target column does NOT Exist in local stack: insert -> " << pattern.ids[i] << std::endl;
+            //std::cerr << "target column does NOT Exist in local stack: insert -> " << pattern.ids[i] << " -> " << builder.slots[i]->field_name << std::endl;
             _segid = BatchAddColumn(builder.slots[i]->primitive_type, builder.slots[i]->array_primitive_type, pattern.ids[i]);
-            std::cerr << "_segid=" << _segid << std::endl;
+            //std::cerr << "_segid=" << _segid << std::endl;
             assert(_segid != -1);
         }
 
@@ -55,20 +65,28 @@ int Table::Append(RecordBuilder& builder) {
     // Schema MUST be padded with NULLs for the current Schema. This is to
     // maintain the matrix-relationship between tuples and the ColumnSets.
 
-    std::vector<uint32_t> pad_tgts;
+    std::vector<uint32_t> pad_tgts; // Vector to hold values to be padded.
 
     for(int i = 0; i < meta_data.batches.back()->local_dict.size(); ++i) {
         std::unordered_map<uint32_t, uint32_t>::const_iterator it = pattern_map.find(meta_data.batches.back()->local_dict[i]);
-        if(it == pattern_map.end()) pad_tgts.push_back(i); // if not in set append it to vector
+        if(it == pattern_map.end()) {
+            //auto x = meta_data.batches.back()->global_local_field_map.find(meta_data.batches.back()->local_dict[i]);
+            //std::cerr << "can't find = " << meta_data.batches.back()->local_dict[i] << " local= " << x->second << std::endl;
+            pad_tgts.push_back(meta_data.batches.back()->local_dict[i]); // if not in set append it to vector
+        }
     }
 
     for(int i = 0; i < pad_tgts.size(); ++i) {
         // pad with nulls
         int32_t tgt_id = meta_data.batches.back()->FindLocalField(pad_tgts[i]);
         assert(_seg_stack[tgt_id].get() != nullptr);
-
-        std::cerr << "padding id: " << i << "->" << tgt_id << std::endl;
-        //exit(1);
+        //std::cerr << "padding id: " << i << "->" << tgt_id << "/" << meta_data.batches.back()->local_dict.size() << std::endl;
+        if(tgt_id == -1) {
+            for(int k = 0; k < meta_data.batches.back()->local_dict.size(); ++k) {
+                std::cerr << meta_data.batches.back()->local_dict[k] << std::endl;
+            }
+        }
+        assert(tgt_id != -1);
 
         PIL_PRIMITIVE_TYPE ptype = field_dict.dict[pad_tgts[i]].ptype;
         PIL_CSTORE_TYPE ctype = field_dict.dict[pad_tgts[i]].cstore;
@@ -112,10 +130,13 @@ int Table::Append(RecordBuilder& builder) {
 }
 
 // private
-int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype, PIL_PRIMITIVE_TYPE ptype_arr, uint32_t global_id) {
+int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
+                          PIL_PRIMITIVE_TYPE ptype_arr,
+                          uint32_t global_id)
+{
     //std::cerr << "target column does NOT Exist in local stack: insert -> " << global_id << std::endl;
     if(meta_data.batches.size() == 0) {
-        std::cerr << "need to allocate record batch" << std::endl;
+        //std::cerr << "need to allocate record batch" << std::endl;
         meta_data.batches.push_back(std::make_shared<RecordBatch>());
     }
     int col_id = meta_data.batches.back()->AddGlobalField(global_id);
@@ -123,7 +144,7 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype, PIL_PRIMITIVE_TYPE ptype_arr
     _seg_stack.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
 
     const uint32_t padding_to = meta_data.batches.back()->n_rec;
-    std::cerr << "padding up to: " << padding_to << std::endl;
+    if(padding_to != 0) std::cerr << "padding up to: " << padding_to << std::endl;
 
     int ret_status = 0;
     // Special case when there is no padding we have to force the correct
@@ -212,12 +233,11 @@ int Table::AppendData(const RecordBuilder& builder, const uint32_t slot_offset, 
 }
 
 int Table::FinalizeBatch() {
-    std::cerr << "record limit reached: " << meta_data.batches.back()->schemas->columns[0]->size() << ":" << meta_data.batches.back()->schemas->GetMemoryUsage() << std::endl;
+    //std::cerr << "record limit reached: " << meta_data.batches.back()->schemas->columns[0]->size() << ":" << meta_data.batches.back()->schemas->GetMemoryUsage() << std::endl;
 
     // Ugly reset of all data.
     Compressor compressor;
     uint32_t mem_in = 0, mem_out = 0;
-    DictionaryEncoder enc;
 
     for(int i = 0; i < _seg_stack.size(); ++i) {
         meta_data.field_meta[meta_data.batches.back()->local_dict[i]]->AddBatch(_seg_stack[i], meta_data.batches.size() - 1);
@@ -240,9 +260,12 @@ int Table::FinalizeBatch() {
 
         mem_in += _seg_stack[i]->GetMemoryUsage();
 
-        std::cerr << "global->local: " << meta_data.batches.back()->local_dict[i] << "->" << i << " with n=" << _seg_stack[i]->size() << std::endl;
+        std::cerr << "Compressing: " << field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name << std::endl;
+        //std::cerr << "global->local: " << meta_data.batches.back()->local_dict[i] << "->" << i << " with n=" << _seg_stack[i]->size() << std::endl;
         int ret = compressor.Compress(_seg_stack[i], field_dict.dict[meta_data.batches.back()->local_dict[i]]);
         std::cerr << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
+        // Store ColumnSet meta information in the MetaData structure.
+        tgt_cset->Set(_seg_stack[i]);
         mem_out += ret;
     }
 
@@ -260,13 +283,14 @@ int Table::FinalizeBatch() {
 void Table::Describe(std::ostream& stream) {
     stream << "---------------------------------" << std::endl;
     for(int i = 0; i < field_dict.dict.size(); ++i) {
-        stream << field_dict.dict[i].field_name << ": ptype " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << " cstore: " << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << " compmode: ";
-        if(field_dict.dict[i].transforms.size()){
+        stream << field_dict.dict[i].field_name << ": ptype " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << " cstore: " << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << " n=" << meta_data.field_meta[i]->TotalOccurences() << " compmode: ";
+        if(field_dict.dict[i].transforms.size()) {
             stream << field_dict.dict[i].transforms[0];
             for(int j = 1; j < field_dict.dict[i].transforms.size(); ++j) {
                 stream << "," << field_dict.dict[i].transforms[j];
             }
         } else stream << "auto";
+        stream << " Average cols=" << meta_data.field_meta[i]->AverageColumns() << ", n=" << meta_data.field_meta[i]->TotalCount() << " compression: " << meta_data.field_meta[i]->AverageCompressionFold() << "-fold average";
         stream << std::endl;
     }
     stream << "---------------------------------" << std::endl;
