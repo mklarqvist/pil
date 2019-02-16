@@ -68,7 +68,7 @@ int Table::Append(RecordBuilder& builder) {
         assert(_seg_stack[tgt_id].get() != nullptr);
 
         std::cerr << "padding id: " << i << "->" << tgt_id << std::endl;
-        exit(1);
+        //exit(1);
 
         PIL_PRIMITIVE_TYPE ptype = field_dict.dict[pad_tgts[i]].ptype;
         PIL_CSTORE_TYPE ctype = field_dict.dict[pad_tgts[i]].cstore;
@@ -113,7 +113,7 @@ int Table::Append(RecordBuilder& builder) {
 
 // private
 int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype, PIL_PRIMITIVE_TYPE ptype_arr, uint32_t global_id) {
-    std::cerr << "target column does NOT Exist in local stack: insert -> " << global_id << std::endl;
+    //std::cerr << "target column does NOT Exist in local stack: insert -> " << global_id << std::endl;
     if(meta_data.batches.size() == 0) {
         std::cerr << "need to allocate record batch" << std::endl;
         meta_data.batches.push_back(std::make_shared<RecordBatch>());

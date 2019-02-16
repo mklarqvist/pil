@@ -21,6 +21,7 @@ namespace pil {
 // themselves and is used in an Indexing capacity. For example, to perform
 // Segmental Elimination for predicate pushdown in selection queries.
 struct ColumnStoreMetaData {
+public:
     template <class T>
     int ComputeSegmentStats(std::shared_ptr<ColumnStore> cstore) {
         T* values = reinterpret_cast<T*>(cstore->buffer->mutable_data());
@@ -56,6 +57,10 @@ struct ColumnStoreMetaData {
         compressed_size = cstore->compressed_size;
     }
 
+    int Serialize(std::ostream& stream);
+    int Deserialize(std::ostream& stream);
+
+public:
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
     bool sorted; // is this ColumnStore sorted (relative itself)
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements
@@ -64,6 +69,7 @@ struct ColumnStoreMetaData {
 };
 
 struct ColumnSetMetaData {
+public:
     ColumnSetMetaData(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) : record_batch_id(batch_id)
     {
         for(int i = 0; i < cset->size(); ++i) {
@@ -88,6 +94,10 @@ struct ColumnSetMetaData {
         return(1);
     }
 
+    int Serialize(std::ostream& stream);
+    int Deserialize(std::ostream& stream);
+
+public:
     uint32_t record_batch_id; // What RecordBatch does this ColumnSet belong to.
     std::vector< std::shared_ptr<ColumnStoreMetaData> > column_meta_data;
 };
@@ -96,6 +106,7 @@ struct ColumnSetMetaData {
 // Then every time a RecordBatch is flushed we add the ColumnSet data
 // statistics.
 struct FieldMetaData {
+public:
     int AddBatch(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
         if(cset.get() == nullptr) return(-1);
 
@@ -105,6 +116,10 @@ struct FieldMetaData {
         return(1);
     }
 
+    int Serialize(std::ostream& stream);
+    int Deserialize(std::ostream& stream);
+
+public:
     std::string file_name;
     std::vector< std::shared_ptr<ColumnSetMetaData> > cset_meta;
 };
@@ -127,7 +142,7 @@ struct FieldMetaData {
  */
 struct RecordBatch {
 public:
-    RecordBatch() : n_rec(0), file_offset(0), schemas(){}
+    RecordBatch() : file_offset(0), n_rec(0){}
 
     // Insert a GLOBAL Schema id into the record batch
     int AddSchema(uint32_t pid) {
@@ -207,8 +222,12 @@ public:
 };
 
 struct FileMetaData {
+public:
     FileMetaData() : n_rows(0){}
 
+    inline void AddRowCounts(const uint32_t c) { n_rows += c; }
+
+public:
     uint64_t n_rows;
     // Efficient map of a RecordBatch to the ColumnSets it contains:
     // we can do this by the querying the local Schemas.
@@ -225,7 +244,7 @@ struct FileMetaData {
 
 struct Table {
 public:
-    Table() : c_in(0), c_out(0){}
+    Table() : single_archive(false), c_in(0), c_out(0){}
 
 	/**<
 	 * Convert a tuple into ColumnStore representation. This function will accept

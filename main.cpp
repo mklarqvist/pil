@@ -8,6 +8,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 int main(void){
     /*
@@ -102,57 +103,123 @@ int main(void){
     }
     */
 
-    std::ifstream ss;
-    ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-    if(ss.good() == false){
-        std::cerr << "not good: " << ss.badbit << std::endl;
-        return 1;
-    }
 
-    table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
-    if(table.out_stream.good() == false) {
-        std::cerr << "failed to open output file" << std::endl;
-        return 1;
-    }
+    // Set to 1 for FASTQ test
+    if(0) {
+        std::ifstream ss;
+        //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
+        if(ss.good() == false){
+            std::cerr << "not good: " << ss.badbit << std::endl;
+            return 1;
+        }
+        uint64_t file_size = ss.tellg();
+        ss.seekg(0);
 
-    std::string line;
-    uint32_t ltype = 0;
-
-    pil::BaseBitEncoder enc;
-
-    std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
-    ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
-    ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
-    table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
-    ctypes.clear();
-    ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
-    //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
-    table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
-
-    // We control wether we create a Tensor-model or Column-split-model ColumnStore
-    // by using either Add (split-model) or AddArray (Tensor-model).
-    while(std::getline(ss, line)){
-        if(ltype == 1) {
-            //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
+        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        if(table.out_stream.good() == false) {
+            std::cerr << "failed to open output file" << std::endl;
+            return 1;
         }
 
-        if(ltype == 3) {
-            rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
-            //std::cerr << line << std::endl;
+        std::string line;
+        uint32_t ltype = 0;
+
+        pil::BaseBitEncoder enc;
+
+        std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
+        ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
+        ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+        table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+        ctypes.clear();
+        ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
+        //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+        table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
+        // We control wether we create a Tensor-model or Column-split-model ColumnStore
+        // by using either Add (split-model) or AddArray (Tensor-model).
+        while(std::getline(ss, line)){
+            if(ltype == 1) {
+                //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
+                rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+                //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
+            }
+
+            if(ltype == 3) {
+                rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
+                //std::cerr << line << std::endl;
+            }
+
+            ++ltype;
+            if(ltype == 4){
+                table.Append(rbuild);
+                ltype = 0;
+            }
+        }
+        table.FinalizeBatch();
+
+        table.Describe(std::cerr);
+    }
+
+    // Set to 1 for SAM test
+    if(1) {
+        std::ifstream ss;
+        //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+        ss.open("/media/mdrk/NVMe/NA12878D_HiSeqX.bam.head.txt", std::ios::ate | std::ios::in);
+        if(ss.good() == false){
+            std::cerr << "not good: " << ss.badbit << std::endl;
+            return 1;
+        }
+        uint64_t file_size = ss.tellg();
+        ss.seekg(0);
+
+        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        if(table.out_stream.good() == false) {
+            std::cerr << "failed to open output file" << std::endl;
+            return 1;
         }
 
-        ++ltype;
-        if(ltype == 4){
+        std::string line;
+
+        pil::BaseBitEncoder enc;
+
+        std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
+        ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
+        ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+        table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+        ctypes.clear();
+        ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
+        //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+        table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
+        // We control wether we create a Tensor-model or Column-split-model ColumnStore
+        // by using either Add (split-model) or AddArray (Tensor-model).
+        while(std::getline(ss, line)){
+            std::stringstream ss(line);
+            std::string s;
+            uint32_t l = 0;
+            while (std::getline(ss, s, '\t')) {
+                if(l == 9) {
+                    //std::cout << s << std::endl;
+                    //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
+                    rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(s.data()), s.size());
+                    //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
+                }
+
+                if(l == 10) {
+                    //std::cout << s << std::endl;
+                    rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(s.data()), s.size());
+                    //std::cerr << line << std::endl;
+                }
+
+                ++l;
+            }
             table.Append(rbuild);
-            ltype = 0;
         }
+
     }
-    table.FinalizeBatch();
-
-    table.Describe(std::cerr);
-
 
     if(0){
         std::vector<float> vecvals2 = {1};
