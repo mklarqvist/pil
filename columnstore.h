@@ -46,7 +46,7 @@ public:
 public:
     bool sorted; // is this ColumnStore sorted (relative itself)
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
-    std::vector<uint32_t> transformations; // order of transformations:
+    std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                            // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
 

@@ -43,7 +43,10 @@ struct ColumnStoreMetaData {
         return(1);
     }
 
-    int ComputeChecksum(const ColumnStore& cstore);
+    int ComputeChecksum(std::shared_ptr<ColumnStore> cstore) {
+        Digest::GenerateMd5(cstore->mutable_data(), cstore->uncompressed_size, md5_checksum);
+        return(1);
+    }
 
     void Set(std::shared_ptr<ColumnStore> cstore) {
         sorted = cstore->sorted;
@@ -66,7 +69,8 @@ struct ColumnSetMetaData {
         for(int i = 0; i < cset->size(); ++i) {
             column_meta_data.push_back(std::make_shared<ColumnStoreMetaData>());
             column_meta_data.back()->Set(cset->columns[i]);
-            Digest::GenerateMd5(cset->columns[i]->mutable_data(), cset->columns[i]->uncompressed_size, column_meta_data.back()->md5_checksum);
+            column_meta_data.back()->ComputeChecksum(cset->columns[i]);
+
             std::cerr << "MD5: ";
             for(int j = 0; j < 12; ++j)
                 std::cerr << (int)column_meta_data.back()->md5_checksum[j] << " ";
@@ -336,6 +340,7 @@ public:
     FileMetaData meta_data;
 
 public: // private:
+    bool single_archive; // Write a single archive or mutiple output files in a directory.
     // Construction helpers
     uint64_t c_in, c_out;
     //std::shared_ptr<RecordBatch> record_batch; // temporary instance of a RecordBatch

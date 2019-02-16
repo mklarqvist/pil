@@ -219,12 +219,6 @@ int Table::FinalizeBatch() {
     uint32_t mem_in = 0, mem_out = 0;
     DictionaryEncoder enc;
 
-    // which one is qual?
-    //int qual_col = meta_data.batches.back()->global_local_field_map[field_dict.Find("QUAL")];
-    //field_dict.dict[field_dict.Find("QUAL")].compression_mode = PIL_COMPRESS_RC_QUAL;
-
-
-    //
     for(int i = 0; i < _seg_stack.size(); ++i) {
         meta_data.field_meta[meta_data.batches.back()->local_dict[i]]->AddBatch(_seg_stack[i], meta_data.batches.size() - 1);
 
@@ -247,16 +241,11 @@ int Table::FinalizeBatch() {
         mem_in += _seg_stack[i]->GetMemoryUsage();
 
         std::cerr << "global->local: " << meta_data.batches.back()->local_dict[i] << "->" << i << " with n=" << _seg_stack[i]->size() << std::endl;
-        //std::cerr << "compressing: " << meta_data.batches.back()->dict[i] << std::endl;
         int ret = compressor.Compress(_seg_stack[i], field_dict.dict[meta_data.batches.back()->local_dict[i]]);
         std::cerr << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
         mem_out += ret;
-
-        //std::cerr << "segstack size=" << _seg_stack[i]->columns.size() << std::endl;
-        //std::cerr << "field_meta size=" << meta_data.field_meta.size() << std::endl;
-
-
     }
+
     _seg_stack.clear();
     std::cerr << "total: compressed: " << mem_in << "->" << mem_out << "(" << (float)mem_in/mem_out << "-fold)" << std::endl;
     c_in += mem_in;
@@ -282,6 +271,8 @@ void Table::Describe(std::ostream& stream) {
     }
     stream << "---------------------------------" << std::endl;
 
+    return;
+
     stream << "Batches=" << meta_data.batches.size() << std::endl;
     for(int i = 0; i < meta_data.batches.size(); ++i) {
         // Residual RecordBatch.
@@ -304,6 +295,16 @@ void Table::Describe(std::ostream& stream) {
             stream << "," << meta_data.field_meta[i]->cset_meta[j]->record_batch_id;
         }
         stream << "]" << std::endl;
+
+        stream << "\t\tcsets=[\n";
+        for(int k = 0; k < meta_data.field_meta[i]->cset_meta.size(); ++k) {
+            stream << "\t\t\t[" << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[0]->n;
+            for(int j = 1; j < meta_data.field_meta[i]->cset_meta[k]->column_meta_data.size(); ++j) {
+                stream << "," << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[j]->n;
+            }
+            stream << "]\n";
+        }
+        stream << "\t\t]" << std::endl;
     }
 }
 
