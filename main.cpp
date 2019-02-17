@@ -163,7 +163,7 @@ int main(void){
     }
 
     // Set to 1 for SAM test
-    if(0) {
+    if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
@@ -330,11 +330,11 @@ int main(void){
     }
 
     // Set to 1 for VCF test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
-        ss.open("/media/mdrk/NVMe/1kgp3_chr20.vcf", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/1kgp3_chr20_50k.vcf", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -439,6 +439,7 @@ int main(void){
                         tk2.push_back(s2);
                     }
 
+                    if(l == 9) std::cerr << (int)std::atoi(tk2[0].data());
                     rbuild.Add<uint8_t>("GT-" + std::to_string(sample), pil::PIL_TYPE_UINT8, (uint8_t)std::atoi(tk2[0].data()));
                     rbuild.Add<uint8_t>("GT-" + std::to_string(sample + 1), pil::PIL_TYPE_UINT8, (uint8_t)std::atoi(tk2[1].data()));
                     sample += 2;

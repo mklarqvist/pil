@@ -125,7 +125,8 @@ int Table::Append(RecordBuilder& builder) {
     }
 
     ++builder.n_added;
-    builder.slots.clear();
+    builder.reset();
+    //builder.slots.clear();
     return(1); // success
 }
 

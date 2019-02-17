@@ -46,22 +46,28 @@ public:
 
 struct RecordBuilder {
 public:
+    RecordBuilder() : n_added(0), n_used(0) {}
+
     template <class T>
     int AddArray(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T* value, uint32_t n_values) {
         if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
-        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
-        slots.back()->field_name = id;
-        slots.back()->stride = n_values;
-        slots.back()->primitive_type = PIL_TYPE_BYTE_ARRAY;
-        slots.back()->array_primitive_type = ptype;
 
-        if(n_values * sizeof(T) > slots.back()->m)
-            slots.back()->resize(n_values * sizeof(T) + 1024);
+        if(n_used == slots.size()) {
+            slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        }
+        slots[n_used]->field_name = id;
+        slots[n_used]->stride = n_values;
+        slots[n_used]->primitive_type = PIL_TYPE_BYTE_ARRAY;
+        slots[n_used]->array_primitive_type = ptype;
+
+        if(n_values * sizeof(T) > slots[n_used]->m)
+            slots[n_used]->resize(n_values * sizeof(T) + 1024);
 
         for(int i = 0; i < n_values; ++i){
-            reinterpret_cast<T*>(slots.back()->data)[i] = value[i];
+            reinterpret_cast<T*>(slots[n_used]->data)[i] = value[i];
         }
-        slots.back()->n = sizeof(T) * n_values;
+        slots[n_used]->n = sizeof(T) * n_values;
+        ++n_used;
 
         // Success
         return(1);
@@ -70,19 +76,22 @@ public:
     template <class T>
     int AddArray(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::vector<T>& values) {
         if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
-        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
-        slots.back()->field_name = id;
-        slots.back()->stride = values.size();
-        slots.back()->primitive_type = PIL_TYPE_BYTE_ARRAY;
-        slots.back()->array_primitive_type = ptype;
+        if(n_used == slots.size()) {
+            slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        }
+        slots[n_used]->field_name = id;
+        slots[n_used]->stride = values.size();
+        slots[n_used]->primitive_type = PIL_TYPE_BYTE_ARRAY;
+        slots[n_used]->array_primitive_type = ptype;
 
-        if(values.size() * sizeof(T) > slots.back()->m)
-            slots.back()->resize(values.size() * sizeof(T) + 1024);
+        if(values.size() * sizeof(T) > slots[n_used]->m)
+            slots[n_used]->resize(values.size() * sizeof(T) + 1024);
 
         for(int i = 0; i < values.size(); ++i){
-            reinterpret_cast<T*>(slots.back()->data)[i] = values[i];
+            reinterpret_cast<T*>(slots[n_used]->data)[i] = values[i];
         }
-        slots.back()->n = sizeof(T) * values.size();
+        slots[n_used]->n = sizeof(T) * values.size();
+        ++n_used;
 
         // Success
         return(1);
@@ -91,12 +100,15 @@ public:
     template <class T>
     int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T value) {
         if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
-        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
-        slots.back()->field_name = id;
-        slots.back()->stride = 1;
-        slots.back()->primitive_type = ptype;
-        reinterpret_cast<T*>(slots.back()->data)[0] = value;
-        slots.back()->n = sizeof(T);
+        if(n_used == slots.size()) {
+            slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        }
+        slots[n_used]->field_name = id;
+        slots[n_used]->stride = 1;
+        slots[n_used]->primitive_type = ptype;
+        reinterpret_cast<T*>(slots[n_used]->data)[0] = value;
+        slots[n_used]->n = sizeof(T);
+        ++n_used;
 
         // Success
         return(1);
@@ -105,18 +117,21 @@ public:
     template <class T>
     int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T* value, uint32_t n_values) {
         if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
-        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
-        slots.back()->field_name = id;
-        slots.back()->stride = n_values;
-        slots.back()->primitive_type = ptype;
+        if(n_used == slots.size()) {
+            slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        }
+        slots[n_used]->field_name = id;
+        slots[n_used]->stride = n_values;
+        slots[n_used]->primitive_type = ptype;
 
-        if(n_values * sizeof(T) > slots.back()->m)
-            slots.back()->resize(n_values * sizeof(T) + 1024);
+        if(n_values * sizeof(T) > slots[n_used]->m)
+            slots[n_used]->resize(n_values * sizeof(T) + 1024);
 
         for(int i = 0; i < n_values; ++i){
-            reinterpret_cast<T*>(slots.back()->data)[i] = value[i];
+            reinterpret_cast<T*>(slots[n_used]->data)[i] = value[i];
         }
-        slots.back()->n = sizeof(T) * n_values;
+        slots[n_used]->n = sizeof(T) * n_values;
+        ++n_used;
 
         // Success
         return(1);
@@ -125,25 +140,25 @@ public:
     template <class T>
     int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::vector<T>& values) {
         if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
-        slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
-        slots.back()->field_name = id;
-        slots.back()->stride = values.size();
-        slots.back()->primitive_type = ptype;
+        if(n_used == slots.size()) {
+            slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
+        }
+        slots[n_used]->field_name = id;
+        slots[n_used]->stride = values.size();
+        slots[n_used]->primitive_type = ptype;
 
-        if(values.size() * sizeof(T) > slots.back()->m)
-            slots.back()->resize(values.size() * sizeof(T) + 1024);
+        if(values.size() * sizeof(T) > slots[n_used]->m)
+            slots[n_used]->resize(values.size() * sizeof(T) + 1024);
 
         for(int i = 0; i < values.size(); ++i){
-            reinterpret_cast<T*>(slots.back()->data)[i] = values[i];
+            reinterpret_cast<T*>(slots[n_used]->data)[i] = values[i];
         }
-        slots.back()->n = sizeof(T) * values.size();
+        slots[n_used]->n = sizeof(T) * values.size();
+        ++n_used;
 
         // Success
         return(1);
     }
-
-    // Partial specialization for std::string
-    int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::string& values);
 
     int PrintDebug() {
         for(int i = 0; i < slots.size(); ++i){
@@ -153,11 +168,16 @@ public:
         return(1);
     }
 
-public:
-    int n_added;
-    uint32_t batch_size;
+    void reset() {
+        n_used = 0;
+        for(int i = 0; i < slots.size(); ++i) {
+            slots[i]->n = 0;
+        }
+    }
 
-    // Vector of slots.
+public:
+    uint64_t n_added;
+    uint32_t n_used;
     std::vector< std::unique_ptr<RecordBuilderFields> > slots;
 };
 
