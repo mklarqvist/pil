@@ -1,6 +1,8 @@
 #ifndef TABLE_H_
 #define TABLE_H_
 
+#include <random>
+
 #include <algorithm>
 #include <unordered_map>
 
@@ -50,11 +52,10 @@ public:
     }
 
     void Set(std::shared_ptr<ColumnStore> cstore) {
-        sorted = cstore->sorted;
         n = cstore->n;
         m = cstore->m;
         uncompressed_size = cstore->uncompressed_size;
-        compressed_size = cstore->compressed_size;
+        compressed_size   = cstore->compressed_size;
     }
 
     int Serialize(std::ostream& stream);
@@ -62,7 +63,6 @@ public:
 
 public:
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
-    bool sorted; // is this ColumnStore sorted (relative itself)
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements
     int64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
     uint8_t md5_checksum[16]; // checksum for buffer
@@ -114,6 +114,8 @@ public:
 // statistics.
 struct FieldMetaData {
 public:
+    FieldMetaData() : open_writer(false), open_reader(false){}
+
     int AddBatch(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
         if(cset.get() == nullptr) return(-1);
 
@@ -165,11 +167,97 @@ public:
 
     inline size_t TotalCount() const { return(cset_meta.size()); }
 
+    uint64_t TotalUncompressed() const {
+        if(cset_meta.size() == 0) return 0;
+        uint64_t n = 0;
+
+        for(int i = 0; i < cset_meta.size(); ++i) {
+            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+                n += cset_meta[i]->column_meta_data[j]->uncompressed_size;
+            }
+        }
+
+        return(n);
+    }
+
+    uint64_t TotalCompressed() const {
+        if(cset_meta.size() == 0) return 0;
+        uint64_t n = 0;
+
+        for(int i = 0; i < cset_meta.size(); ++i) {
+            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+                n += cset_meta[i]->column_meta_data[j]->compressed_size;
+            }
+        }
+
+        return(n);
+    }
+
+    std::string random_string(std::string::size_type length)
+    {
+        static auto& chrs = "0123456789"
+            "abcdefghijklmnopqrstuvwxyz"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        thread_local static std::mt19937 rg{std::random_device{}()};
+        thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
+
+        std::string s;
+
+        s.reserve(length);
+
+        while(length--)
+            s += chrs[pick(rg)];
+
+        return s;
+    }
+
+    int OpenWriter(const std::string& prefix) {
+        std::string random = random_string(46);
+        std::string out = prefix + "_" + random + ".pil";
+        file_name = out;
+        writer = std::unique_ptr<std::ofstream>(new std::ofstream());
+        std::cerr << "opening: " << file_name << std::endl;
+        writer->open(file_name, std::ios::binary | std::ios::out);
+
+        if(writer->good() == false) {
+            return(-1);
+        }
+
+        open_writer = true;
+
+        return(1);
+    }
+
+    // Todo: pass cstore to serialize to dist writer
+    // Assumes we are writing blocks *IN ORDER* as we use the latest MetaData
+    // unit to store the information in.
+    int Serialize(std::shared_ptr<ColumnSet> cset) {
+        if(cset.get() == nullptr) return(-1);
+
+        if(open_writer == false) {
+            if(OpenWriter("/media/mdrk/NVMe/test") != 1) {
+                return(-1);
+            }
+        }
+
+        for(int i = 0; i < cset->size(); ++i) {
+            cset_meta.back()->column_meta_data[i]->file_offset = writer->tellp();
+            std::cerr << "setting offset=" << cset_meta.back()->column_meta_data[i]->file_offset << std::endl;
+            int ret = cset->columns[i]->Serialize(*writer.get());
+        }
+        writer->flush();
+        return(1);
+    }
+
     int Serialize(std::ostream& stream);
     int Deserialize(std::ostream& stream);
 
 public:
+    bool open_writer, open_reader;
     std::string file_name;
+    std::unique_ptr<std::ofstream> writer;
+    std::unique_ptr<std::ifstream> reader;
     std::vector< std::shared_ptr<ColumnSetMetaData> > cset_meta;
 };
 

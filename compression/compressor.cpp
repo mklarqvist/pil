@@ -14,12 +14,19 @@ int Compressor::Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldT
     // Todo: fix
     //std::cerr << "first compressor=" << field.transforms.front() << std::endl;
 
-    switch(field.transforms.front()) {
-    case(PIL_COMPRESS_AUTO): return(CompressAuto(cset, field)); break;
-    case(PIL_COMPRESS_RC_QUAL): return(static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore)); break;
-    case(PIL_COMPRESS_RC_BASES): return(static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore)); break;
-    default: std::cerr << "unknown ctype: " << (int)field.transforms.front() << std::endl; return -1; break;
+    int ret = 0;
+    for(int i = 0; i < field.transforms.size(); ++i) {
+        int ret2 = -1;
+        switch(field.transforms[i]) {
+        case(PIL_COMPRESS_AUTO):
+        case(PIL_COMPRESS_ZSTD): ret2 = CompressAuto(cset, field); break;
+        case(PIL_COMPRESS_RC_QUAL): ret2 = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
+        case(PIL_COMPRESS_RC_BASES): ret2 = static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore); break;
+        default: std::cerr << "unknown ctype: " << (int)field.transforms.front() << std::endl; break;
+        }
+        if(ret2 != -1) ret += ret2;
     }
+    return(ret);
 }
 
 int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
@@ -33,10 +40,12 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
            int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
                    cset->columns[i]->buffer->mutable_data(),
                    cset->columns[i]->uncompressed_size,
-                   6);
+                   PIL_ZSTD_DEFAULT_LEVEL);
 
 
            cset->columns[i]->compressed_size = ret2;
+           memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+           cset->columns[i]->transformations.push_back(PIL_COMPRESS_ZSTD);
            ret += ret2;
 
        }
@@ -46,21 +55,27 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
                               cset->columns[0]->n,
                               0);
+       cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
 
        int ret1 = static_cast<ZstdCompressor*>(this)->Compress(
                                cset->columns[0]->buffer->mutable_data(),
                                cset->columns[0]->uncompressed_size,
-                               6);
+                               PIL_ZSTD_DEFAULT_LEVEL);
+       memcpy(cset->columns[0]->buffer->mutable_data(), buffer->mutable_data(), ret1);
+       cset->columns[0]->compressed_size = ret1;
+       cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
 
-       cset->columns[0]->compressed_size = ret;
+
        std::cerr << "delta-zstd: " << cset->columns[0]->uncompressed_size << "->" << ret1 << " (" << (float)cset->columns[0]->uncompressed_size/ret1 << "-fold)" << std::endl;
 
        int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
                                       cset->columns[1]->buffer->mutable_data(),
                                       cset->columns[1]->uncompressed_size,
-                                      6);
+                                      PIL_ZSTD_DEFAULT_LEVEL);
        std::cerr << "data-zstd: " << cset->columns[1]->uncompressed_size << "->" << ret2 << " (" << (float)cset->columns[1]->uncompressed_size/ret2 << "-fold)" << std::endl;
+       memcpy(cset->columns[1]->buffer->mutable_data(), buffer->mutable_data(), ret2);
        cset->columns[1]->compressed_size = ret2;
+       cset->columns[1]->transformations.push_back(PIL_COMPRESS_ZSTD);
 
        ret += ret1 + ret2;
        return(ret);

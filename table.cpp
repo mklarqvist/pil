@@ -266,6 +266,16 @@ int Table::FinalizeBatch() {
         std::cerr << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
         // Store ColumnSet meta information in the MetaData structure.
         tgt_cset->Set(_seg_stack[i]);
+
+        // Todo: write data to disk shards
+        //media/mdrk/NVMe/test
+        std::shared_ptr<FieldMetaData> tgt_field = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
+        if(tgt_field->open_writer == false)
+            tgt_field->OpenWriter("/media/mdrk/NVMe/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
+
+        //tgt_cset->column_meta_data[i]->file_offset;
+        tgt_field->Serialize(_seg_stack[i]);
+
         mem_out += ret;
     }
 
@@ -290,7 +300,8 @@ void Table::Describe(std::ostream& stream) {
                 stream << "," << field_dict.dict[i].transforms[j];
             }
         } else stream << "auto";
-        stream << " Average cols=" << meta_data.field_meta[i]->AverageColumns() << ", n=" << meta_data.field_meta[i]->TotalCount() << " compression: " << meta_data.field_meta[i]->AverageCompressionFold() << "-fold average";
+        stream << " Average cols=" << meta_data.field_meta[i]->AverageColumns() << ", batches_n=" << meta_data.field_meta[i]->TotalCount() << " mean-comp: " << meta_data.field_meta[i]->AverageCompressionFold() << "-fold";
+        stream << " U=" << meta_data.field_meta[i]->TotalUncompressed() << " C=" << meta_data.field_meta[i]->TotalCompressed();
         stream << std::endl;
     }
     stream << "---------------------------------" << std::endl;

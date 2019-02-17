@@ -40,8 +40,21 @@ protected:
 
 class DictionaryEncoder : public Encoder {
 public:
+    template <class  T>
+    int Encode(std::shared_ptr<ColumnSet> cset, std::shared_ptr<ColumnStore> cstore, const uint32_t n_in) {
+        uint32_t tgt_col = cset->columns.size();
+        cset->columns.push_back(std::make_shared<ColumnStore>());
+        ++cset->n;
+
+        Encode<T>(cstore, cset->columns[tgt_col], n_in);
+
+        cstore->transformations.push_back(PIL_ENCODE_DICT);
+        // todo: add transformations arg
+        return 1;
+    }
+
     template <class T>
-    int Encode(const T* in, const uint32_t n_in) {
+    int Encode(std::shared_ptr<ColumnStore> src, std::shared_ptr<ColumnStore> dst, const uint32_t n_in) {
         if(buffer.get() == nullptr) {
             assert(AllocateResizableBuffer(pool_, n_in*sizeof(T) + 64, &buffer) == 1);
         }
@@ -53,6 +66,7 @@ public:
         typedef std::unordered_map<T, uint32_t> map_type;
         map_type map;
         std::vector<uint32_t> list;
+        T* in = reinterpret_cast<T*>(src->mutable_data());
         T* dat = reinterpret_cast<T*>(buffer->mutable_data());
 
         for(uint32_t i = 0; i < n_in; ++i) {
@@ -61,6 +75,11 @@ public:
                 dat[i] = list.size();
                 list.push_back(in[i]);
             } else dat[i] = map.find(in[i])->second;
+        }
+
+        std::shared_ptr< ColumnStoreBuilder<uint32_t> > b = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(dst);
+        for(int i = 0; i < list.size(); ++i) {
+            b->Append(list[i]);
         }
 
         std::cerr << "map=" << list.size() << " out of " << n_in << std::endl;

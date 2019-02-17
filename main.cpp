@@ -166,7 +166,8 @@ int main(void){
     if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-        ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -183,16 +184,19 @@ int main(void){
 
         std::string line;
 
-        pil::BaseBitEncoder enc;
+        pil::DictionaryEncoder enc;
 
         std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
         ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
-        ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
         ctypes.clear();
         ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+        ctypes.clear();
+        ctypes.push_back(pil::PIL_ENCODE_DICT);
+        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        table.SetField("RNAME", pil::PIL_TYPE_UINT32, ctypes);
 
         std::unordered_map<std::string, uint32_t> RNAME_map;
         std::vector<std::string> RNAME_dict;
@@ -207,6 +211,30 @@ int main(void){
             std::string s;
             uint32_t l = 0;
             while (std::getline(ss, s, '\t')) {
+                if(l == 0) {
+                    std::stringstream ss2(s);
+                    std::string s2;
+                    std::vector<std::string> tk2;
+                    while (std::getline(ss2, s2, ':')) {
+                        //std::cerr << s2 << ", ";
+                        tk2.push_back(s2);
+                    }
+                   // std::cerr << std::endl;
+                    //std::cerr << "tk2: " << tk2.size() << std::endl;
+                    rbuild.AddArray<uint8_t>("NAME-1", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[0][0]), tk2[0].size());
+                    uint32_t name2 = std::atoi(tk2[1].data());
+                    rbuild.Add<uint32_t>("NAME-2", pil::PIL_TYPE_UINT32, name2);
+                    rbuild.AddArray<uint8_t>("NAME-3", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[2][0]), tk2[2].size());
+                    uint32_t name4 = std::atoi(tk2[3].data());
+                    rbuild.Add<uint32_t>("NAME-4", pil::PIL_TYPE_UINT32, name4);
+                    uint32_t name5 = std::atoi(tk2[4].data());
+                    rbuild.Add<uint32_t>("NAME-5", pil::PIL_TYPE_UINT32, name5);
+                    uint32_t name6 = std::atoi(tk2[5].data());
+                    rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name6);
+                    uint32_t name7 = std::atoi(tk2[6].data());
+                    rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name7);
+                }
+
                 if(l == 1) {
                     uint16_t flag = std::atoi(s.data());
                     rbuild.Add<uint16_t>("FLAG", pil::PIL_TYPE_UINT16, flag);
@@ -220,6 +248,7 @@ int main(void){
                        rname = RNAME_dict.size();
                        RNAME_dict.push_back(s);
                     } else rname = rname_hit->second;
+
                     rbuild.Add<uint32_t>("RNAME", pil::PIL_TYPE_UINT32, rname);
                 }
 

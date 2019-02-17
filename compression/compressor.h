@@ -12,6 +12,8 @@
 #include "fastdelta.h"
 #include "base_model.h"
 
+#define PIL_ZSTD_DEFAULT_LEVEL 1
+
 namespace pil {
 
 class Compressor {
@@ -54,6 +56,7 @@ public:
                        compression_level);
 
                cset->columns[i]->compressed_size = ret2;
+               memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
                ret += ret2;
            }
            return(ret);
@@ -119,6 +122,7 @@ public:
                 int ret2 = Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
                 cset->columns[i]->compressed_size = ret2;
                 cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
+                memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
@@ -136,10 +140,18 @@ public:
                             reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
                             cset->columns[0]->n);
 
+            memcpy(cset->columns[1]->buffer->mutable_data(), buffer->mutable_data(), ret2);
             cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
-            cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
             ret += ret2;
+
+            int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
+                                           cset->columns[0]->buffer->mutable_data(),
+                                           cset->columns[0]->uncompressed_size,
+                                           PIL_ZSTD_DEFAULT_LEVEL);
+            memcpy(cset->columns[0]->buffer->mutable_data(), buffer->mutable_data(), ret1);
+            cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
+            cset->columns[0]->compressed_size = ret1;
 
             std::cerr << "done: " << ret << std::endl;
         } else {
@@ -150,7 +162,12 @@ public:
         return(ret);
     }
 
-    int Compress(const uint8_t* qual, const uint32_t n_src, uint32_t qlevel, RangeCoder* rc, FrequencyModel<QMAX>* model_qual) {
+    int Compress(const uint8_t* qual,
+                 const uint32_t n_src,
+                 uint32_t qlevel,
+                 RangeCoder* rc,
+                 FrequencyModel<QMAX>* model_qual)
+    {
         uint32_t last = 0;
         int delta = 5;
         int i, len2 = n_src;
@@ -252,6 +269,7 @@ public:
                 int ret2 = Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
                 cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_BASES);
                 cset->columns[i]->compressed_size = ret2;
+                memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
@@ -271,7 +289,15 @@ public:
 
             cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_BASES);
+            memcpy(cset->columns[1]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+
+            int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
+                                           cset->columns[0]->buffer->mutable_data(),
+                                           cset->columns[0]->uncompressed_size,
+                                           PIL_ZSTD_DEFAULT_LEVEL);
+            memcpy(cset->columns[0]->buffer->mutable_data(), buffer->mutable_data(), ret1);
             cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
+            cset->columns[0]->compressed_size = ret1;
 
             ret += ret2;
             std::cerr << "done: " << ret << std::endl;

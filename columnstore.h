@@ -26,7 +26,7 @@ namespace pil {
 struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
-        sorted(false), n(0), m(0), uncompressed_size(0), compressed_size(0),
+        n(0), m(0), uncompressed_size(0), compressed_size(0),
         pool_(pool)
     {
     }
@@ -43,8 +43,34 @@ public:
     // PrettyPrint representation of array suitable for debugging.
     std::string ToString() const;
 
+    // Serialize/deserialize to/from disk
+    int Serialize(std::ostream& stream) {
+        stream.write(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&m), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&compressed_size),   sizeof(uint32_t));
+
+        uint32_t n_transforms = transformations.size();
+        stream.write(reinterpret_cast<char*>(&n_transforms), sizeof(uint32_t));
+
+        assert(transformations.size() != 0);
+        for(int i = 0; i < transformations.size(); ++i) {
+            uint32_t t_type = transformations[i];
+            stream.write(reinterpret_cast<char*>(&t_type), sizeof(uint32_t));
+        }
+
+        if(buffer.get() != nullptr) {
+            std::cerr << "writing n= " << size() << " c=" << compressed_size << std::endl;
+            stream.write(reinterpret_cast<char*>(buffer->mutable_data()), compressed_size);
+        }
+
+        return(1);
+
+    }
+
+    int Deserialize(std::ostream& stream);
+
 public:
-    bool sorted; // is this ColumnStore sorted (relative itself)
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
@@ -53,6 +79,7 @@ public:
     // Any memory is owned by the respective Buffer instance (or its parents).
     MemoryPool* pool_;
     std::shared_ptr<ResizableBuffer> buffer; // Actual data BLOB
+    std::shared_ptr<ResizableBuffer> nullity; // NULLity vector
     std::shared_ptr<ResizableBuffer> transformation_args; // BLOB storing the parameters for the transformation operations.
 };
 
