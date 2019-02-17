@@ -163,7 +163,7 @@ int main(void){
     }
 
     // Set to 1 for SAM test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
@@ -184,7 +184,7 @@ int main(void){
 
         std::string line;
 
-        pil::DictionaryEncoder enc;
+        //pil::DictionaryEncoder enc;
 
         std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
         ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
@@ -329,6 +329,131 @@ int main(void){
         table.Describe(std::cerr);
     }
 
+    // Set to 1 for VCF test
+    if(1) {
+        std::ifstream ss;
+        //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+        //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/1kgp3_chr20.vcf", std::ios::ate | std::ios::in);
+        if(ss.good() == false){
+            std::cerr << "not good: " << ss.badbit << std::endl;
+            return 1;
+        }
+        uint64_t file_size = ss.tellg();
+        ss.seekg(0);
+
+        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        if(table.out_stream.good() == false) {
+            std::cerr << "failed to open output file" << std::endl;
+            return 1;
+        }
+
+        std::string line;
+
+        //pil::DictionaryEncoder enc;
+        // std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
+
+        std::unordered_map<std::string, uint32_t> RNAME_map;
+        std::vector<std::string> RNAME_dict;
+
+        std::unordered_map<std::string, uint32_t> FILTER_map;
+        std::vector<std::string> FILTER_dict;
+
+        std::unordered_map<std::string, uint32_t> GT_map;
+        std::vector<std::string> GT_dict;
+
+        // We control wether we create a Tensor-model or Column-split-model ColumnStore
+        // by using either Add (split-model) or AddArray (Tensor-model).
+        /*
+         * Test file tokens looks like this:
+         * 0: 20
+         * 1: 62783
+         * 2: rs189195684
+         * 3: A
+         * 4: G
+         * 5: 100
+         * 6: PASS
+         * 7: AC=3;AF=0.000599042;AN=5008;NS=2504;DP=16623;EAS_AF=0;AMR_AF=0;AFR_AF=0.0023;EUR_AF=0;SAS_AF=0;AA=.|||
+         * 8: GT
+         * 9: 0|0
+         * ...
+         * 2512: 0|0
+         */
+        while(std::getline(ss, line)) {
+            if(line[0] == '#') continue;
+            //std::cerr << line << std::endl;
+
+            std::stringstream ss(line);
+            std::string s;
+            uint32_t l = 0;
+            uint32_t sample = 0;
+            while (std::getline(ss, s, '\t')) {
+                //std::cerr << l << ": " << s << std::endl;
+                if(l == 0) {
+                    uint32_t rname = 0;
+                    auto rname_hit = RNAME_map.find(s);
+                    if(rname_hit == RNAME_map.end()) {
+                       RNAME_map[s] = RNAME_dict.size();
+                       rname = RNAME_dict.size();
+                       RNAME_dict.push_back(s);
+                    } else rname = rname_hit->second;
+
+                    rbuild.Add<uint32_t>("RNAME", pil::PIL_TYPE_UINT32, rname);
+                }
+                if(l == 1) {
+                    uint32_t pos = std::atoi(s.data());
+                    rbuild.Add<uint32_t>("POS", pil::PIL_TYPE_UINT32, pos);
+                }
+                if(l == 2) {
+                    rbuild.AddArray<uint8_t>("NAME", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&s[0]), s.size());
+                }
+                if(l == 3) {
+                    rbuild.AddArray<uint8_t>("REF", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&s[0]), s.size());
+                }
+                if(l == 4) {
+                    rbuild.AddArray<uint8_t>("ALT", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&s[0]), s.size());
+                }
+                if(l == 5) {
+                    uint32_t qual = std::atof(s.data());
+                    rbuild.Add<float>("QUAL", pil::PIL_TYPE_FLOAT, qual);
+                }
+                if(l == 6) {
+                    uint32_t filter = 0;
+                    auto filter_hit = FILTER_map.find(s);
+                    if(filter_hit == FILTER_map.end()) {
+                       FILTER_map[s] = FILTER_dict.size();
+                       filter = FILTER_dict.size();
+                       FILTER_dict.push_back(s);
+                    } else filter = filter_hit->second;
+
+                    rbuild.Add<uint32_t>("FILTER", pil::PIL_TYPE_UINT32, filter);
+                }
+
+                if(l > 8) {
+                    std::stringstream ss2(s);
+                    std::string s2;
+                    std::vector<std::string> tk2;
+                    while (std::getline(ss2, s2, '|')) {
+                        //std::cerr << s2 << " and ";
+                        tk2.push_back(s2);
+                    }
+
+                    rbuild.Add<uint8_t>("GT-" + std::to_string(sample), pil::PIL_TYPE_UINT8, (uint8_t)std::atoi(tk2[0].data()));
+                    rbuild.Add<uint8_t>("GT-" + std::to_string(sample + 1), pil::PIL_TYPE_UINT8, (uint8_t)std::atoi(tk2[1].data()));
+                    sample += 2;
+                }
+
+                ++l;
+            }
+            table.Append(rbuild);
+        }
+
+        table.FinalizeBatch();
+        table.Describe(std::cerr);
+    }
+
+    // Set to 1 for general debug
     if(0){
         std::vector<float> vecvals2 = {1};
         rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);

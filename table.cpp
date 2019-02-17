@@ -68,7 +68,7 @@ int Table::Append(RecordBuilder& builder) {
     std::vector<uint32_t> pad_tgts; // Vector to hold values to be padded.
 
     for(int i = 0; i < meta_data.batches.back()->local_dict.size(); ++i) {
-        std::unordered_map<uint32_t, uint32_t>::const_iterator it = pattern_map.find(meta_data.batches.back()->local_dict[i]);
+        auto it = pattern_map.find(meta_data.batches.back()->local_dict[i]);
         if(it == pattern_map.end()) {
             //auto x = meta_data.batches.back()->global_local_field_map.find(meta_data.batches.back()->local_dict[i]);
             //std::cerr << "can't find = " << meta_data.batches.back()->local_dict[i] << " local= " << x->second << std::endl;
