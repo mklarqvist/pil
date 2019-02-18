@@ -130,7 +130,7 @@ int main(void){
 
         std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
         ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
-        ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
+        //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
         ctypes.clear();
         ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);

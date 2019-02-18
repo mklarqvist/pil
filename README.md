@@ -14,10 +14,16 @@ We created `Pil` to make the advantages of compressed, efficient columnar data r
 |---------|------------|-------------|-------------------|----------------|
 | FASTQ   | 2337920025 | -           | 1                 | No             |
 | gzip    | 775486779  | 5m25.651s   | 3.014777          | No             |
+| zstd    | 783213067  | 0m32.145s   | 2.985037          | No             |
 | fqzcomp | 441223058  | 1m34.187s   | 5.298726          | No             |
 | Pil     | 507390923  | 3m34.864s   | 4.607729          | Yes            |
 
-`fqzcomp -s3 -e -q2 -n2 ERR194146.fastq ERR194146.fastq.fqz`
+#### Settings
+
+* `gzip -c ERR194146.fastq > ERR194146.fastq.gz`
+* `fqzcomp -s3 -e -q2 -n2 ERR194146.fastq ERR194146.fastq.fqz`
+* `zstd -3 ERR194146.fastq -o ERR194146.fastq.zst`
+* `Pil` used `PIL_COMPRESS_RC_QUAL` and `PIL_COMPRESS_RC_BASES` codecs for per-base quality scores and bases, respectively. Sequence names were tokenized by `:` (colon) and partitioned into `ColumnStores` without additional processing.
 
 ### SAM/BAM/CRAM: Unaligned readset
 
