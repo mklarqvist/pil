@@ -41,12 +41,15 @@ protected:
 class DictionaryEncoder : public Encoder {
 public:
     template <class  T>
-    int Encode(std::shared_ptr<ColumnSet> cset, std::shared_ptr<ColumnStore> cstore, const uint32_t n_in) {
+    int Encode(std::shared_ptr<ColumnSet> cset,
+               std::shared_ptr<ColumnStore> cstore,
+               const uint32_t n_in)
+    {
         uint32_t tgt_col = cset->columns.size();
-        cset->columns.push_back(std::make_shared<ColumnStore>());
+        cset->columns.push_back(std::make_shared<ColumnStore>(pil::default_memory_pool()));
         ++cset->n;
 
-        Encode<T>(cstore, cset->columns[tgt_col], n_in);
+        int ret = Encode<T>(cstore, cset->columns[tgt_col], n_in);
 
         cstore->transformations.push_back(PIL_ENCODE_DICT);
         // todo: add transformations arg
@@ -54,7 +57,10 @@ public:
     }
 
     template <class T>
-    int Encode(std::shared_ptr<ColumnStore> src, std::shared_ptr<ColumnStore> dst, const uint32_t n_in) {
+    int Encode(std::shared_ptr<ColumnStore> src,
+               std::shared_ptr<ColumnStore> dst,
+               const uint32_t n_in)
+    {
         if(buffer.get() == nullptr) {
             assert(AllocateResizableBuffer(pool_, n_in*sizeof(T) + 64, &buffer) == 1);
         }
@@ -66,7 +72,7 @@ public:
         typedef std::unordered_map<T, uint32_t> map_type;
         map_type map;
         std::vector<uint32_t> list;
-        T* in = reinterpret_cast<T*>(src->mutable_data());
+        const T* in = reinterpret_cast<const T*>(src->mutable_data());
         T* dat = reinterpret_cast<T*>(buffer->mutable_data());
 
         for(uint32_t i = 0; i < n_in; ++i) {
@@ -83,6 +89,7 @@ public:
         }
 
         std::cerr << "map=" << list.size() << " out of " << n_in << std::endl;
+        std::cerr << "dst=" << dst->n << " sz=" << dst->uncompressed_size << std::endl;
         return(1);
     }
 };

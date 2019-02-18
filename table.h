@@ -74,7 +74,8 @@ public:
 
 struct ColumnSetMetaData {
 public:
-    ColumnSetMetaData(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) : record_batch_id(batch_id)
+    ColumnSetMetaData(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) :
+        record_batch_id(batch_id)
     {
         for(int i = 0; i < cset->size(); ++i) {
             column_meta_data.push_back(std::make_shared<ColumnStoreMetaData>());

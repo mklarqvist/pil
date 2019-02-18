@@ -2,11 +2,11 @@
 
 ## Experimental repository in pre-alpha. Use with caution!
 
-`Pil` (arrow in Swedish) is a C++ library specifying a language-independent columnar memory format for flat data, organized for efficient analytic operations on modern hardware. Uniquely, `Pil` support online construction using a schema-independent approach.
+`Pil` (arrow in Swedish) is a C++ library specifying a language-independent columnar memory format for flat data, organized for efficient analytic operations on modern hardware. Uniquely, `Pil` support online construction using a schema-agnostic approach.
 
 We created `Pil` to make the advantages of compressed, efficient columnar data representation with support for very efficient compression and encoding schemes with a focus on supporting genomics data. `Pil` allows compression schemes to be specified on a per-column level, and is future-proofed to allow adding more encodings as they are invented and implemented.
 
-`Pil` can consume all of the incumbent interchange formats including: SAM, BAM, CRAM, VCF, BCF, YON, FASTA, FASTQ and have native support for sequencing-specific range coders (CRAM and fqzcomp), PBWT (GTC), individual-centric bitmaps (GQT).
+`Pil` can consume all of the incumbent interchange formats including: SAM, BAM, CRAM, VCF, BCF, YON, FASTA, FASTQ and have native coding support for sequencing-specific range codecs (CRAM and fqzcomp), PBWT (BGT), genotype-PBWT (YON), and individual-centric WAH-bitmaps (GQT).
 
 ## Preliminary results
 
@@ -20,7 +20,7 @@ We created `Pil` to make the advantages of compressed, efficient columnar data r
 | gzip    | 775486779  | 5m25.651s   | 3.014777          | No             |
 | zstd    | 783213067  | 0m32.145s   | 2.985037          | No             |
 | fqzcomp | 441223058  | 1m34.187s   | 5.298726          | No             |
-| Pil     | 526428863  | 3m34.864s   | 4.44046           | Yes            |
+| Pil     | 526428863  | 3m34.864s   | 4.440460          | Yes            |
 
 #### Settings
 

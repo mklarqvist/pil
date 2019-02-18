@@ -12,6 +12,9 @@
 #include "fastdelta.h"
 #include "base_model.h"
 
+// todo
+#include "../encoder.h"
+
 #define PIL_ZSTD_DEFAULT_LEVEL 1
 
 namespace pil {
@@ -24,6 +27,40 @@ public:
     int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     virtual int Decompress(){ return 1; }
+
+    // TOdo: fix
+    int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+        if(cset.get() == nullptr) return(-1);
+
+        std::cerr << "IN DICTIONARY ENCODER" << std::endl;
+
+        DictionaryEncoder dict;
+        if(field.cstore == PIL_CSTORE_COLUMN) {
+            int ret_status = -1;
+            switch(field.ptype) {
+            case(PIL_TYPE_INT8):   ret_status = dict.Encode<uint8_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_INT16):  ret_status = dict.Encode<uint16_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_INT32):  ret_status = dict.Encode<uint32_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_INT64):  ret_status = dict.Encode<uint64_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_UINT8):  ret_status = dict.Encode<int8_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_UINT16): ret_status = dict.Encode<int16_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_UINT32): ret_status = dict.Encode<int32_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_UINT64): ret_status = dict.Encode<int64_t>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_FLOAT):  ret_status = dict.Encode<float>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_DOUBLE): ret_status = dict.Encode<double>(cset, cset->columns[0], cset->columns[0]->n); break;
+            }
+
+        } else if(field.cstore == PIL_CSTORE_TENSOR) {
+            std::cerr << "not allowed yet" << std::endl;
+            exit(1);
+
+        } else {
+            std::cerr << "unknwon" << std::endl;
+            exit(1);
+        }
+
+        return(1);
+    }
 
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
 

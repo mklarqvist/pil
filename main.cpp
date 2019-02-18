@@ -161,6 +161,11 @@ int main(void){
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
+        ctypes.clear();
+        ctypes.push_back(pil::PIL_ENCODE_DICT);
+        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        table.SetField("NAME-7", pil::PIL_TYPE_UINT32, ctypes);
+
         // We control wether we create a Tensor-model or Column-split-model ColumnStore
         // by using either Add (split-model) or AddArray (Tensor-model).
         while(std::getline(ss, line)){
@@ -201,8 +206,8 @@ int main(void){
 
                 rbuild.AddArray<uint8_t>("NAME-5", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&right[2][0]), right[2].size());
 
-                uint32_t name5 = std::atoi(right[3].c_str());
-                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name5);
+                uint8_t name5 = std::atoi(right[3].c_str());
+                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT8, name5);
 
                 uint32_t name6 = std::atoi(right[4].c_str());
                 rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name6);

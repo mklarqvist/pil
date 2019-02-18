@@ -20,6 +20,7 @@ int Compressor::Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldT
         switch(field.transforms[i]) {
         case(PIL_COMPRESS_AUTO):
         case(PIL_COMPRESS_ZSTD): ret2 = CompressAuto(cset, field); break;
+        case(PIL_ENCODE_DICT):   ret2 = DictionaryEncode(cset, field); break;
         case(PIL_COMPRESS_RC_QUAL): ret2 = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_BASES): ret2 = static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore); break;
         default: std::cerr << "unknown ctype: " << (int)field.transforms.front() << std::endl; break;
@@ -37,24 +38,29 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
     if(field.cstore == PIL_CSTORE_COLUMN) {
        std::cerr << "COMPRESS: ZSTD@columnar: n=" << cset->size() << std::endl;
        for(int i = 0; i < cset->size(); ++i) {
-           const uint32_t n_nullity = std::ceil((float)cset->columns[i]->n / 32);
+           // Not every ColumnStore has a Nullity bitmap. For example, Dictionary
+           // columns.
+           if(cset->columns[i]->nullity.get() != nullptr) {
+               const uint32_t n_nullity = std::ceil((float)cset->columns[i]->n / 32);
 
-           int retNull = static_cast<ZstdCompressor*>(this)->Compress(
-                              cset->columns[i]->nullity->mutable_data(),
-                              n_nullity,
-                              PIL_ZSTD_DEFAULT_LEVEL);
+               int retNull = static_cast<ZstdCompressor*>(this)->Compress(
+                                  cset->columns[i]->nullity->mutable_data(),
+                                  n_nullity,
+                                  PIL_ZSTD_DEFAULT_LEVEL);
 
-           cset->columns[i]->nullity_u = n_nullity;
-           cset->columns[i]->nullity_c = retNull;
-           ret += retNull;
-           memcpy(cset->columns[i]->nullity->mutable_data(), buffer->mutable_data(), retNull);
-           std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)retNull/n_nullity << "-fold)" << std::endl;
+               cset->columns[i]->nullity_u = n_nullity;
+               cset->columns[i]->nullity_c = retNull;
+               ret += retNull;
+               memcpy(cset->columns[i]->nullity->mutable_data(), buffer->mutable_data(), retNull);
+               std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
+           }
 
            int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
                    cset->columns[i]->buffer->mutable_data(),
                    cset->columns[i]->uncompressed_size,
                    PIL_ZSTD_DEFAULT_LEVEL);
 
+           std::cerr << "data-zstd: " << cset->columns[i]->uncompressed_size << "->" << ret2 << " (" << (float)cset->columns[i]->uncompressed_size/ret2 << "-fold)" << std::endl;
 
            cset->columns[i]->compressed_size = ret2;
            memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
