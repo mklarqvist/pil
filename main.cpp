@@ -10,6 +10,30 @@
 #include <iostream>
 #include <sstream>
 
+std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
+{
+    std::vector<std::string> results;
+
+    size_t prev = 0;
+    size_t next = 0;
+
+    while ((next = source.find_first_of(delimiter, prev)) != std::string::npos)
+    {
+        if (keepEmpty || (next - prev != 0))
+        {
+            results.push_back(source.substr(prev, next - prev));
+        }
+        prev = next + 1;
+    }
+
+    if (prev < source.size())
+    {
+        results.push_back(source.substr(prev));
+    }
+
+    return results;
+}
+
 int main(void){
     /*
     // MemoryPool tests.
@@ -141,27 +165,56 @@ int main(void){
         // by using either Add (split-model) or AddArray (Tensor-model).
         while(std::getline(ss, line)){
             if(ltype == 0) {
-                std::stringstream ss2(line);
-                std::string s2;
-                std::vector<std::string> tk2;
-                while (std::getline(ss2, s2, ':')) {
-                    //std::cerr << s2 << ", ";
-                    tk2.push_back(s2);
+                // @ERR194146.812444544 HSQ1008:141:D0CC8ACXX:3:2204:14148:71629/1
+                // 1: Split by space
+                // 2: Split first by .
+                // 3: Split second by :
+                // 4: Split second last by /
+                std::vector<std::string> left_right = StringSplit(line, " ", false);
+                std::vector<std::string> left = StringSplit(left_right[0], ".", false);
+                std::vector<std::string> right = StringSplit(left_right[1], ":", false);
+                std::vector<std::string> last = StringSplit(right.back(), "/", false);
+                // @ERR194146, 812444541
+                // HSQ1008, 141, D0CC8ACXX, 2, 1204, 13288, 78171/2
+                // 78171 and 2
+
+                /*
+                std::cerr << left_right[0] << ", " << left_right[1] << std::endl;
+                std::cerr << left[0] << ", " << left[1] << std::endl;
+                std::cerr << right[0];
+                for(int i = 1; i < right.size(); ++i) {
+                    std::cerr << ", " << right[i];
                 }
-               // std::cerr << std::endl;
-                //std::cerr << "tk2: " << tk2.size() << std::endl;
-                rbuild.AddArray<uint8_t>("NAME-1", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[0][0]), tk2[0].size());
-                uint32_t name2 = std::atoi(tk2[1].data());
+                std::cerr << std::endl;
+                std::cerr << last[0] << " and " << last[1] << std::endl;
+                */
+
+                rbuild.AddArray<uint8_t>("NAME-1", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&left[0]), left[0].size());
+
+                uint32_t name2 = std::atoi(left[1].c_str());
                 rbuild.Add<uint32_t>("NAME-2", pil::PIL_TYPE_UINT32, name2);
-                rbuild.AddArray<uint8_t>("NAME-3", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[2][0]), tk2[2].size());
-                uint32_t name4 = std::atoi(tk2[3].data());
-                rbuild.Add<uint32_t>("NAME-4", pil::PIL_TYPE_UINT32, name4);
-                uint32_t name5 = std::atoi(tk2[4].data());
-                rbuild.Add<uint32_t>("NAME-5", pil::PIL_TYPE_UINT32, name5);
-                uint32_t name6 = std::atoi(tk2[5].data());
-                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name6);
-                uint32_t name7 = std::atoi(tk2[6].data());
-                rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name7);
+
+                rbuild.AddArray<uint8_t>("NAME-3", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&right[0][0]), right[0].size());
+
+                uint8_t name4 = std::atoi(right[1].c_str());
+                rbuild.Add<uint8_t>("NAME-4", pil::PIL_TYPE_UINT8, name4);
+
+                rbuild.AddArray<uint8_t>("NAME-5", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&right[2][0]), right[2].size());
+
+                uint32_t name5 = std::atoi(right[3].c_str());
+                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name5);
+
+                uint32_t name6 = std::atoi(right[4].c_str());
+                rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name6);
+
+                uint32_t name7 = std::atoi(right[5].c_str());
+                rbuild.Add<uint32_t>("NAME-8", pil::PIL_TYPE_UINT32, name7);
+
+                uint32_t name8 = std::atoi(last[0].c_str());
+                rbuild.Add<uint32_t>("NAME-9", pil::PIL_TYPE_UINT32, name8);
+
+                uint8_t name9 = std::atoi(last[1].c_str());
+                rbuild.Add<uint8_t>("NAME-10", pil::PIL_TYPE_UINT8, name9);
             }
 
             if(ltype == 1) {

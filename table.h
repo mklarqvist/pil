@@ -26,7 +26,7 @@ struct ColumnStoreMetaData {
 public:
     template <class T>
     int ComputeSegmentStats(std::shared_ptr<ColumnStore> cstore) {
-        T* values = reinterpret_cast<T*>(cstore->buffer->mutable_data());
+        const T* values = reinterpret_cast<const T*>(cstore->buffer->mutable_data());
         T min = std::numeric_limits<T>::max();
         T max = std::numeric_limits<T>::min();
 
@@ -39,8 +39,11 @@ public:
         // the minimum and maximum values to it.
         stats_surrogate_min = 0;
         stats_surrogate_max = 0;
-        *reinterpret_cast<T*>(&stats_surrogate_min) = min;
-        *reinterpret_cast<T*>(&stats_surrogate_max) = max;
+        // use memcpy to properly handle punning
+        std::memcpy(&stats_surrogate_min, &min, sizeof(T));
+        std::memcpy(&stats_surrogate_max, &max, sizeof(T));
+        //*reinterpret_cast<T*>(&stats_surrogate_min) = min;
+        //*reinterpret_cast<T*>(&stats_surrogate_max) = max;
 
         std::cerr << "min-max: " << (int)min << "-" << (int)max << std::endl;
         return(1);
@@ -481,8 +484,8 @@ public:
             meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
             int ret = field_dict.FindOrAdd(field_name, ptype, ptype_array);
             std::cerr << "returned=" << ret << std::endl;
-            int _segid = BatchAddColumn(ptype, ptype_array, ret);
-            std::cerr << "_segid=" << _segid << std::endl;
+            //int _segid = BatchAddColumn(ptype, ptype_array, ret);
+            //std::cerr << "_segid=" << _segid << std::endl;
             field_dict.dict[ret].transforms = ctype;
         } else {
             std::cerr << "already exists" << std::endl;

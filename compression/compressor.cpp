@@ -37,6 +37,19 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
     if(field.cstore == PIL_CSTORE_COLUMN) {
        std::cerr << "COMPRESS: ZSTD@columnar: n=" << cset->size() << std::endl;
        for(int i = 0; i < cset->size(); ++i) {
+           const uint32_t n_nullity = std::ceil((float)cset->columns[i]->n / 32);
+
+           int retNull = static_cast<ZstdCompressor*>(this)->Compress(
+                              cset->columns[i]->nullity->mutable_data(),
+                              n_nullity,
+                              PIL_ZSTD_DEFAULT_LEVEL);
+
+           cset->columns[i]->nullity_u = n_nullity;
+           cset->columns[i]->nullity_c = retNull;
+           ret += retNull;
+           memcpy(cset->columns[i]->nullity->mutable_data(), buffer->mutable_data(), retNull);
+           std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)retNull/n_nullity << "-fold)" << std::endl;
+
            int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
                    cset->columns[i]->buffer->mutable_data(),
                    cset->columns[i]->uncompressed_size,
@@ -65,6 +78,18 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        cset->columns[0]->compressed_size = ret1;
        cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
 
+       const uint32_t n_nullity = std::ceil((float)cset->columns[0]->n / 32);
+       int retNull = static_cast<ZstdCompressor*>(this)->Compress(
+                                     cset->columns[0]->nullity->mutable_data(),
+                                     n_nullity,
+                                     PIL_ZSTD_DEFAULT_LEVEL);
+
+      cset->columns[0]->nullity_u = n_nullity;
+      cset->columns[0]->nullity_c = retNull;
+      memcpy(cset->columns[0]->nullity->mutable_data(), buffer->mutable_data(), retNull);
+      ret += retNull;
+      std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
+
 
        std::cerr << "delta-zstd: " << cset->columns[0]->uncompressed_size << "->" << ret1 << " (" << (float)cset->columns[0]->uncompressed_size/ret1 << "-fold)" << std::endl;
 
@@ -77,7 +102,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        cset->columns[1]->compressed_size = ret2;
        cset->columns[1]->transformations.push_back(PIL_COMPRESS_ZSTD);
 
-       ret += ret1 + ret2;
+       ret += ret1 + ret2 + retNull;
        return(ret);
     } else {
        //std::cerr << "unknown cstore type" << std::endl;
