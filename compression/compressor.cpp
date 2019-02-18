@@ -21,6 +21,7 @@ int Compressor::Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldT
         case(PIL_COMPRESS_AUTO):
         case(PIL_COMPRESS_ZSTD): ret2 = CompressAuto(cset, field); break;
         case(PIL_ENCODE_DICT):   ret2 = DictionaryEncode(cset, field); break;
+        case(PIL_ENCODE_DELTA):  ret2 = DeltaEncode(cset, field); break;
         case(PIL_COMPRESS_RC_QUAL): ret2 = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_BASES): ret2 = static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore); break;
         default: std::cerr << "unknown ctype: " << (int)field.transforms.front() << std::endl; break;

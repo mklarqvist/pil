@@ -75,6 +75,7 @@ public:
             std::cerr << "nullity=" << sizeof(uint32_t)*n_nullity << "b -> " << nullity_c << std::endl;
             const uint32_t* nulls = reinterpret_cast<const uint32_t*>(nullity->mutable_data());
             stream.write(reinterpret_cast<const char*>(nulls), nullity_c);
+            std::cerr << "after writing nullity" << std::endl;
             //for(int i = 0; i < n_nullity; ++i) {
             //    std::cerr << std::bitset<32>(nulls[i]) << " ";
             //}
@@ -86,6 +87,9 @@ public:
     }
 
     int Deserialize(std::ostream& stream);
+
+    // Todo: this function needs to check data() not immutable_data()!!
+    bool IsValid(const uint32_t p) { return(reinterpret_cast<uint32_t*>(nullity->mutable_data())[n / 32] & (1 << (p % 32))); }
 
 public:
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()

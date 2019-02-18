@@ -62,6 +62,39 @@ public:
         return(1);
     }
 
+    // todo: fix
+    int DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+        if(cset.get() == nullptr) return(-1);
+
+        std::cerr << "IN DELTA ENCODER" << std::endl;
+
+        if(field.cstore == PIL_CSTORE_COLUMN) {
+            int ret_status = -1;
+            switch(field.ptype) {
+            case(PIL_TYPE_INT8):
+            case(PIL_TYPE_INT16):
+            case(PIL_TYPE_INT32):
+            case(PIL_TYPE_INT64):
+            case(PIL_TYPE_UINT8):
+            case(PIL_TYPE_UINT16):
+            case(PIL_TYPE_UINT64):
+            case(PIL_TYPE_FLOAT):
+            case(PIL_TYPE_DOUBLE): return(-1);
+            case(PIL_TYPE_UINT32): compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->mutable_data()), cset->columns[0]->n, 0); break;
+            }
+
+        } else if(field.cstore == PIL_CSTORE_TENSOR) {
+            std::cerr << "not allowed yet" << std::endl;
+            exit(1);
+
+        } else {
+            std::cerr << "unknwon" << std::endl;
+            exit(1);
+        }
+
+        return(1);
+    }
+
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
 
 protected:

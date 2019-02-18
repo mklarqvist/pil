@@ -88,6 +88,9 @@ public:
             b->Append(list[i]);
         }
 
+        // todo: test: replacing original data with dict-encoded data
+        memcpy(src->mutable_data(), dat, src->uncompressed_size);
+
         std::cerr << "map=" << list.size() << " out of " << n_in << std::endl;
         std::cerr << "dst=" << dst->n << " sz=" << dst->uncompressed_size << std::endl;
         return(1);

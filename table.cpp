@@ -8,7 +8,7 @@ int Table::Append(RecordBuilder& builder) {
 
     // Check if the current RecordBatch has reached its Batch limit.
     // If it has then finalize the Batch.
-    if(meta_data.batches.back()->n_rec >= 8192) { FinalizeBatch(); }
+    if(meta_data.batches.back()->n_rec >= 8192*6) { FinalizeBatch(); }
 
     //std::cerr << "ADDING: " << builder.slots[0]->field_name;
     //for(int i = 1; i < builder.slots.size(); ++i) {

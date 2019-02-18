@@ -166,6 +166,11 @@ int main(void){
         ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
         table.SetField("NAME-7", pil::PIL_TYPE_UINT32, ctypes);
 
+        ctypes.clear();
+        ctypes.push_back(pil::PIL_ENCODE_DELTA);
+        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        table.SetField("NAME-2", pil::PIL_TYPE_UINT32, ctypes);
+
         // We control wether we create a Tensor-model or Column-split-model ColumnStore
         // by using either Add (split-model) or AddArray (Tensor-model).
         while(std::getline(ss, line)){
@@ -176,9 +181,9 @@ int main(void){
                 // 3: Split second by :
                 // 4: Split second last by /
                 std::vector<std::string> left_right = StringSplit(line, " ", false);
-                std::vector<std::string> left = StringSplit(left_right[0], ".", false);
+                std::vector<std::string> left  = StringSplit(left_right[0], ".", false);
                 std::vector<std::string> right = StringSplit(left_right[1], ":", false);
-                std::vector<std::string> last = StringSplit(right.back(), "/", false);
+                std::vector<std::string> last  = StringSplit(right.back(), "/", false);
                 // @ERR194146, 812444541
                 // HSQ1008, 141, D0CC8ACXX, 2, 1204, 13288, 78171/2
                 // 78171 and 2
