@@ -63,6 +63,7 @@ public:
 
 public:
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
+    uint64_t last_modified; // unix timestamp when last modified
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements
     int64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
     uint8_t md5_checksum[16]; // checksum for buffer
@@ -236,15 +237,16 @@ public:
         if(cset.get() == nullptr) return(-1);
 
         if(open_writer == false) {
-            if(OpenWriter("/media/mdrk/NVMe/test") != 1) {
+            if(OpenWriter("/Users/Mivagallery/Desktop/pil/test") != 1) {
                 return(-1);
             }
         }
 
         for(int i = 0; i < cset->size(); ++i) {
             cset_meta.back()->column_meta_data[i]->file_offset = writer->tellp();
-            std::cerr << "setting offset=" << cset_meta.back()->column_meta_data[i]->file_offset << std::endl;
+            std::cerr << "setting offset=" << cset_meta.back()->column_meta_data[i]->file_offset << " timestamp=" << static_cast<uint64_t>(std::time(0)) << std::endl;
             int ret = cset->columns[i]->Serialize(*writer.get());
+            cset_meta.back()->column_meta_data[i]->last_modified = static_cast<uint64_t>(std::time(0));
         }
         writer->flush();
         return(1);

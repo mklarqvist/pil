@@ -27,6 +27,7 @@ struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
         n(0), m(0), uncompressed_size(0), compressed_size(0),
+        m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
     {
     }
@@ -72,6 +73,7 @@ public:
 
 public:
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
+    uint32_t m_nullity, nullity_u, nullity_c;
     std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
                                            // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                            // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD

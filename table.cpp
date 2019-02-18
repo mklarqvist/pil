@@ -272,7 +272,7 @@ int Table::FinalizeBatch() {
         //media/mdrk/NVMe/test
         std::shared_ptr<FieldMetaData> tgt_field = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
         if(tgt_field->open_writer == false)
-            tgt_field->OpenWriter("/media/mdrk/NVMe/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
+            tgt_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
 
         //tgt_cset->column_meta_data[i]->file_offset;
         tgt_field->Serialize(_seg_stack[i]);

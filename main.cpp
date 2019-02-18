@@ -105,10 +105,10 @@ int main(void){
 
 
     // Set to 1 for FASTQ test
-    if(0) {
+    if(1) {
         std::ifstream ss;
-        //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
+        ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -116,8 +116,8 @@ int main(void){
         uint64_t file_size = ss.tellg();
         ss.seekg(0);
 
-        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
-        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
         if(table.out_stream.good() == false) {
             std::cerr << "failed to open output file" << std::endl;
             return 1;
@@ -140,6 +140,30 @@ int main(void){
         // We control wether we create a Tensor-model or Column-split-model ColumnStore
         // by using either Add (split-model) or AddArray (Tensor-model).
         while(std::getline(ss, line)){
+            if(ltype == 0) {
+                std::stringstream ss2(line);
+                std::string s2;
+                std::vector<std::string> tk2;
+                while (std::getline(ss2, s2, ':')) {
+                    //std::cerr << s2 << ", ";
+                    tk2.push_back(s2);
+                }
+               // std::cerr << std::endl;
+                //std::cerr << "tk2: " << tk2.size() << std::endl;
+                rbuild.AddArray<uint8_t>("NAME-1", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[0][0]), tk2[0].size());
+                uint32_t name2 = std::atoi(tk2[1].data());
+                rbuild.Add<uint32_t>("NAME-2", pil::PIL_TYPE_UINT32, name2);
+                rbuild.AddArray<uint8_t>("NAME-3", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[2][0]), tk2[2].size());
+                uint32_t name4 = std::atoi(tk2[3].data());
+                rbuild.Add<uint32_t>("NAME-4", pil::PIL_TYPE_UINT32, name4);
+                uint32_t name5 = std::atoi(tk2[4].data());
+                rbuild.Add<uint32_t>("NAME-5", pil::PIL_TYPE_UINT32, name5);
+                uint32_t name6 = std::atoi(tk2[5].data());
+                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name6);
+                uint32_t name7 = std::atoi(tk2[6].data());
+                rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name7);
+            }
+
             if(ltype == 1) {
                 //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
                 rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
@@ -163,7 +187,7 @@ int main(void){
     }
 
     // Set to 1 for SAM test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
