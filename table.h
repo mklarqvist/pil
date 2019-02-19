@@ -25,8 +25,17 @@ namespace pil {
 // Segmental Elimination for predicate pushdown in selection queries.
 struct ColumnStoreMetaData {
 public:
+    /**<
+     * Compute Segmental statistics for use in predicate pushdown. Currently,
+     * we store minimum and maximum values for a ColumnStore. These statistics
+     * are used in Segmental Elimination during queries.
+     * @param cstore Source ColumnStore
+     * @return
+     */
     template <class T>
     int ComputeSegmentStats(std::shared_ptr<ColumnStore> cstore) {
+        if(cstore.get() == nullptr) return(-1);
+
         const T* values = reinterpret_cast<const T*>(cstore->buffer->mutable_data());
         T min = std::numeric_limits<T>::max();
         T max = std::numeric_limits<T>::min();
@@ -50,31 +59,61 @@ public:
         return(1);
     }
 
+    /**<
+     * Compute the MD5 checksum of the given ColumnStore.
+     * @param cstore Source ColumnStore.
+     * @return
+     */
     int ComputeChecksum(std::shared_ptr<ColumnStore> cstore) {
+        if(cstore.get() == nullptr) return(-1);
         Digest::GenerateMd5(cstore->mutable_data(), cstore->uncompressed_size, md5_checksum);
         return(1);
     }
 
+    /**<
+     * Store the meta-data from a ColumnStore in this ColumnStoreMetaData object.
+     * @param cstore Source ColumnStore.
+     */
     void Set(std::shared_ptr<ColumnStore> cstore) {
+        if(cstore.get() == nullptr) return;
+
         n = cstore->n;
         m = cstore->m;
         uncompressed_size = cstore->uncompressed_size;
         compressed_size   = cstore->compressed_size;
     }
 
-    int Serialize(std::ostream& stream);
+    // Synonym
+    inline void operator=(std::shared_ptr<ColumnStore> cstore) { this->Set(cstore); }
+
+    int Serialize(std::ostream& stream) {
+        stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
+        stream.write(reinterpret_cast<char*>(&last_modified), sizeof(uint64_t));
+        stream.write(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&m), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&compressed_size), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&stats_surrogate_min), sizeof(uint64_t));
+        stream.write(reinterpret_cast<char*>(&stats_surrogate_max), sizeof(uint64_t));
+        stream.write(reinterpret_cast<char*>(md5_checksum), 16);
+        return(stream.good());
+    }
+
     int Deserialize(std::ostream& stream);
 
 public:
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
     uint64_t last_modified; // unix timestamp when last modified
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements
-    int64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
+    uint64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
     uint8_t md5_checksum[16]; // checksum for buffer
 };
 
+// MetaData for a ColumnSet
 struct ColumnSetMetaData {
 public:
+    ColumnSetMetaData() : record_batch_id(0){}
+
     ColumnSetMetaData(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) :
         record_batch_id(batch_id)
     {
@@ -90,35 +129,100 @@ public:
         }
     }
 
+    /**<
+     * Compute Segmental summary statistics for every ColumnStore in the provided
+     * ColumnSet.
+     * @param cset Source ColumnSet.
+     * @return
+     */
     template <class T>
     int ComputeSegmentStats(std::shared_ptr<ColumnSet> cset) {
+        if(cset.get() == nullptr) return(-1);
+
         for(int i = 0; i < cset->size(); ++i) {
             int ret = column_meta_data[i]->ComputeSegmentStats<T>(cset->columns[i]);
-            //int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(cset->columns[i])->ComputeSegmentStats();
             assert(ret != -1);
         }
         return(1);
     }
 
-    int Set(std::shared_ptr<ColumnSet> cset) {
-        for(int i = 0; i < cset->size(); ++i) {
-            column_meta_data.back()->Set(cset->columns[i]);
-        }
+    /**<
+     * Overload the meta-data for every ColumnStore in the provided ColumnSet
+     * in the index.
+     * @param cset Source ColumnSet.
+     * @return
+     */
+    int AddColumnStore(std::shared_ptr<ColumnStore> cstore) {
+        if(cstore.get() == nullptr) return(-1);
+
+        column_meta_data.push_back(std::make_shared<ColumnStoreMetaData>());
+        column_meta_data.back()->Set(cstore);
+
         return 1;
     }
 
-    // If encoding / compression adds new columns then we use this subroutine
-    // to account for those
-    int AddSecondaryColumn(std::shared_ptr<ColumnStore> cstore) {
-        //std::cerr << "adding secondary columns" << std::endl;
-        column_meta_data.push_back(std::make_shared<ColumnStoreMetaData>());
-        column_meta_data.back()->Set(cstore);
-        column_meta_data.back()->ComputeChecksum(cstore);
+    int AddColumnSet(std::shared_ptr<ColumnSet> cset) {
+        if(cset.get() == nullptr) return(-1);
 
-        return(1);
+        for(int i = 0; i < cset->size(); ++i) {
+            AddColumnStore(cset->columns[i]);
+        }
+
+        return 1;
     }
 
-    int Serialize(std::ostream& stream);
+    int UpdateColumnStore(std::shared_ptr<ColumnStore> cstore, const uint32_t offset) {
+        if(cstore.get() == nullptr) return(-1);
+
+        column_meta_data[offset]->Set(cstore);
+        column_meta_data[offset]->ComputeChecksum(cstore);
+
+        return 1;
+    }
+
+    int UpdateColumnSet(std::shared_ptr<ColumnSet> cstore) {
+        if(cstore.get() == nullptr) return(-1);
+
+        for(int i = 0; i < cstore->size(); ++i) {
+            if(i == column_meta_data.size()) {
+                AddColumnStore(cstore->columns[i]);
+            }
+
+            UpdateColumnStore(cstore->columns[i], i);
+        }
+
+        return 1;
+    }
+
+    /**<
+     * Serialize to disk. Will correctly output this ColumnSetMetaData in the
+     * appropriate format.
+     * @param cset   Source ColumnSet.
+     * @param stream Destination output stream.
+     * @return
+     */
+    int SerializeColumnSet(std::shared_ptr<ColumnSet> cset, std::ostream& stream) {
+        if(cset.get() == nullptr) return(-1);
+
+        for(int i = 0; i < cset->size(); ++i) {
+            column_meta_data[i]->file_offset = stream.tellp();
+            // Todo: this is incorrect. Should not be used like this.
+            int ret = cset->columns[i]->Serialize(stream);
+            column_meta_data[i]->last_modified = static_cast<uint64_t>(std::time(0));
+        }
+        stream.flush();
+        return(stream.good());
+    }
+
+    int Serialize(std::ostream& stream) {
+        stream.write(reinterpret_cast<char*>(&record_batch_id), sizeof(uint32_t));
+        uint32_t n_cmeta = column_meta_data.size();
+        stream.write(reinterpret_cast<char*>(&n_cmeta), sizeof(uint32_t));
+        for(int i = 0; i < n_cmeta; ++i) {
+            column_meta_data[i]->Serialize(stream);
+        }
+        return(stream.good());
+    }
     int Deserialize(std::ostream& stream);
 
 public:
@@ -133,13 +237,15 @@ struct FieldMetaData {
 public:
     FieldMetaData() : open_writer(false), open_reader(false){}
 
-    int AddBatch(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
+    int AddBatch(std::shared_ptr<ColumnSet> cset) {
         if(cset.get() == nullptr) return(-1);
 
         //std::cerr << "adding field data=" << cset->columns.size() << std::endl;
-        cset_meta.push_back(std::make_shared<ColumnSetMetaData>(cset, batch_id));
+        int ret_target = cset_meta.size();
+        //cset_meta.push_back(std::make_shared<ColumnSetMetaData>(cset, batch_id));
+        cset_meta.push_back(std::make_shared<ColumnSetMetaData>());
 
-        return(1);
+        return(ret_target);
     }
 
     double AverageColumns() const {
@@ -210,8 +316,7 @@ public:
         return(n);
     }
 
-    std::string random_string(std::string::size_type length)
-    {
+    std::string RandomString(std::string::size_type length) {
         static auto& chrs = "0123456789"
             "abcdefghijklmnopqrstuvwxyz"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -230,7 +335,9 @@ public:
     }
 
     int OpenWriter(const std::string& prefix) {
-        std::string random = random_string(46);
+        if(writer.get() != nullptr) return(0);
+
+        std::string random = RandomString(46);
         std::string out = prefix + "_" + random + ".pil";
         file_name = out;
         writer = std::unique_ptr<std::ofstream>(new std::ofstream());
@@ -249,7 +356,7 @@ public:
     // Todo: pass cstore to serialize to dist writer
     // Assumes we are writing blocks *IN ORDER* as we use the latest MetaData
     // unit to store the information in.
-    int Serialize(std::shared_ptr<ColumnSet> cset) {
+    int SerializeColumnSet(std::shared_ptr<ColumnSet> cset) {
         if(cset.get() == nullptr) return(-1);
 
         if(open_writer == false) {
@@ -258,21 +365,21 @@ public:
             }
         }
 
-        for(int i = 0; i < cset->size(); ++i) {
-            if(i == cset_meta.back()->column_meta_data.size()) {
-                // Add secondary columns generated by the either encoding or compression
-                cset_meta.back()->AddSecondaryColumn(cset->columns[i]);
-            }
-
-            cset_meta.back()->column_meta_data[i]->file_offset = writer->tellp();
-            int ret = cset->columns[i]->Serialize(*writer.get());
-            cset_meta.back()->column_meta_data[i]->last_modified = static_cast<uint64_t>(std::time(0));
-        }
-        writer->flush();
-        return(1);
+        bool good = cset_meta.back()->SerializeColumnSet(cset, *writer.get());
+        return(good);
     }
 
-    int Serialize(std::ostream& stream);
+    int Serialize(std::ostream& stream) {
+        uint32_t n_file_name = file_name.size();
+        stream.write(reinterpret_cast<char*>(&n_file_name), sizeof(uint32_t));
+        uint32_t n_cset = cset_meta.size();
+        stream.write(reinterpret_cast<char*>(&n_cset), sizeof(uint32_t));
+        for(int i = 0; i < n_cset; ++i) {
+            cset_meta[i]->Serialize(stream);
+        }
+        return(stream.good());
+    }
+
     int Deserialize(std::ostream& stream);
 
 public:
@@ -288,7 +395,7 @@ public:
  * The relationship between a Schema and its target ColumnSets are guaranteed
  * by keeping track of the Schema identifier for each record. This layout of
  * vectorized Schema identifiers permits for fast predicate evaluation of the
- * schemas in a vectorized fashion. This also allows us to correctly materialize
+ * schemas using vectorized instructions. This also allows us to correctly mature
  * tuples according to their Schema without returning NULLs for non-relevant
  * columns.
  *
@@ -301,7 +408,7 @@ public:
  */
 struct RecordBatch {
 public:
-    RecordBatch() : file_offset(0), n_rec(0){}
+    RecordBatch() : n_rec(0){}
 
     // Insert a GLOBAL Schema id into the record batch
     int AddSchema(uint32_t pid) {
@@ -342,28 +449,34 @@ public:
         } else return(-1);
     }
 
-    int Serialize(std::ofstream& stream) {
-        assert(schemas->columns[0].get() != nullptr);
-
-        uint64_t curpos = stream.tellp();
-        file_offset = curpos;
+    int Serialize(std::ostream& stream) {
+        //uint64_t curpos = stream.tellp();
+        //file_offset = curpos;
         //std::cerr << "SERIALIZE offset=" << curpos << std::endl;
 
-        stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
+        //stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&n_rec), sizeof(uint32_t));
         uint32_t n_dict = local_dict.size();
         stream.write(reinterpret_cast<char*>(&n_dict), sizeof(uint32_t));
         for(int i = 0; i < n_dict; ++i)
             stream.write(reinterpret_cast<char*>(&local_dict[i]), sizeof(uint32_t));
 
-        // Compress with Zstd
-        Compressor c;
-        int ret = static_cast<ZstdCompressor*>(&c)->Compress(schemas->columns[0]->mutable_data(), schemas->columns[0]->uncompressed_size, 1);
-        //std::cerr << "SERIALIZE zstd: " << schemas->columns[0]->uncompressed_size << "->" << ret << std::endl;
-        assert(ret != -1);
-        stream.write(reinterpret_cast<char*>(&schemas->columns[0]->uncompressed_size), sizeof(uint32_t)); // uncompressed size
-        stream.write(reinterpret_cast<char*>(&ret), sizeof(int)); // compressed size
-        stream.write(reinterpret_cast<char*>(c.data()->mutable_data()), ret); // compressed data
+        // Todo: move out
+        if(0) {
+            assert(schemas->columns[0].get() != nullptr);
+            // Compress with Zstd
+            Compressor c;
+            int ret = static_cast<ZstdCompressor*>(&c)->Compress(schemas->columns[0]->mutable_data(),
+                                                                 schemas->columns[0]->uncompressed_size,
+                                                                 PIL_ZSTD_DEFAULT_LEVEL);
+
+            //std::cerr << "SERIALIZE zstd: " << schemas->columns[0]->uncompressed_size << "->" << ret << std::endl;
+            assert(ret != -1);
+            stream.write(reinterpret_cast<char*>(&schemas->columns[0]->uncompressed_size), sizeof(uint32_t)); // uncompressed size
+            stream.write(reinterpret_cast<char*>(&ret), sizeof(int)); // compressed size
+            stream.write(reinterpret_cast<char*>(c.data()->mutable_data()), ret); // compressed data
+
+        }
 
         // Explicit release of shared_ptr.
         schemas = nullptr;
@@ -372,7 +485,7 @@ public:
     }
 
 public:
-    uint64_t file_offset; // Disk virtual offset to the Schemas offsets
+    //uint64_t file_offset; // Disk virtual offset to the Schemas offsets
     uint32_t n_rec; // Number of rows in this RecordBatch
     std::vector<uint32_t> local_dict; // local field ID vector
     std::unordered_map<uint32_t, uint32_t> global_local_field_map; // Map from global field id -> local field id
@@ -386,6 +499,25 @@ public:
 
     inline void AddRowCounts(const uint32_t c) { n_rows += c; }
 
+    int Serialize(std::ostream& ostream) {
+        ostream.write(reinterpret_cast<char*>(&n_rows), sizeof(uint64_t));
+        uint32_t n_batches = batches.size();
+        ostream.write(reinterpret_cast<char*>(&n_batches), sizeof(uint32_t));
+        std::cerr << "before serializing batches" << std::endl;
+        for(int i = 0; i < n_batches; ++i) {
+            batches[i]->Serialize(ostream);
+        }
+
+        uint32_t n_fields = field_meta.size();
+        ostream.write(reinterpret_cast<char*>(&n_fields), sizeof(uint32_t));
+        std::cerr << "before serializing meta fields" << std::endl;
+        for(int i = 0; i < n_fields; ++i) {
+            field_meta[i]->Serialize(ostream);
+        }
+
+        return(ostream.good());
+    }
+
 public:
     uint64_t n_rows;
     // Efficient map of a RecordBatch to the ColumnSets it contains:
@@ -398,12 +530,14 @@ public:
     //    efficiently lookup the segmental range
 
     // Meta data for each Field
+    std::vector< std::shared_ptr<FieldMetaData> > core_meta;
     std::vector< std::shared_ptr<FieldMetaData> > field_meta;
 };
 
 struct Table {
 public:
     Table() : single_archive(false), c_in(0), c_out(0){}
+    ~Table(){ }
 
 	/**<
 	 * Convert a tuple into ColumnStore representation. This function will accept
@@ -510,6 +644,8 @@ public:
         }
         return(1);
     }
+
+    int Finalize();
 
 public:
     int32_t format_version; // 4 bytes

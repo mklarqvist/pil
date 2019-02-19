@@ -4,20 +4,20 @@
 #include <cstdint>
 
 #if defined(__GNUC__)
-#define ARROW_PREDICT_FALSE(x) (__builtin_expect(x, 0))
-#define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
-#define ARROW_NORETURN __attribute__((noreturn))
-#define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
+#define PIL_PREDICT_FALSE(x) (__builtin_expect(x, 0))
+#define PIL_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
+#define PIL_NORETURN __attribute__((noreturn))
+#define PIL_PREFETCH(addr) __builtin_prefetch(addr)
 #elif defined(_MSC_VER)
-#define ARROW_NORETURN __declspec(noreturn)
-#define ARROW_PREDICT_FALSE(x) x
-#define ARROW_PREDICT_TRUE(x) x
-#define ARROW_PREFETCH(addr)
+#define PIL_NORETURN __declspec(noreturn)
+#define PIL_PREDICT_FALSE(x) x
+#define PIL_PREDICT_TRUE(x) x
+#define PIL_PREFETCH(addr)
 #else
-#define ARROW_NORETURN
-#define ARROW_PREDICT_FALSE(x) x
-#define ARROW_PREDICT_TRUE(x) x
-#define ARROW_PREFETCH(addr)
+#define PIL_NORETURN
+#define PIL_PREDICT_FALSE(x) x
+#define PIL_PREDICT_TRUE(x) x
+#define PIL_PREFETCH(addr)
 #endif
 
 namespace pil {
@@ -74,8 +74,8 @@ constexpr int64_t RoundUpToMultipleOf64(int64_t num) {
 
 // Returns the 'num_bits' least-significant bits of 'v'.
 static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
-    if (ARROW_PREDICT_FALSE(num_bits == 0)) return 0;
-    if (ARROW_PREDICT_FALSE(num_bits >= 64)) return v;
+    if (PIL_PREDICT_FALSE(num_bits == 0)) return 0;
+    if (PIL_PREDICT_FALSE(num_bits >= 64)) return v;
     int n = 64 - num_bits;
     return (v << n) >> n;
 }

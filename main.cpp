@@ -244,8 +244,7 @@ int main(void){
                 ltype = 0;
             }
         }
-        table.FinalizeBatch();
-
+        table.Finalize();
         table.Describe(std::cerr);
     }
 
@@ -412,7 +411,7 @@ int main(void){
             table.Append(rbuild);
         }
 
-        table.FinalizeBatch();
+        table.Finalize();
         table.Describe(std::cerr);
     }
 
@@ -537,7 +536,7 @@ int main(void){
             table.Append(rbuild);
         }
 
-        table.FinalizeBatch();
+        table.Finalize();
         table.Describe(std::cerr);
     }
 

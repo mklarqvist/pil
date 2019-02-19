@@ -15,15 +15,9 @@
 namespace pil {
 
 // ColumnStore can store ANY primitive type: e.g. CHROM, POS
-// Initiate the ColumnStore with the largest word size of a primitive family type.
-// For example, if you are working with uint8_t values then initiate the ptype
-// to uint32_t. Similarly, for precision ptypes, start out with a double. Shrink
-// the primitive type in the Segment of a ColumnStore.
-//
-// Default length of a ColumnStore should be 4096 elements.
 //
 // A ColumnStore is **MUTABLE** and should be used during importing/constructing
-// procedures only. Retrieving data should take place through Array structs and
+// procedures **ONLY**. Retrieving data should take place through Array structs and
 // downcast to one of its concrete types.
 struct ColumnStore {
 public:
@@ -58,15 +52,20 @@ public:
         uint32_t n_transforms = transformations.size();
         stream.write(reinterpret_cast<char*>(&n_transforms), sizeof(uint32_t));
 
-        assert(transformations.size() != 0);
+        //assert(transformations.size() != 0);
         for(int i = 0; i < transformations.size(); ++i) {
             uint32_t t_type = transformations[i];
             stream.write(reinterpret_cast<char*>(&t_type), sizeof(uint32_t));
         }
 
         if(buffer.get() != nullptr) {
-            std::cerr << "writing n= " << size() << " c=" << compressed_size << std::endl;
-            stream.write(reinterpret_cast<char*>(buffer->mutable_data()), compressed_size);
+            if(n_transforms != 0) {
+                std::cerr << "writing n= " << size() << " c=" << compressed_size << std::endl;
+                stream.write(reinterpret_cast<char*>(buffer->mutable_data()), compressed_size);
+            } else {
+                std::cerr << "writing untransformed data= " << size() << " u=" << uncompressed_size << std::endl;
+                stream.write(reinterpret_cast<char*>(buffer->mutable_data()), uncompressed_size);
+            }
         }
 
         const uint32_t n_nullity = std::ceil((float)n / 32);
@@ -83,12 +82,12 @@ public:
         }
 
         return(1);
-
     }
 
+    // Deserialization is for DEBUG use only. Otherwise, use concrete Array types.
     int Deserialize(std::ostream& stream);
 
-    // Todo: this function needs to check data() not immutable_data()!!
+    // Check if the given element is valid by looking up that bit in the bitmap.
     bool IsValid(const uint32_t p) { return(reinterpret_cast<uint32_t*>(nullity->mutable_data())[n / 32] & (1 << (p % 32))); }
 
 public:

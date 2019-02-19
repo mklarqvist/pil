@@ -241,10 +241,13 @@ int Table::FinalizeBatch() {
     uint32_t mem_in = 0, mem_out = 0;
 
     for(int i = 0; i < _seg_stack.size(); ++i) {
-        meta_data.field_meta[meta_data.batches.back()->local_dict[i]]->AddBatch(_seg_stack[i], meta_data.batches.size() - 1);
+        std::shared_ptr<FieldMetaData> field_meta = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
+        uint32_t batch_id = field_meta->AddBatch(_seg_stack[i]);
+        field_meta->cset_meta[batch_id]->record_batch_id = meta_data.batches.size() - 1;
 
         int ret_status = -1;
-        std::shared_ptr<ColumnSetMetaData> tgt_cset = meta_data.field_meta[meta_data.batches.back()->local_dict[i]]->cset_meta.back();
+        std::shared_ptr<ColumnSetMetaData> tgt_cset = field_meta->cset_meta.back();
+        tgt_cset->AddColumnSet(_seg_stack[i]);
         switch(field_dict.dict[meta_data.batches.back()->local_dict[i]].ptype) {
         case(PIL_TYPE_INT8):   ret_status = tgt_cset->ComputeSegmentStats<int8_t>(_seg_stack[i]);   break;
         case(PIL_TYPE_INT16):  ret_status = tgt_cset->ComputeSegmentStats<int16_t>(_seg_stack[i]);  break;
@@ -266,16 +269,16 @@ int Table::FinalizeBatch() {
         int ret = compressor.Compress(_seg_stack[i], field_dict.dict[meta_data.batches.back()->local_dict[i]]);
         std::cerr << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
         // Store ColumnSet meta information in the MetaData structure.
-        tgt_cset->Set(_seg_stack[i]);
+        tgt_cset->UpdateColumnSet(_seg_stack[i]);
 
         // Todo: write data to disk shards
         //media/mdrk/NVMe/test
-        std::shared_ptr<FieldMetaData> tgt_field = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
-        if(tgt_field->open_writer == false)
-            tgt_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
+        std::shared_ptr<FieldMetaData> tgt_meta_field = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
+        if(tgt_meta_field->open_writer == false)
+            tgt_meta_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
 
         //tgt_cset->column_meta_data[i]->file_offset;
-        tgt_field->Serialize(_seg_stack[i]);
+        tgt_meta_field->SerializeColumnSet(_seg_stack[i]);
 
         mem_out += ret;
     }
@@ -285,10 +288,27 @@ int Table::FinalizeBatch() {
     c_in += mem_in;
     c_out += mem_out;
 
+    // Core updates: schemas
+    meta_data.core_meta.push_back(std::make_shared<FieldMetaData>());
+    uint32_t core_batch_id = meta_data.core_meta.back()->AddBatch(meta_data.batches.back()->schemas);
+    std::cerr << "core-id=" << core_batch_id << "/" << meta_data.core_meta.back()->cset_meta.size() << std::endl;
+    meta_data.core_meta.back()->cset_meta[core_batch_id]->UpdateColumnSet(meta_data.batches.back()->schemas);
+    std::cerr << "DOne adding core" << std::endl;
+
+    // Serialize batches
     meta_data.batches.back()->Serialize(out_stream);
     meta_data.batches.push_back(std::make_shared<RecordBatch>());
 
     return(1);
+}
+
+int Table::Finalize() {
+    std::cerr << "in finalize: before last batch" << std::endl;
+    int ok = FinalizeBatch();
+    std::cerr << "in finalize: before serialize" << std::endl;
+    ok = meta_data.Serialize(out_stream);
+    std::cerr << "after serialization final" << std::endl;
+    return(out_stream.good());
 }
 
 void Table::Describe(std::ostream& stream) {
@@ -312,8 +332,8 @@ void Table::Describe(std::ostream& stream) {
     stream << "Batches=" << meta_data.batches.size() << std::endl;
     for(int i = 0; i < meta_data.batches.size(); ++i) {
         // Residual RecordBatch.
-        if(meta_data.batches[i]->file_offset == 0 && i != 0) break;
-        stream << "Offset=" << meta_data.batches[i]->file_offset << ", n=" << meta_data.batches[i]->n_rec << " fields=[" << field_dict.dict[meta_data.batches[i]->local_dict[0]].field_name;
+        //if(meta_data.batches[i]->file_offset == 0 && i != 0) break;
+        //stream << "Offset=" << meta_data.batches[i]->file_offset << ", n=" << meta_data.batches[i]->n_rec << " fields=[" << field_dict.dict[meta_data.batches[i]->local_dict[0]].field_name;
 
         for(int j = 1; j < meta_data.batches[i]->local_dict.size(); ++j) {
             stream << ", " << field_dict.dict[meta_data.batches[i]->local_dict[j]].field_name;
