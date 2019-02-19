@@ -8,7 +8,7 @@ We created `Pil` to make the advantages of compressed, efficient columnar data r
 
 ## Subproject: Pillar
 
-`Pillar` is the specialized implementation that can consume the majority of the incumbent genomics interchange formats including: SAM, BAM, CRAM, VCF, BCF, YON, FASTA, FASTQ, BED, GTF2, GFF3 and have native coding support for sequencing-specific range codecs (CRAM and fqzcomp), PBWT (BGT), genotype-PBWT (YON), and individual-centric WAH-bitmaps (GQT).
+`Pillar` is the specialized implementation that can consume the majority of the incumbent genomics interchange formats including: SAM, BAM, CRAM, VCF, BCF, YON, FASTA, FASTQ, BED, GTF2, GFF3 and have native coding support for sequencing-specific range codecs (CRAM and fqzcomp), PBWT (BGT), genotype-PBWT (YON), multi-symbol-PBWT, and individual-centric WAH-bitmaps (GQT).
 
 ## Preliminary results
 
@@ -73,7 +73,7 @@ Aligned data from above.
 | Format | File size              | Import time | Compression ratio   | Random access |
 |--------|------------------------|-------------|---------------------|---------------|
 | SAM    | 5271405563             | -           | 1                   | No            |
-| BAM    | 1540663158             | 5m5.326s    | 3.421517            | No            |
+| BAM    | 1540663158             | 5m5.326s    | 3.421517            | Partial       |
 | CRAM   | 534863873*             | 2m5.874s    | 9.855602            | Partial       |
 | Pil    | 1000020959 (560239248**) | 5m30.744s   | 5.271295 (9.409204**) | Yes           |
 
