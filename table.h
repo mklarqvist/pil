@@ -16,6 +16,7 @@
 #include "compression/variant_digest_manager.h"
 
 #include <fstream>
+#include <ctime>
 
 namespace pil {
 

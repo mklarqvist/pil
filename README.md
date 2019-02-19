@@ -36,3 +36,27 @@ We created `Pil` to make the advantages of compressed, efficient columnar data r
 ### SAM/BAM/CRAM: Unaligned readset
 
 Convert a `FASTQ` file into a `BAM` file using `biobambam2`.
+
+| Format   | File size  | Import time            | Compression ratio | Random access |
+|----------|------------|------------------------|-------------------|---------------|
+| FASTQ    | 4469877114 | -                      | 1                 | No            |
+| FASTQ.gz | 1185209615 | 7m59.405s              | 3.771381          | No            |
+| fqzcomp  | 741975278  | 2m24.190s              | 6.024294          | No            |
+| SAM      | 4532377114 | -                      | 0.986             | No            |
+| SAM.gz   | 1187984017 | 7m48.570s              | 3.762573          | No            |
+| BAM      | 1208014419 | 4m8.770s*, 4m47.160s** | 3.700185          | Partial       |
+| CRAM     | 860706428  | 1m29.555s              | 5.193266          | Partial       |
+| Pil      | 801811920  | 3m59.769s              | 5.57472           | Yes           |
+
+\* `SAM`->`BAM`  
+\*\* `FASTQ` -> `BAM`
+
+#### Settings
+
+* `gzip -c NA12878J_HiSeqX_R1_50mil.fastq > NA12878J_HiSeqX_R1_50mil.fastq.gz`
+* `fqzcomp -s3 -e -q2 -n2 NA12878J_HiSeqX_R1_50mil.fastq NA12878J_HiSeqX_R1_50mil.fastq.fqz`
+* `fastqtobam NA12878J_HiSeqX_R1_50mil.fastq > NA12878J_HiSeqX_R1_50mil.fastq.bam`
+* `samtools view NA12878J_HiSeqX_R1_50mil.fastq.sam -O bam > NA12878J_HiSeqX_R1_50mil.fastq.bam`
+* `samtools view NA12878J_HiSeqX_R1_50mil.fastq.bam -O cram > NA12878J_HiSeqX_R1_50mil.fastq.cram`
+* `gzip -c NA12878J_HiSeqX_R1_50mil.fastq.sam > NA12878J_HiSeqX_R1_50mil.fastq.sam.gz`
+* `Pil` used `PIL_COMPRESS_RC_QUAL` and `PIL_COMPRESS_RC_BASES` codecs for per-base quality scores and bases, respectively. Sequence names were tokenized by `:` (colon) and partitioned into `ColumnStores` without additional processing.
