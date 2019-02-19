@@ -8,7 +8,7 @@ We created `Pil` to make the advantages of compressed, efficient columnar data r
 
 ## Subproject: Pillar
 
-`Pillar` is the specialized implementation that can consume all of the incumbent interchange formats including: SAM, BAM, CRAM, VCF, BCF, YON, FASTA, FASTQ and have native coding support for sequencing-specific range codecs (CRAM and fqzcomp), PBWT (BGT), genotype-PBWT (YON), and individual-centric WAH-bitmaps (GQT).
+`Pillar` is the specialized implementation that can consume the majority of the incumbent genomics interchange formats including: SAM, BAM, CRAM, VCF, BCF, YON, FASTA, FASTQ, BED, GTF2, GFF3 and have native coding support for sequencing-specific range codecs (CRAM and fqzcomp), PBWT (BGT), genotype-PBWT (YON), and individual-centric WAH-bitmaps (GQT).
 
 ## Preliminary results
 
@@ -35,7 +35,12 @@ We created `Pil` to make the advantages of compressed, efficient columnar data r
 
 ### SAM/BAM/CRAM: Unaligned readset
 
-Convert a `FASTQ` file into a `BAM` file using `biobambam2`.
+NA12878J: Illumina HiSeq-X run of Coriell CEPH/UTAH 1463 sample comprising 122.6 gigabases at 30× coverage. The original dataset from the [Garvan Institute of Medical Research](http://www.garvan.org.au/) consists of the following files:
+
+* [NA12878J_HiSeqX_R1.fastq.gz](https://dnanexus-rnd.s3.amazonaws.com/NA12878-xten/reads/NA12878J_HiSeqX_R1.fastq.gz)
+* [NA12878J_HiSeqX_R2.fastq.gz](https://dnanexus-rnd.s3.amazonaws.com/NA12878-xten/reads/NA12878J_HiSeqX_R2.fastq.gz)
+
+We will use the first 50 million reads from `NA12878J_HiSeqX_R1` to convert into a `BAM` file using `biobambam2`.
 
 | Format   | File size  | Import time            | Compression ratio | Random access |
 |----------|------------|------------------------|-------------------|---------------|
@@ -59,4 +64,25 @@ Convert a `FASTQ` file into a `BAM` file using `biobambam2`.
 * `samtools view NA12878J_HiSeqX_R1_50mil.fastq.sam -O bam > NA12878J_HiSeqX_R1_50mil.fastq.bam`
 * `samtools view NA12878J_HiSeqX_R1_50mil.fastq.bam -O cram > NA12878J_HiSeqX_R1_50mil.fastq.cram`
 * `gzip -c NA12878J_HiSeqX_R1_50mil.fastq.sam > NA12878J_HiSeqX_R1_50mil.fastq.sam.gz`
+* `Pil` used `PIL_COMPRESS_RC_QUAL` and `PIL_COMPRESS_RC_BASES` codecs for per-base quality scores and bases, respectively. Sequence names were tokenized by `:` (colon) and partitioned into `ColumnStores` without additional processing.
+
+### SAM/BAM/CRAM: Aligned readset
+
+Aligned data from above.
+
+| Format | File size              | Import time | Compression ratio   | Random access |
+|--------|------------------------|-------------|---------------------|---------------|
+| SAM    | 5271405563             | -           | 1                   | No            |
+| BAM    | 1540663158             | 5m5.326s    | 3.421517            | No            |
+| CRAM   | 534863873*             | 2m5.874s    | 9.855602            | Partial       |
+| Pil    | 1000020959 (560239248**) | 5m30.744s   | 5.271295 (9.409204**) | Yes           |
+
+\* `CRAM` requires an external reference, in this case `hg19.fa.gz`, that is 948731427 bytes.  
+\*\* Running `Pil` with an external reference sequence like `CRAM`.
+
+#### Settings
+
+
+* `samtools view NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam -O bam > NA12878J_HiSeqX_R1_50mil.fastq.aligned.bam`
+* `samtools view NA12878J_HiSeqX_R1_50mil.fastq.aligned.bam -O cram > NA12878J_HiSeqX_R1_50mil.fastq.aligned.cram`
 * `Pil` used `PIL_COMPRESS_RC_QUAL` and `PIL_COMPRESS_RC_BASES` codecs for per-base quality scores and bases, respectively. Sequence names were tokenized by `:` (colon) and partitioned into `ColumnStores` without additional processing.
