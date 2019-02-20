@@ -53,7 +53,7 @@ public:
         stream.write(reinterpret_cast<char*>(&n_transforms), sizeof(uint32_t));
 
         //assert(transformations.size() != 0);
-        for(int i = 0; i < transformations.size(); ++i) {
+        for(size_t i = 0; i < transformations.size(); ++i) {
             uint32_t t_type = transformations[i];
             stream.write(reinterpret_cast<char*>(&t_type), sizeof(uint32_t));
         }
@@ -209,7 +209,7 @@ public:
 
     uint32_t GetMemoryUsage() const {
         uint32_t total = 0;
-        for(int i = 0; i < size(); ++i)
+        for(size_t i = 0; i < size(); ++i)
             total += columns[i]->GetMemoryUsage();
 
         return(total);
@@ -245,7 +245,7 @@ public:
         int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[0])->Append(value);
         assert(ret == 1);
 
-        for(int i = 1; i < columns.size(); ++i){
+        for(uint32_t i = 1; i < columns.size(); ++i){
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
             assert(ret == 1);
@@ -313,7 +313,7 @@ public:
             // Pad every column added this way.
             for(int i = start_size; i < n_values; ++i) {
                 //std::cerr << i << "/" << n_values << " -> (WIDTH) padding up to: " << padding_to << std::endl;
-                for(int j = 0; j < padding_to; ++j) {
+                for(uint32_t j = 0; j < padding_to; ++j) {
                    std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
                    int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
                    assert(ret == 1);
@@ -329,7 +329,7 @@ public:
         }
 
         //std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
-        for(int i = n_values; i < columns.size(); ++i){
+        for(uint32_t i = n_values; i < columns.size(); ++i){
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
             assert(ret == 1);
@@ -345,7 +345,7 @@ public:
      * @return
      */
     int PadNull() {
-        for(int i = 0; i < columns.size(); ++i) {
+        for(uint32_t i = 0; i < columns.size(); ++i) {
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
             assert(ret == 1);

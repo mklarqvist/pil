@@ -139,7 +139,7 @@ public:
     int ComputeSegmentStats(std::shared_ptr<ColumnSet> cset) {
         if(cset.get() == nullptr) return(-1);
 
-        for(int i = 0; i < cset->size(); ++i) {
+        for(size_t i = 0; i < cset->size(); ++i) {
             int ret = column_meta_data[i]->ComputeSegmentStats<T>(cset->columns[i]);
             assert(ret != -1);
         }
@@ -164,7 +164,7 @@ public:
     int AddColumnSet(std::shared_ptr<ColumnSet> cset) {
         if(cset.get() == nullptr) return(-1);
 
-        for(int i = 0; i < cset->size(); ++i) {
+        for(size_t i = 0; i < cset->size(); ++i) {
             AddColumnStore(cset->columns[i]);
         }
 
@@ -183,7 +183,7 @@ public:
     int UpdateColumnSet(std::shared_ptr<ColumnSet> cstore) {
         if(cstore.get() == nullptr) return(-1);
 
-        for(int i = 0; i < cstore->size(); ++i) {
+        for(size_t i = 0; i < cstore->size(); ++i) {
             if(i == column_meta_data.size()) {
                 AddColumnStore(cstore->columns[i]);
             }
@@ -204,7 +204,7 @@ public:
     int SerializeColumnSet(std::shared_ptr<ColumnSet> cset, std::ostream& stream) {
         if(cset.get() == nullptr) return(-1);
 
-        for(int i = 0; i < cset->size(); ++i) {
+        for(size_t i = 0; i < cset->size(); ++i) {
             column_meta_data[i]->file_offset = stream.tellp();
             // Todo: this is incorrect. Should not be used like this.
             int ret = cset->columns[i]->Serialize(stream);
@@ -218,7 +218,7 @@ public:
         stream.write(reinterpret_cast<char*>(&record_batch_id), sizeof(uint32_t));
         uint32_t n_cmeta = column_meta_data.size();
         stream.write(reinterpret_cast<char*>(&n_cmeta), sizeof(uint32_t));
-        for(int i = 0; i < n_cmeta; ++i) {
+        for(size_t i = 0; i < n_cmeta; ++i) {
             column_meta_data[i]->Serialize(stream);
         }
         return(stream.good());
@@ -253,7 +253,7 @@ public:
         if(cset_meta.size() == 0) return 0;
         double tot = 0;
 
-        for(int i = 0; i < cset_meta.size(); ++i) {
+        for(size_t i = 0; i < cset_meta.size(); ++i) {
             tot += cset_meta[i]->column_meta_data.size();
         }
 
@@ -264,8 +264,8 @@ public:
         if(cset_meta.size() == 0) return 0;
         double uc = 0, c = 0;
 
-        for(int i = 0; i < cset_meta.size(); ++i) {
-            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+        for(size_t i = 0; i < cset_meta.size(); ++i) {
+            for(size_t j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
                 uc += cset_meta[i]->column_meta_data[j]->uncompressed_size;
                 c += cset_meta[i]->column_meta_data[j]->compressed_size;
             }
@@ -280,8 +280,8 @@ public:
         if(cset_meta.size() == 0) return 0;
         uint64_t n = 0;
 
-        for(int i = 0; i < cset_meta.size(); ++i) {
-            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+        for(size_t i = 0; i < cset_meta.size(); ++i) {
+            for(size_t j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
                 n += cset_meta[i]->column_meta_data[j]->n;
             }
         }
@@ -295,8 +295,8 @@ public:
         if(cset_meta.size() == 0) return 0;
         uint64_t n = 0;
 
-        for(int i = 0; i < cset_meta.size(); ++i) {
-            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+        for(size_t i = 0; i < cset_meta.size(); ++i) {
+            for(size_t j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
                 n += cset_meta[i]->column_meta_data[j]->uncompressed_size;
             }
         }
@@ -308,8 +308,8 @@ public:
         if(cset_meta.size() == 0) return 0;
         uint64_t n = 0;
 
-        for(int i = 0; i < cset_meta.size(); ++i) {
-            for(int j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
+        for(size_t i = 0; i < cset_meta.size(); ++i) {
+            for(size_t j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
                 n += cset_meta[i]->column_meta_data[j]->compressed_size;
             }
         }
@@ -377,7 +377,7 @@ public:
         stream.write(reinterpret_cast<char*>(&n_file_name), sizeof(uint32_t));
         uint32_t n_cset = cset_meta.size();
         stream.write(reinterpret_cast<char*>(&n_cset), sizeof(uint32_t));
-        for(int i = 0; i < n_cset; ++i) {
+        for(size_t i = 0; i < n_cset; ++i) {
             cset_meta[i]->Serialize(stream);
         }
         return(stream.good());
@@ -422,7 +422,7 @@ public:
     }
 
     int AddGlobalField(const std::vector<uint32_t> global_ids) {
-        for(int i = 0; i < global_ids.size(); ++i){
+        for(size_t i = 0; i < global_ids.size(); ++i){
             int32_t local = FindLocalField(global_ids[i]);
             if(local == -1) {
                 //std::cerr << "inserting field: " << global_ids[i] << " into local map" << std::endl;
@@ -461,7 +461,7 @@ public:
         stream.write(reinterpret_cast<char*>(&n_rec), sizeof(uint32_t));
         uint32_t n_dict = local_dict.size();
         stream.write(reinterpret_cast<char*>(&n_dict), sizeof(uint32_t));
-        for(int i = 0; i < n_dict; ++i)
+        for(size_t i = 0; i < n_dict; ++i)
             stream.write(reinterpret_cast<char*>(&local_dict[i]), sizeof(uint32_t));
 
         // Todo: move out
@@ -502,17 +502,73 @@ public:
 
     inline void AddRowCounts(const uint32_t c) { n_rows += c; }
 
+    /**<
+     * Add a ColumnSet to the MetaData indices and compute Segmental statistics for
+     * predicate pushdown.
+     * @param cset       Source ColumnSet to add.
+     * @param global_id  Global Field identifier.
+     * @param field_dict FieldDictionary reference.
+     * @return           Returns the destination Batch identifier.
+     */
+    int AddColumnSet(std::shared_ptr<ColumnSet> cset,
+                     const uint32_t global_id,
+                     FieldDictionary& field_dict)
+    {
+        // Update the FileMetaData with information about ColumnSets
+        //
+        // FieldMetaData: the target FieldMetaData can be found by mapping the local
+        // dictionary of global values.
+        std::shared_ptr<FieldMetaData> tgt_field_meta = field_meta[global_id];
+        // Prepare to add a ColumnSet for this RecordBatch to the FieldMetaData
+        // record. The function AddBatch will return the target offset that will
+        // be used.
+        uint32_t batch_id = tgt_field_meta->AddBatch(cset);
+        // Set the ColumnSetMetaData to the current RecordBatch offset.
+        tgt_field_meta->cset_meta[batch_id]->record_batch_id = batches.size() - 1;
+
+        int ret_status = -1;
+        std::shared_ptr<ColumnSetMetaData> tgt_cset_meta = tgt_field_meta->cset_meta.back();
+        // Add ColumnSet to the ColumnSetMetaData target
+        tgt_cset_meta->AddColumnSet(cset);
+
+        // Switch the Primitive type for the target ColumnSet.
+        // Compute Segmental summary statistics including min and max.
+        switch(field_dict.dict[global_id].ptype) {
+        case(PIL_TYPE_INT8):   ret_status = tgt_cset_meta->ComputeSegmentStats<int8_t>(cset);   break;
+        case(PIL_TYPE_INT16):  ret_status = tgt_cset_meta->ComputeSegmentStats<int16_t>(cset);  break;
+        case(PIL_TYPE_INT32):  ret_status = tgt_cset_meta->ComputeSegmentStats<int32_t>(cset);  break;
+        case(PIL_TYPE_INT64):  ret_status = tgt_cset_meta->ComputeSegmentStats<int64_t>(cset);  break;
+        case(PIL_TYPE_UINT8):  ret_status = tgt_cset_meta->ComputeSegmentStats<uint8_t>(cset);  break;
+        case(PIL_TYPE_UINT16): ret_status = tgt_cset_meta->ComputeSegmentStats<uint16_t>(cset); break;
+        case(PIL_TYPE_UINT32): ret_status = tgt_cset_meta->ComputeSegmentStats<uint32_t>(cset); break;
+        case(PIL_TYPE_UINT64): ret_status = tgt_cset_meta->ComputeSegmentStats<uint64_t>(cset); break;
+        case(PIL_TYPE_FLOAT):  ret_status = tgt_cset_meta->ComputeSegmentStats<float>(cset);    break;
+        case(PIL_TYPE_DOUBLE): ret_status = tgt_cset_meta->ComputeSegmentStats<double>(cset);   break;
+        default: std::cerr << "no known type: " << field_dict.dict[global_id].ptype << std::endl; ret_status = -1; break;
+        }
+        assert(ret_status != -1);
+
+        return(batch_id);
+    }
+
+    int UpdateColumnSet(std::shared_ptr<ColumnSet> cset,
+                     const uint32_t global_id,
+                     const uint32_t meta_id)
+    {
+        return(field_meta[global_id]->cset_meta[meta_id]->UpdateColumnSet(cset));
+    }
+
     int Serialize(std::ostream& ostream) {
         ostream.write(reinterpret_cast<char*>(&n_rows), sizeof(uint64_t));
         uint32_t n_batches = batches.size();
         ostream.write(reinterpret_cast<char*>(&n_batches), sizeof(uint32_t));
-        for(int i = 0; i < n_batches; ++i) {
+        for(uint32_t i = 0; i < n_batches; ++i) {
             batches[i]->Serialize(ostream);
         }
 
         uint32_t n_fields = field_meta.size();
         ostream.write(reinterpret_cast<char*>(&n_fields), sizeof(uint32_t));
-        for(int i = 0; i < n_fields; ++i) {
+        for(uint32_t i = 0; i < n_fields; ++i) {
             field_meta[i]->Serialize(ostream);
         }
 

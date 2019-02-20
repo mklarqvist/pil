@@ -39,7 +39,7 @@ public:
     std::string field_name;
     PIL_PRIMITIVE_TYPE primitive_type; // primary type
     PIL_PRIMITIVE_TYPE array_primitive_type; // if primary type is an array then this secondary primary type is used to denote the "actual" primitive type of the byte array
-    int32_t n, m; // number of used bytes, allocated bytes
+    uint32_t n, m; // number of used bytes, allocated bytes
     uint32_t stride; // number of elements
     uint8_t* data; // actual data
 };
@@ -63,7 +63,7 @@ public:
         if(n_values * sizeof(T) > slots[n_used]->m)
             slots[n_used]->resize(n_values * sizeof(T) + 1024);
 
-        for(int i = 0; i < n_values; ++i){
+        for(uint32_t i = 0; i < n_values; ++i){
             reinterpret_cast<T*>(slots[n_used]->data)[i] = value[i];
         }
         slots[n_used]->n = sizeof(T) * n_values;
@@ -150,7 +150,7 @@ public:
         if(values.size() * sizeof(T) > slots[n_used]->m)
             slots[n_used]->resize(values.size() * sizeof(T) + 1024);
 
-        for(int i = 0; i < values.size(); ++i){
+        for(size_t i = 0; i < values.size(); ++i){
             reinterpret_cast<T*>(slots[n_used]->data)[i] = values[i];
         }
         slots[n_used]->n = sizeof(T) * values.size();
@@ -161,7 +161,7 @@ public:
     }
 
     int PrintDebug() {
-        for(int i = 0; i < slots.size(); ++i){
+        for(size_t i = 0; i < slots.size(); ++i){
             std::cerr << "field-" << i << ": " << slots[i]->field_name << ":" << slots[i]->primitive_type << " bytelen=" << slots[i]->n << " n=" << slots[i]->stride << std::endl;
         }
 
@@ -170,7 +170,7 @@ public:
 
     void reset() {
         n_used = 0;
-        for(int i = 0; i < slots.size(); ++i) {
+        for(size_t i = 0; i < slots.size(); ++i) {
             slots[i]->n = 0;
         }
     }

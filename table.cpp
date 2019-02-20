@@ -22,7 +22,7 @@ int Table::Append(RecordBuilder& builder) {
     SchemaPattern pattern;
     std::unordered_map<uint32_t, uint32_t> pattern_map;
 
-    for(int i = 0; i < builder.slots.size(); ++i) {
+    for(size_t i = 0; i < builder.slots.size(); ++i) {
         if(field_dict.Find(builder.slots[i]->field_name) == -1) {
             meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
         }
@@ -42,7 +42,7 @@ int Table::Append(RecordBuilder& builder) {
     // If the target identifier is NOT available then we insert a new ColumnSet
     // with that identifier in the current Batch and pad with NULL values up
     // to the current offset.
-    for(int i = 0; i < pattern.ids.size(); ++i) {
+    for(size_t i = 0; i < pattern.ids.size(); ++i) {
         //std::cerr << "checking: " << pattern.ids[i] << "..." << std::endl;
         int32_t _segid = meta_data.batches.back()->FindLocalField(pattern.ids[i]);
         if(_segid == -1) {
@@ -67,7 +67,7 @@ int Table::Append(RecordBuilder& builder) {
 
     std::vector<uint32_t> pad_tgts; // Vector to hold values to be padded.
 
-    for(int i = 0; i < meta_data.batches.back()->local_dict.size(); ++i) {
+    for(size_t i = 0; i < meta_data.batches.back()->local_dict.size(); ++i) {
         auto it = pattern_map.find(meta_data.batches.back()->local_dict[i]);
         if(it == pattern_map.end()) {
             //auto x = meta_data.batches.back()->global_local_field_map.find(meta_data.batches.back()->local_dict[i]);
@@ -76,13 +76,13 @@ int Table::Append(RecordBuilder& builder) {
         }
     }
 
-    for(int i = 0; i < pad_tgts.size(); ++i) {
+    for(size_t i = 0; i < pad_tgts.size(); ++i) {
         // pad with nulls
         int32_t tgt_id = meta_data.batches.back()->FindLocalField(pad_tgts[i]);
         assert(_seg_stack[tgt_id].get() != nullptr);
         //std::cerr << "padding id: " << i << "->" << tgt_id << "/" << meta_data.batches.back()->local_dict.size() << std::endl;
         if(tgt_id == -1) {
-            for(int k = 0; k < meta_data.batches.back()->local_dict.size(); ++k) {
+            for(size_t k = 0; k < meta_data.batches.back()->local_dict.size(); ++k) {
                 std::cerr << meta_data.batches.back()->local_dict[k] << std::endl;
             }
         }
@@ -153,7 +153,7 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
     if(padding_to == 0) ret_status = 1;
 
     if(ptype == PIL_TYPE_BYTE_ARRAY){
-        for(int j = 0; j < padding_to; ++j) {
+        for(uint32_t j = 0; j < padding_to; ++j) {
            switch(ptype_arr) {
            case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int8_t> >(_seg_stack.back())->Append(0);   break;
            case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int16_t> >(_seg_stack.back())->Append(0);  break;
@@ -170,7 +170,7 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
            assert(ret_status == 1);
         }
     } else {
-        for(int j = 0; j < padding_to; ++j) {
+        for(uint32_t j = 0; j < padding_to; ++j) {
            switch(ptype) {
            case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilder<int8_t> >(_seg_stack.back())->Append(0);   break;
            case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int16_t> >(_seg_stack.back())->Append(0);  break;
@@ -194,7 +194,10 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
 }
 
 // private
-int Table::AppendData(const RecordBuilder& builder, const uint32_t slot_offset, std::shared_ptr<ColumnSet> dst_column) {
+int Table::AppendData(const RecordBuilder& builder,
+                      const uint32_t slot_offset,
+                      std::shared_ptr<ColumnSet> dst_column)
+{
     PIL_PRIMITIVE_TYPE ptype = builder.slots[slot_offset]->primitive_type;
     PIL_PRIMITIVE_TYPE ptype_arr = builder.slots[slot_offset]->array_primitive_type;
 
@@ -234,47 +237,30 @@ int Table::AppendData(const RecordBuilder& builder, const uint32_t slot_offset, 
 }
 
 int Table::FinalizeBatch() {
-    //std::cerr << "record limit reached: " << meta_data.batches.back()->schemas->columns[0]->size() << ":" << meta_data.batches.back()->schemas->GetMemoryUsage() << std::endl;
-
-    // Ugly reset of all data.
     Compressor compressor;
     uint32_t mem_in = 0, mem_out = 0;
 
-    for(int i = 0; i < _seg_stack.size(); ++i) {
-        std::shared_ptr<FieldMetaData> field_meta = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
-        uint32_t batch_id = field_meta->AddBatch(_seg_stack[i]);
-        field_meta->cset_meta[batch_id]->record_batch_id = meta_data.batches.size() - 1;
+    // This is NOT thread safe.
+    for(size_t i = 0; i < _seg_stack.size(); ++i) {
+        uint32_t global_id = meta_data.batches.back()->local_dict[i];
+        // Add ColumnSet to the FieldMetaData
+        int target = meta_data.AddColumnSet(_seg_stack[i], global_id, field_dict);
 
-        int ret_status = -1;
-        std::shared_ptr<ColumnSetMetaData> tgt_cset = field_meta->cset_meta.back();
-        tgt_cset->AddColumnSet(_seg_stack[i]);
-        switch(field_dict.dict[meta_data.batches.back()->local_dict[i]].ptype) {
-        case(PIL_TYPE_INT8):   ret_status = tgt_cset->ComputeSegmentStats<int8_t>(_seg_stack[i]);   break;
-        case(PIL_TYPE_INT16):  ret_status = tgt_cset->ComputeSegmentStats<int16_t>(_seg_stack[i]);  break;
-        case(PIL_TYPE_INT32):  ret_status = tgt_cset->ComputeSegmentStats<int32_t>(_seg_stack[i]);  break;
-        case(PIL_TYPE_INT64):  ret_status = tgt_cset->ComputeSegmentStats<int64_t>(_seg_stack[i]);  break;
-        case(PIL_TYPE_UINT8):  ret_status = tgt_cset->ComputeSegmentStats<uint8_t>(_seg_stack[i]);  break;
-        case(PIL_TYPE_UINT16): ret_status = tgt_cset->ComputeSegmentStats<uint16_t>(_seg_stack[i]); break;
-        case(PIL_TYPE_UINT32): ret_status = tgt_cset->ComputeSegmentStats<uint32_t>(_seg_stack[i]); break;
-        case(PIL_TYPE_UINT64): ret_status = tgt_cset->ComputeSegmentStats<uint64_t>(_seg_stack[i]); break;
-        case(PIL_TYPE_FLOAT):  ret_status = tgt_cset->ComputeSegmentStats<float>(_seg_stack[i]);    break;
-        case(PIL_TYPE_DOUBLE): ret_status = tgt_cset->ComputeSegmentStats<double>(_seg_stack[i]);   break;
-        default: std::cerr << "no known type: " << field_dict.dict[meta_data.batches.back()->local_dict[i]].ptype << std::endl; ret_status = -1; break;
-        }
-
+        // Update memory usage.
         mem_in += _seg_stack[i]->GetMemoryUsage();
 
-        std::cerr << "Compressing: " << field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name << std::endl;
-        //std::cerr << "global->local: " << meta_data.batches.back()->local_dict[i] << "->" << i << " with n=" << _seg_stack[i]->size() << std::endl;
-        int ret = compressor.Compress(_seg_stack[i], field_dict.dict[meta_data.batches.back()->local_dict[i]]);
-        std::cerr << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
-        // Store ColumnSet meta information in the MetaData structure.
-        tgt_cset->UpdateColumnSet(_seg_stack[i]);
+        // Compress ColumnSet according as described in the paired FieldMeta
+        // record or automatically.
+        int ret = compressor.Compress(_seg_stack[i], field_dict.dict[global_id]);
+        std::cerr << field_dict.dict[global_id].field_name << "\t" << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
+
+        // Update the target meta information with the new compressed data sizes.
+        meta_data.UpdateColumnSet(_seg_stack[i], global_id, target);
 
         // Todo: write data to single archive if split is deactivated
-        std::shared_ptr<FieldMetaData> tgt_meta_field = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
+        std::shared_ptr<FieldMetaData> tgt_meta_field = meta_data.field_meta[global_id];
         if(single_archive == false && tgt_meta_field->open_writer == false)
-            tgt_meta_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
+            tgt_meta_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[global_id].field_name);
 
         //tgt_cset->column_meta_data[i]->file_offset;
         if(single_archive == false) tgt_meta_field->SerializeColumnSet(_seg_stack[i]);
@@ -300,6 +286,8 @@ int Table::FinalizeBatch() {
     // Serialize batches
     meta_data.core_meta[0]->cset_meta[core_batch_id]->column_meta_data.back()->file_offset = out_stream.tellp();
     //meta_data.batches.back()->Serialize(out_stream);
+
+    // Push back a new RecordBatch
     meta_data.batches.push_back(std::make_shared<RecordBatch>());
 
     return(1);
@@ -307,17 +295,19 @@ int Table::FinalizeBatch() {
 
 int Table::Finalize() {
     int ok = FinalizeBatch();
+    assert(ok != -1);
     ok = meta_data.Serialize(out_stream);
+    assert(ok != -1);
     return(out_stream.good());
 }
 
 void Table::Describe(std::ostream& stream) {
     stream << "---------------------------------" << std::endl;
-    for(int i = 0; i < field_dict.dict.size(); ++i) {
+    for(size_t i = 0; i < field_dict.dict.size(); ++i) {
         stream << field_dict.dict[i].field_name << ": ptype " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << " cstore: " << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << " n=" << meta_data.field_meta[i]->TotalOccurences() << " compmode: ";
         if(field_dict.dict[i].transforms.size()) {
             stream << field_dict.dict[i].transforms[0];
-            for(int j = 1; j < field_dict.dict[i].transforms.size(); ++j) {
+            for(size_t j = 1; j < field_dict.dict[i].transforms.size(); ++j) {
                 stream << "," << field_dict.dict[i].transforms[j];
             }
         } else stream << "auto";
@@ -330,12 +320,12 @@ void Table::Describe(std::ostream& stream) {
     return;
 
     stream << "Batches=" << meta_data.batches.size() << std::endl;
-    for(int i = 0; i < meta_data.batches.size(); ++i) {
+    for(size_t i = 0; i < meta_data.batches.size(); ++i) {
         // Residual RecordBatch.
         //if(meta_data.batches[i]->file_offset == 0 && i != 0) break;
         //stream << "Offset=" << meta_data.batches[i]->file_offset << ", n=" << meta_data.batches[i]->n_rec << " fields=[" << field_dict.dict[meta_data.batches[i]->local_dict[0]].field_name;
 
-        for(int j = 1; j < meta_data.batches[i]->local_dict.size(); ++j) {
+        for(size_t j = 1; j < meta_data.batches[i]->local_dict.size(); ++j) {
             stream << ", " << field_dict.dict[meta_data.batches[i]->local_dict[j]].field_name;
         }
         stream << "]" << std::endl;
@@ -343,19 +333,19 @@ void Table::Describe(std::ostream& stream) {
     stream << "---------------------------------" << std::endl;
 
     stream << "Fields=" << meta_data.field_meta.size() << std::endl;
-    for(int i = 0; i < meta_data.field_meta.size(); ++i) {
+    for(size_t i = 0; i < meta_data.field_meta.size(); ++i) {
         stream << "\t" << field_dict.dict[i].field_name << ": " << meta_data.field_meta[i]->cset_meta.size() << std::endl;
         stream << "\t\tbatches=[";
         if(meta_data.field_meta[i]->cset_meta[0]->column_meta_data.size()) stream << meta_data.field_meta[i]->cset_meta[0]->record_batch_id;
-        for(int j = 1; j < meta_data.field_meta[i]->cset_meta.size(); ++j) {
+        for(size_t j = 1; j < meta_data.field_meta[i]->cset_meta.size(); ++j) {
             stream << "," << meta_data.field_meta[i]->cset_meta[j]->record_batch_id;
         }
         stream << "]" << std::endl;
 
         stream << "\t\tcsets=[\n";
-        for(int k = 0; k < meta_data.field_meta[i]->cset_meta.size(); ++k) {
+        for(size_t k = 0; k < meta_data.field_meta[i]->cset_meta.size(); ++k) {
             stream << "\t\t\t[" << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[0]->n;
-            for(int j = 1; j < meta_data.field_meta[i]->cset_meta[k]->column_meta_data.size(); ++j) {
+            for(size_t j = 1; j < meta_data.field_meta[i]->cset_meta[k]->column_meta_data.size(); ++j) {
                 stream << "," << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[j]->n;
             }
             stream << "]\n";

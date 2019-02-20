@@ -129,7 +129,7 @@ int main(void){
 
 
     // Set to 1 for FASTQ test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
@@ -252,11 +252,12 @@ int main(void){
     }
 
     // Set to 1 for SAM test
-    if(0) {
+    if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -264,6 +265,7 @@ int main(void){
         uint64_t file_size = ss.tellg();
         ss.seekg(0);
 
+        table.single_archive = true;
         table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
         if(table.out_stream.good() == false) {
@@ -416,6 +418,7 @@ int main(void){
 
         table.Finalize();
         table.Describe(std::cerr);
+        std::cerr << "recordbuilder: " << rbuild.n_added << " and slots=" << rbuild.slots.size() << std::endl;
     }
 
     // Set to 1 for VCF test

@@ -53,7 +53,7 @@ public:
 
         cstore->transformations.push_back(PIL_ENCODE_DICT);
         // todo: add transformations arg
-        return 1;
+        return ret;
     }
 
     template <class T>
@@ -84,7 +84,7 @@ public:
         }
 
         std::shared_ptr< ColumnStoreBuilder<uint32_t> > b = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(dst);
-        for(int i = 0; i < list.size(); ++i) {
+        for(size_t i = 0; i < list.size(); ++i) {
             b->Append(list[i]);
         }
 
@@ -127,7 +127,7 @@ public:
 
         uint32_t residual = n_in % 4;
         //std::cerr << "residual=" << residual << std::endl;
-        for(int j = 0; j < residual; ++j, ++offset) {
+        for(uint32_t j = 0; j < residual; ++j, ++offset) {
             out[n_bytes - 1] |= BaseBitTable[in[offset]] << j;
         }
 
