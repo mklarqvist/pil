@@ -6,6 +6,12 @@
 
 We created `Pil` to make the advantages of compressed, efficient columnar data representation with support for very efficient compression and encoding schemes with a focus on supporting genomics data. `Pil` allows compression schemes to be specified on a per-column level, and is future-proofed to allow adding more encodings as they are invented and implemented.
 
+### Predicate pushdown
+
+* **Segmental statistics**: relies on the minimum and maximum value statistics in the ColumnStore meta data to filter and prune data at the row group level.
+* **Dictionary encoding**: dictionaries can filter out values that are between min and max but not in the dictionary. However, when there are too many distinct values, writers sometimes choose not to add dictionaries because of the extra space they occupy. This leaves columns with large cardinalities and widely separated min and max without support for predicate pushdown.
+* **Bloom filter**: When there are too many distinct values, constructing dictionaries can be expensive. In cases of high-cardinality sets, we use blocked Bloom-filters for probabilistic set-membership tests.
+
 ## Subproject: Pillar
 
 

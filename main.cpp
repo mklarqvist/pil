@@ -150,19 +150,20 @@ int main(void){
         std::string line;
         uint32_t ltype = 0;
 
-        pil::BaseBitEncoder enc;
+        //pil::BaseBitEncoder enc;
 
         std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
         ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
         ctypes.clear();
         ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
         ctypes.clear();
-        ctypes.push_back(pil::PIL_ENCODE_DICT);
+        //ctypes.push_back(pil::PIL_ENCODE_DICT);
         ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
         table.SetField("NAME-7", pil::PIL_TYPE_UINT32, ctypes);
 
@@ -170,6 +171,8 @@ int main(void){
         ctypes.push_back(pil::PIL_ENCODE_DELTA);
         ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
         table.SetField("NAME-2", pil::PIL_TYPE_UINT32, ctypes);
+
+        table.single_archive = true;
 
         // We control wether we create a Tensor-model or Column-split-model ColumnStore
         // by using either Add (split-model) or AddArray (Tensor-model).

@@ -271,14 +271,14 @@ int Table::FinalizeBatch() {
         // Store ColumnSet meta information in the MetaData structure.
         tgt_cset->UpdateColumnSet(_seg_stack[i]);
 
-        // Todo: write data to disk shards
-        //media/mdrk/NVMe/test
+        // Todo: write data to single archive if split is deactivated
         std::shared_ptr<FieldMetaData> tgt_meta_field = meta_data.field_meta[meta_data.batches.back()->local_dict[i]];
-        if(tgt_meta_field->open_writer == false)
+        if(single_archive == false && tgt_meta_field->open_writer == false)
             tgt_meta_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[meta_data.batches.back()->local_dict[i]].field_name);
 
         //tgt_cset->column_meta_data[i]->file_offset;
-        tgt_meta_field->SerializeColumnSet(_seg_stack[i]);
+        if(single_archive == false) tgt_meta_field->SerializeColumnSet(_seg_stack[i]);
+        else tgt_meta_field->SerializeColumnSet(_seg_stack[i], out_stream);
 
         mem_out += ret;
     }
@@ -291,23 +291,23 @@ int Table::FinalizeBatch() {
     // Core updates: schemas
     meta_data.core_meta.push_back(std::make_shared<FieldMetaData>());
     uint32_t core_batch_id = meta_data.core_meta.back()->AddBatch(meta_data.batches.back()->schemas);
+    static_cast<ZstdCompressor*>(&compressor)->Compress(meta_data.batches.back()->schemas, PIL_CSTORE_COLUMN, PIL_ZSTD_DEFAULT_LEVEL);
+    std::cerr << "SCHEMAS=" << meta_data.batches.back()->schemas->columns[0]->uncompressed_size << "->" << meta_data.batches.back()->schemas->columns[0]->compressed_size << std::endl;
     std::cerr << "core-id=" << core_batch_id << "/" << meta_data.core_meta.back()->cset_meta.size() << std::endl;
     meta_data.core_meta.back()->cset_meta[core_batch_id]->UpdateColumnSet(meta_data.batches.back()->schemas);
     std::cerr << "DOne adding core" << std::endl;
 
     // Serialize batches
-    meta_data.batches.back()->Serialize(out_stream);
+    meta_data.core_meta[0]->cset_meta[core_batch_id]->column_meta_data.back()->file_offset = out_stream.tellp();
+    //meta_data.batches.back()->Serialize(out_stream);
     meta_data.batches.push_back(std::make_shared<RecordBatch>());
 
     return(1);
 }
 
 int Table::Finalize() {
-    std::cerr << "in finalize: before last batch" << std::endl;
     int ok = FinalizeBatch();
-    std::cerr << "in finalize: before serialize" << std::endl;
     ok = meta_data.Serialize(out_stream);
-    std::cerr << "after serialization final" << std::endl;
     return(out_stream.good());
 }
 

@@ -223,6 +223,7 @@ public:
         }
         return(stream.good());
     }
+
     int Deserialize(std::ostream& stream);
 
 public:
@@ -358,14 +359,16 @@ public:
     // unit to store the information in.
     int SerializeColumnSet(std::shared_ptr<ColumnSet> cset) {
         if(cset.get() == nullptr) return(-1);
-
-        if(open_writer == false) {
-            if(OpenWriter("/Users/Mivagallery/Desktop/pil/test") != 1) {
-                return(-1);
-            }
-        }
+        if(open_writer == false) return(-1);
 
         bool good = cset_meta.back()->SerializeColumnSet(cset, *writer.get());
+        return(good);
+    }
+
+    int SerializeColumnSet(std::shared_ptr<ColumnSet> cset, std::ostream& stream) {
+        if(cset.get() == nullptr) return(-1);
+
+        bool good = cset_meta.back()->SerializeColumnSet(cset, stream);
         return(good);
     }
 
@@ -503,14 +506,12 @@ public:
         ostream.write(reinterpret_cast<char*>(&n_rows), sizeof(uint64_t));
         uint32_t n_batches = batches.size();
         ostream.write(reinterpret_cast<char*>(&n_batches), sizeof(uint32_t));
-        std::cerr << "before serializing batches" << std::endl;
         for(int i = 0; i < n_batches; ++i) {
             batches[i]->Serialize(ostream);
         }
 
         uint32_t n_fields = field_meta.size();
         ostream.write(reinterpret_cast<char*>(&n_fields), sizeof(uint32_t));
-        std::cerr << "before serializing meta fields" << std::endl;
         for(int i = 0; i < n_fields; ++i) {
             field_meta[i]->Serialize(ostream);
         }
@@ -529,14 +530,16 @@ public:
     //    efficiently map a ColumnSet to its disk offset
     //    efficiently lookup the segmental range
 
-    // Meta data for each Field
+
+    // First Core FieldMetaData is ALWAYS the Schema encodings in uint32_t format.
     std::vector< std::shared_ptr<FieldMetaData> > core_meta;
+    // Meta data for each Field
     std::vector< std::shared_ptr<FieldMetaData> > field_meta;
 };
 
 struct Table {
 public:
-    Table() : single_archive(false), c_in(0), c_out(0){}
+    Table() : format_version(0), single_archive(false), c_in(0), c_out(0){}
     ~Table(){ }
 
 	/**<

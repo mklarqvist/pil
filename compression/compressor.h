@@ -113,27 +113,33 @@ public:
 	ZstdCompressor();
 	~ZstdCompressor();
 
-	int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const int compression_level = 1) {
+	int Compress(std::shared_ptr<ColumnSet> cset, const PIL_CSTORE_TYPE& field_type, const int compression_level = 1) {
 	    if(cset.get() == nullptr) return(-1);
 
-	    int ret = 0;
-        if(field.cstore == PIL_CSTORE_COLUMN) {
-           std::cerr << "in cstore col: n=" << cset->size() << std::endl;
-           for(int i = 0; i < cset->size(); ++i) {
-               int ret2 = Compress(
-                       cset->columns[i]->buffer->mutable_data(),
-                       cset->columns[i]->uncompressed_size,
-                       compression_level);
+            int ret = 0;
+            if(field_type == PIL_CSTORE_COLUMN) {
+               std::cerr << "in cstore col: n=" << cset->size() << std::endl;
+               for(int i = 0; i < cset->size(); ++i) {
+                   int ret2 = Compress(
+                           cset->columns[i]->buffer->mutable_data(),
+                           cset->columns[i]->uncompressed_size,
+                           compression_level);
 
-               cset->columns[i]->compressed_size = ret2;
-               memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
-               ret += ret2;
-           }
-           return(ret);
-        } else if(field.cstore == PIL_CSTORE_TENSOR) {
+                   cset->columns[i]->compressed_size = ret2;
+                   memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+                   cset->columns[i]->transformations.push_back(PIL_COMPRESS_ZSTD);
+                   ret += ret2;
+               }
+               return(ret);
+            } else if(field_type == PIL_CSTORE_TENSOR) {
+                std::cerr << "not allowed yet" << std::endl;
+                exit(1);
+            }
+            return(ret);
+	}
 
-        }
-        return(ret);
+	int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const int compression_level = 1) {
+	    return(Compress(cset, field.cstore, compression_level));
 	}
 
 	int Compress(const uint8_t* src, const uint32_t n_src, const int compression_level = 1) {
