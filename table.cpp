@@ -8,7 +8,11 @@ int Table::Append(RecordBuilder& builder) {
 
     // Check if the current RecordBatch has reached its Batch limit.
     // If it has then finalize the Batch.
-    if(meta_data.batches.back()->n_rec >= 8192) { FinalizeBatch(); }
+    if(meta_data.batches.back()->n_rec >= 8192) {
+        uint32_t batch_id = meta_data.batches.size() == 0 ? 0 : meta_data.batches.size() - 1;
+        std::cerr << "FINALZIIGN: " << batch_id << std::endl;
+        FinalizeBatch(batch_id);
+    }
 
     //std::cerr << "ADDING: " << builder.slots[0]->field_name;
     //for(int i = 1; i < builder.slots.size(); ++i) {
@@ -236,13 +240,49 @@ int Table::AppendData(const RecordBuilder& builder,
     return(ret_status);
 }
 
-int Table::FinalizeBatch() {
+int Table::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
+    if(cset.get() == nullptr) return(-1);
+
+    Compressor compressor;
+
+    // Core updates: schemas
+    // Append a new FieldMetaData to the Core FieldMetaData list.
+    meta_data.core_meta.push_back(std::make_shared<FieldMetaData>());
+    // Adding a RecordBatch to the core FieldMetaData will return the offset it was added to.
+    uint32_t core_batch_id = meta_data.core_meta[batch_id]->AddBatch(cset);
+    // Compress the Schema identifiers for this RecordBatch.
+    static_cast<ZstdCompressor*>(&compressor)->Compress(cset, PIL_CSTORE_COLUMN, PIL_ZSTD_DEFAULT_LEVEL);
+    std::cerr << "SCHEMAS=" << cset->columns[0]->uncompressed_size << "->" << cset->columns[0]->compressed_size << std::endl;
+    //std::cerr << "core-id=" << core_batch_id << "/" << meta_data.core_meta.back()->cset_meta.size() << std::endl;
+    meta_data.core_meta[batch_id]->cset_meta[core_batch_id]->UpdateColumnSet(meta_data.batches[batch_id]->schemas);
+
+    // Serialize batches
+    meta_data.core_meta[0]->cset_meta[core_batch_id]->column_meta_data.back()->file_offset = out_stream.tellp(); // start of the data
+    std::cerr << "Serializing BATCHES" << std::endl;
+    // Write out the ColumnSet to disk in the appropriate place / file.
+
+    // Todo: if not single archive
+    meta_data.core_meta[0]->cset_meta[core_batch_id]->SerializeColumnSet(meta_data.batches[batch_id]->schemas, out_stream);
+
+    return(core_batch_id);
+}
+
+int Table::FinalizeBatch(const uint32_t batch_id) {
     Compressor compressor;
     uint32_t mem_in = 0, mem_out = 0;
 
+    // Add the Schemas for the RecordBatch to the meta data indices.
+    // This function returns the offset where the data was added. This offset
+    // is used again later to update statistics following compression / encoding.
+    int core_batch_id = AddRecordBatchSchemas(meta_data.batches[batch_id]->schemas, batch_id);
+    if(core_batch_id < 0) {
+        std::cerr << "add batch corruption" << std::endl;
+        exit(1);
+    }
+
     // This is NOT thread safe.
     for(size_t i = 0; i < _seg_stack.size(); ++i) {
-        uint32_t global_id = meta_data.batches.back()->local_dict[i];
+        uint32_t global_id = meta_data.batches[batch_id]->local_dict[i];
         // Add ColumnSet to the FieldMetaData
         int target = meta_data.AddColumnSet(_seg_stack[i], global_id, field_dict);
 
@@ -257,34 +297,26 @@ int Table::FinalizeBatch() {
         // Update the target meta information with the new compressed data sizes.
         meta_data.UpdateColumnSet(_seg_stack[i], global_id, target);
 
+        // Write out.
+
         // Todo: write data to single archive if split is deactivated
         std::shared_ptr<FieldMetaData> tgt_meta_field = meta_data.field_meta[global_id];
         if(single_archive == false && tgt_meta_field->open_writer == false)
             tgt_meta_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[global_id].field_name);
 
-        //tgt_cset->column_meta_data[i]->file_offset;
+        // Write out the ColumnSet to disk in the appropriate place / file.
         if(single_archive == false) tgt_meta_field->SerializeColumnSet(_seg_stack[i]);
         else tgt_meta_field->SerializeColumnSet(_seg_stack[i], out_stream);
 
         mem_out += ret;
     }
 
+    // Todo: do not release memory after each Batch update.
     _seg_stack.clear();
     std::cerr << "total: compressed: " << mem_in << "->" << mem_out << "(" << (float)mem_in/mem_out << "-fold)" << std::endl;
-    c_in += mem_in;
+    c_in  += mem_in;
     c_out += mem_out;
 
-    // Core updates: schemas
-    meta_data.core_meta.push_back(std::make_shared<FieldMetaData>());
-    uint32_t core_batch_id = meta_data.core_meta.back()->AddBatch(meta_data.batches.back()->schemas);
-    static_cast<ZstdCompressor*>(&compressor)->Compress(meta_data.batches.back()->schemas, PIL_CSTORE_COLUMN, PIL_ZSTD_DEFAULT_LEVEL);
-    std::cerr << "SCHEMAS=" << meta_data.batches.back()->schemas->columns[0]->uncompressed_size << "->" << meta_data.batches.back()->schemas->columns[0]->compressed_size << std::endl;
-    std::cerr << "core-id=" << core_batch_id << "/" << meta_data.core_meta.back()->cset_meta.size() << std::endl;
-    meta_data.core_meta.back()->cset_meta[core_batch_id]->UpdateColumnSet(meta_data.batches.back()->schemas);
-    std::cerr << "DOne adding core" << std::endl;
-
-    // Serialize batches
-    meta_data.core_meta[0]->cset_meta[core_batch_id]->column_meta_data.back()->file_offset = out_stream.tellp();
     //meta_data.batches.back()->Serialize(out_stream);
 
     // Push back a new RecordBatch
@@ -294,7 +326,8 @@ int Table::FinalizeBatch() {
 }
 
 int Table::Finalize() {
-    int ok = FinalizeBatch();
+    uint32_t batch_id = meta_data.batches.size() == 0 ? 0 : meta_data.batches.size() - 1;
+    int ok = FinalizeBatch(batch_id);
     assert(ok != -1);
     ok = meta_data.Serialize(out_stream);
     assert(ok != -1);
@@ -317,7 +350,7 @@ void Table::Describe(std::ostream& stream) {
     }
     stream << "---------------------------------" << std::endl;
 
-    return;
+   // return;
 
     stream << "Batches=" << meta_data.batches.size() << std::endl;
     for(size_t i = 0; i < meta_data.batches.size(); ++i) {

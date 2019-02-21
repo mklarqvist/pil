@@ -59,8 +59,10 @@ public:
         }
 
         if(buffer.get() != nullptr) {
+            // If the data has been transformed we write out the compressed data
+            // otherwise we write out the uncompressed data.
             if(n_transforms != 0) {
-                std::cerr << "writing n= " << size() << " c=" << compressed_size << std::endl;
+                std::cerr << "writing transformed n= " << size() << " c=" << compressed_size << std::endl;
                 stream.write(reinterpret_cast<char*>(buffer->mutable_data()), compressed_size);
             } else {
                 std::cerr << "writing untransformed data= " << size() << " u=" << uncompressed_size << std::endl;
@@ -69,22 +71,16 @@ public:
         }
 
         const uint32_t n_nullity = std::ceil((float)n / 32);
-        std::cerr << "n=" << n << " and n_nullity=" << n_nullity << std::endl;
         if(nullity.get() != nullptr) {
-            std::cerr << "nullity=" << sizeof(uint32_t)*n_nullity << "b -> " << nullity_c << std::endl;
             const uint32_t* nulls = reinterpret_cast<const uint32_t*>(nullity->mutable_data());
             stream.write(reinterpret_cast<const char*>(nulls), nullity_c);
-            std::cerr << "after writing nullity" << std::endl;
-            //for(int i = 0; i < n_nullity; ++i) {
-            //    std::cerr << std::bitset<32>(nulls[i]) << " ";
-            //}
-            //std::cerr << std::endl;
         }
 
         return(1);
     }
 
-    // Deserialization is for DEBUG use only. Otherwise, use concrete Array types.
+    // Deserialization is for DEBUG use only. Otherwise, use the
+    // correct concrete Array types.
     int Deserialize(std::ostream& stream);
 
     // Check if the given element is valid by looking up that bit in the bitmap.

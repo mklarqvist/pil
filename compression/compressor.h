@@ -297,7 +297,7 @@ public:
         return(1);
     }
 
-    int Compress(const uint8_t* qual, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths) {
+    int Compress(uint8_t* qual, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths) {
         if(buffer.get() == nullptr) {
             assert(AllocateResizableBuffer(pool_, n_src + 16384, &buffer) == 1);
         }
@@ -306,6 +306,10 @@ public:
             //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
             assert(buffer->Reserve(n_src + 16384) == 1);
         }
+
+        // temp
+        //return(Compress2(qual, n_src));
+        //
 
         int qlevel = 2; // should be parameterized
         int qsize = QSIZE;
@@ -322,6 +326,7 @@ public:
             Compress(&qual[cum_offset], lengths[i], qlevel, &rc, model_qual);
             cum_offset += lengths[i];
         }
+        //Compress(qual, n_src, qlevel, &rc, model_qual);
 
         rc.FinishEncode();
         std::cerr << "qual encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;

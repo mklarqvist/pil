@@ -129,7 +129,7 @@ int main(void){
 
 
     // Set to 1 for FASTQ test
-    if(0) {
+    if(1) {
         std::ifstream ss;
         ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
@@ -140,6 +140,7 @@ int main(void){
         uint64_t file_size = ss.tellg();
         ss.seekg(0);
 
+        table.single_archive = true;
         //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
         table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
         if(table.out_stream.good() == false) {
@@ -162,10 +163,13 @@ int main(void){
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
-        ctypes.clear();
+        //ctypes.clear();
         //ctypes.push_back(pil::PIL_ENCODE_DICT);
-        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
-        table.SetField("NAME-7", pil::PIL_TYPE_UINT32, ctypes);
+        //ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        //ctypes.push_back(pil::PIL_COMPRESS_RANS1);
+        //table.SetField("NAME-7", pil::PIL_TYPE_UINT32, ctypes);
+        //table.SetField("NAME-8", pil::PIL_TYPE_UINT32, ctypes);
+        //table.SetField("NAME-9", pil::PIL_TYPE_UINT32, ctypes);
 
         ctypes.clear();
         ctypes.push_back(pil::PIL_ENCODE_DELTA);
@@ -252,7 +256,7 @@ int main(void){
     }
 
     // Set to 1 for SAM test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);

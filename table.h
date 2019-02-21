@@ -204,6 +204,9 @@ public:
     int SerializeColumnSet(std::shared_ptr<ColumnSet> cset, std::ostream& stream) {
         if(cset.get() == nullptr) return(-1);
 
+        // Iterate over ColumnStores in the ColumnSet and serialize out to disk
+        // and keep track of the virtual offset (disk offset) and the time this
+        // object was last modified (now).
         for(size_t i = 0; i < cset->size(); ++i) {
             column_meta_data[i]->file_offset = stream.tellp();
             // Todo: this is incorrect. Should not be used like this.
@@ -368,6 +371,10 @@ public:
     int SerializeColumnSet(std::shared_ptr<ColumnSet> cset, std::ostream& stream) {
         if(cset.get() == nullptr) return(-1);
 
+        // This subroutine will append the Serialized data from the ColumnSet into
+        // the destination ColumnSetMetaData.
+        // Todo: this is quiet ugly and should be rewritten in the future.
+        // Todo: ugly appending the data to the back rather than at a given offset.
         bool good = cset_meta.back()->SerializeColumnSet(cset, stream);
         return(good);
     }
@@ -629,9 +636,14 @@ public:
 
     /**<
      * Finalise the RecordBatch by encoding and compressing the ColumnSets.
+     * @param batch_id
      * @return
      */
-    int FinalizeBatch();
+    int FinalizeBatch(const uint32_t batch_id);
+
+
+    int AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id);
+    // private
 
     /**<
      * Helper function that writes out the ColumnSet information and their
