@@ -533,6 +533,99 @@ TEST(TableInsertion, MixedSchemasPartialOverlap) {
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
+// Add two completely non-overlapping schemas
+TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
+    TableConstructor table;
+    RecordBuilder rbuild;
+
+    ASSERT_EQ(0, table.build_csets.size());
+
+    // First schema
+    std::vector<float> vecvals = {1};
+    rbuild.Add<float>("FIELD1-odd", pil::PIL_TYPE_FLOAT, vecvals);
+    std::vector<uint32_t> vecvals2 = {1};
+    rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals2);
+    ASSERT_EQ(1, table.Append(rbuild));
+
+    ASSERT_EQ(2, table.build_csets.size());
+
+    ASSERT_EQ(1, table.build_csets[0]->columns.size());
+    ASSERT_EQ(1, table.build_csets[1]->columns.size());
+
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n);
+
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
+    ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+
+    // Second schema
+    vecvals = {1};
+    rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals);
+    vecvals2 = {1};
+    rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals2); // shared with schema 1
+    ASSERT_EQ(1, table.Append(rbuild));
+
+    ASSERT_EQ(3, table.build_csets.size()); // Only 1 new novel column
+
+    ASSERT_EQ(1, table.build_csets[0]->columns.size());
+    ASSERT_EQ(1, table.build_csets[1]->columns.size());
+    ASSERT_EQ(1, table.build_csets[2]->columns.size());
+
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); // These should all equal 2 as we pad all non-overlapping columns
+    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n);
+
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
+    ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
+    ASSERT_EQ(false, table.build_csets[2]->columns[0]->IsValid(0));
+
+    ASSERT_EQ(false, table.build_csets[0]->columns[0]->IsValid(1));
+    ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(1));
+    ASSERT_EQ(true, table.build_csets[2]->columns[0]->IsValid(1));
+
+    ASSERT_EQ(2, table.schema_dict.dict.size()); // These are still distinct schemas
+
+    // Third schema
+    vecvals2 = {1};
+    rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals2); // shared with schema 1
+    vecvals = {1};
+    rbuild.Add<float>("FIELD1-odd-again", pil::PIL_TYPE_FLOAT, vecvals);
+    ASSERT_EQ(1, table.Append(rbuild));
+
+    ASSERT_EQ(4, table.build_csets.size()); // Only 1 new novel column
+
+    ASSERT_EQ(1, table.build_csets[0]->columns.size());
+    ASSERT_EQ(1, table.build_csets[1]->columns.size());
+    ASSERT_EQ(1, table.build_csets[2]->columns.size());
+    ASSERT_EQ(1, table.build_csets[3]->columns.size());
+
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n); // These should all equal 3 as we pad all non-overlapping columns
+    ASSERT_EQ(3, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(3, table.build_csets[2]->columns[0]->n);
+    ASSERT_EQ(3, table.build_csets[3]->columns[0]->n);
+
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
+    ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
+    ASSERT_EQ(false, table.build_csets[2]->columns[0]->IsValid(0));
+    ASSERT_EQ(false, table.build_csets[3]->columns[0]->IsValid(0));
+
+    ASSERT_EQ(false, table.build_csets[0]->columns[0]->IsValid(1));
+    ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(1));
+    ASSERT_EQ(true, table.build_csets[2]->columns[0]->IsValid(1));
+    ASSERT_EQ(false, table.build_csets[3]->columns[0]->IsValid(1));
+
+    ASSERT_EQ(false, table.build_csets[0]->columns[0]->IsValid(2));
+    ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(2));
+    ASSERT_EQ(false, table.build_csets[2]->columns[0]->IsValid(2));
+    ASSERT_EQ(true, table.build_csets[3]->columns[0]->IsValid(2));
+
+    ASSERT_EQ(3, table.schema_dict.dict.size()); // These are still distinct schemas
+
+    ASSERT_EQ(1, table.FinalizeBatch(0));
+}
+
 }
 
 
