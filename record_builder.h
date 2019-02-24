@@ -87,7 +87,7 @@ public:
         if(values.size() * sizeof(T) > slots[n_used]->m)
             slots[n_used]->resize(values.size() * sizeof(T) + 1024);
 
-        for(int i = 0; i < values.size(); ++i){
+        for(size_t i = 0; i < values.size(); ++i){
             reinterpret_cast<T*>(slots[n_used]->data)[i] = values[i];
         }
         slots[n_used]->n = sizeof(T) * values.size();

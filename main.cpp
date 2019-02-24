@@ -10,6 +10,10 @@
 #include <iostream>
 #include <sstream>
 
+// test
+#include "table_test.h"
+//#include <gtest/gtest.h>
+
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {
     std::vector<std::string> results;
@@ -34,7 +38,12 @@ std::vector<std::string> inline StringSplit(const std::string &source, const cha
     return results;
 }
 
-int main(void){
+int google_test(int argc, char **argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
+int main(int argc, char **argv) {
     /*
     // MemoryPool tests.
     std::unique_ptr<pil::MemoryPool> pool = pil::MemoryPool::CreateDefault();
@@ -85,7 +94,11 @@ int main(void){
         std::cerr << "column-" << i << ": " << clengths[i] << std::endl;
     */
 
-    pil::Table table;
+    int test_return = google_test(argc, argv);
+    std::cerr << "google returned=" << test_return << std::endl;
+    if(test_return != 0) return(1);
+
+    pil::TableConstructor table;
 
     pil::RecordBuilder rbuild;
     /*
@@ -129,7 +142,7 @@ int main(void){
 
 
     // Set to 1 for FASTQ test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
@@ -256,7 +269,7 @@ int main(void){
     }
 
     // Set to 1 for SAM test
-    if(0) {
+    if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
@@ -284,14 +297,21 @@ int main(void){
         std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
         ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
         table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
         ctypes.clear();
         ctypes.push_back(pil::PIL_COMPRESS_RC_BASES);
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
         ctypes.clear();
         ctypes.push_back(pil::PIL_ENCODE_DICT);
         ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
         table.SetField("RNAME", pil::PIL_TYPE_UINT32, ctypes);
+
+        ctypes.clear();
+        ctypes.push_back(pil::PIL_ENCODE_CIGAR_NIBBLE);
+        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        table.SetField("CIGAR", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
         std::unordered_map<std::string, uint32_t> RNAME_map;
         std::vector<std::string> RNAME_dict;
@@ -598,14 +618,14 @@ int main(void){
             table.Append(rbuild);
         }
 
-        std::cerr << "cset n=" << table._seg_stack.size() << std::endl;
-        for(int i = 0; i < table._seg_stack.size(); ++i){
-            std::cerr << i << ": " << table._seg_stack[i]->columns.size() << " cols. first n= " << table._seg_stack[i]->columns.front()->n << std::endl;
+        std::cerr << "cset n=" << table.build_csets.size() << std::endl;
+        for(int i = 0; i < table.build_csets.size(); ++i){
+            std::cerr << i << ": " << table.build_csets[i]->columns.size() << " cols. first n= " << table.build_csets[i]->columns.front()->n << std::endl;
         }
 
         std::cerr << "stacks:" << std::endl;
-        for(int i = 0; i < table._seg_stack.size(); ++i){
-            std::cerr << table._seg_stack[i]->size() << "->" << table._seg_stack[i]->GetMemoryUsage() << std::endl;
+        for(int i = 0; i < table.build_csets.size(); ++i){
+            std::cerr << table.build_csets[i]->size() << "->" << table.build_csets[i]->GetMemoryUsage() << std::endl;
         }
 
 

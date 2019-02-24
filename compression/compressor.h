@@ -26,6 +26,8 @@ public:
 
     int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int CompressCigar(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+
     virtual int Decompress(){ return 1; }
 
     // TOdo: fix

@@ -39,17 +39,17 @@ typedef enum {
 const std::string PIL_CSTORE_TYPE_STRING[3] = {"UNKNOWN", "TENSOR", "COLUMN-SPLIT"};
 
 typedef enum {
-    PIL_COMPRESS_AUTO,
-    PIL_COMPRESS_ZSTD,
-    PIL_COMPRESS_NONE,
-    PIL_COMPRESS_RC_QUAL,
-    PIL_COMPRESS_RC_BASES,
-    PIL_COMPRESS_RC_NAME,
-    PIL_ENCODE_DICT,
-    PIL_ENCODE_DELTA,
-    PIL_ENCODE_DELTA_DELTA,
-    PIL_ENCODE_BASES_2BIT,
-    PIL_ENCODE_CIGAR_NIBBLE
+    PIL_COMPRESS_AUTO, /** Automatic compression **/
+    PIL_COMPRESS_ZSTD, /** ZSTD compression **/
+    PIL_COMPRESS_NONE, /** Leave data uncompressed **/
+    PIL_COMPRESS_RC_QUAL, /** Range codec with models for sequence quality scores **/
+    PIL_COMPRESS_RC_BASES, /** Range codec with models for sequence bases **/
+    PIL_COMPRESS_RC_ILLUMINA_NAME, /** Range codec models for Illumina sequence names **/
+    PIL_ENCODE_DICT, /** Dictionary encoding **/
+    PIL_ENCODE_DELTA, /** Delta encoding of arithmetic progression - requires uint32_t **/
+    PIL_ENCODE_DELTA_DELTA, /** Delta of deltas **/
+    PIL_ENCODE_BASES_2BIT, /** 2-bit encoding of sequence bases with additional mask **/
+    PIL_ENCODE_CIGAR_NIBBLE /** Nibble-encoding of CIGAR strings **/
 } PIL_COMPRESSION_TYPE;
 
 }

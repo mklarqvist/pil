@@ -2,7 +2,7 @@
 
 namespace pil {
 
-int Table::Append(RecordBuilder& builder) {
+int TableConstructor::Append(RecordBuilder& builder) {
     if(meta_data.batches.size() == 0)
         meta_data.batches.push_back(std::make_shared<RecordBatch>());
 
@@ -10,7 +10,7 @@ int Table::Append(RecordBuilder& builder) {
     // If it has then finalize the Batch.
     if(meta_data.batches.back()->n_rec >= 8192) {
         uint32_t batch_id = meta_data.batches.size() == 0 ? 0 : meta_data.batches.size() - 1;
-        std::cerr << "FINALZIIGN: " << batch_id << std::endl;
+        //std::cerr << "FINALIZING: " << batch_id << std::endl;
         FinalizeBatch(batch_id);
     }
 
@@ -57,7 +57,7 @@ int Table::Append(RecordBuilder& builder) {
         }
 
         // Actual addition of data.
-        assert(AppendData(builder, i, _seg_stack[_segid]) == 1);
+        assert(AppendData(builder, i, build_csets[_segid]) == 1);
     }
 
     // Map GLOBAL to LOCAL Schema in the current RecordBatch.
@@ -83,7 +83,7 @@ int Table::Append(RecordBuilder& builder) {
     for(size_t i = 0; i < pad_tgts.size(); ++i) {
         // pad with nulls
         int32_t tgt_id = meta_data.batches.back()->FindLocalField(pad_tgts[i]);
-        assert(_seg_stack[tgt_id].get() != nullptr);
+        assert(build_csets[tgt_id].get() != nullptr);
         //std::cerr << "padding id: " << i << "->" << tgt_id << "/" << meta_data.batches.back()->local_dict.size() << std::endl;
         if(tgt_id == -1) {
             for(size_t k = 0; k < meta_data.batches.back()->local_dict.size(); ++k) {
@@ -98,30 +98,30 @@ int Table::Append(RecordBuilder& builder) {
         int ret_status = 0;
         if(ctype == PIL_CSTORE_COLUMN){
             switch(ptype) {
-            case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilder<int8_t> >(_seg_stack[tgt_id])->PadNull();   break;
-            case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int16_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int32_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int64_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilder<uint8_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint16_t> >(_seg_stack[tgt_id])->PadNull(); break;
-            case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(_seg_stack[tgt_id])->PadNull(); break;
-            case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint64_t> >(_seg_stack[tgt_id])->PadNull(); break;
-            case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilder<float> >(_seg_stack[tgt_id])->PadNull();    break;
-            case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilder<double> >(_seg_stack[tgt_id])->PadNull();   break;
+            case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilder<int8_t> >(build_csets[tgt_id])->PadNull();   break;
+            case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int16_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int32_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int64_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilder<uint8_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint16_t> >(build_csets[tgt_id])->PadNull(); break;
+            case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(build_csets[tgt_id])->PadNull(); break;
+            case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint64_t> >(build_csets[tgt_id])->PadNull(); break;
+            case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilder<float> >(build_csets[tgt_id])->PadNull();    break;
+            case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilder<double> >(build_csets[tgt_id])->PadNull();   break;
             default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
             }
         } else {
             switch(ptype) {
-            case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int8_t> >(_seg_stack[tgt_id])->PadNull();   break;
-            case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int16_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int32_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int64_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(_seg_stack[tgt_id])->PadNull();  break;
-            case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint16_t> >(_seg_stack[tgt_id])->PadNull(); break;
-            case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint32_t> >(_seg_stack[tgt_id])->PadNull(); break;
-            case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint64_t> >(_seg_stack[tgt_id])->PadNull(); break;
-            case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<float> >(_seg_stack[tgt_id])->PadNull();    break;
-            case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<double> >(_seg_stack[tgt_id])->PadNull();   break;
+            case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int8_t> >(build_csets[tgt_id])->PadNull();   break;
+            case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int16_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int32_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int64_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(build_csets[tgt_id])->PadNull();  break;
+            case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint16_t> >(build_csets[tgt_id])->PadNull(); break;
+            case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint32_t> >(build_csets[tgt_id])->PadNull(); break;
+            case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint64_t> >(build_csets[tgt_id])->PadNull(); break;
+            case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<float> >(build_csets[tgt_id])->PadNull();    break;
+            case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<double> >(build_csets[tgt_id])->PadNull();   break;
             default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
             }
         }
@@ -135,7 +135,7 @@ int Table::Append(RecordBuilder& builder) {
 }
 
 // private
-int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
+int TableConstructor::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
                           PIL_PRIMITIVE_TYPE ptype_arr,
                           uint32_t global_id)
 {
@@ -146,7 +146,7 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
     }
     int col_id = meta_data.batches.back()->AddGlobalField(global_id);
 
-    _seg_stack.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
+    build_csets.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
 
     const uint32_t padding_to = meta_data.batches.back()->n_rec;
     if(padding_to != 0) std::cerr << "padding up to: " << padding_to << std::endl;
@@ -156,19 +156,19 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
     // return value.
     if(padding_to == 0) ret_status = 1;
 
-    if(ptype == PIL_TYPE_BYTE_ARRAY){
+    if(ptype == PIL_TYPE_BYTE_ARRAY) {
         for(uint32_t j = 0; j < padding_to; ++j) {
            switch(ptype_arr) {
-           case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int8_t> >(_seg_stack.back())->Append(0);   break;
-           case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int16_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int32_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int64_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint16_t> >(_seg_stack.back())->Append(0); break;
-           case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint32_t> >(_seg_stack.back())->Append(0); break;
-           case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint64_t> >(_seg_stack.back())->Append(0); break;
-           case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<float> >(_seg_stack.back())->Append(0);    break;
-           case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<double> >(_seg_stack.back())->Append(0);   break;
+           case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int8_t> >(build_csets.back())->PadNull();   break;
+           case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int16_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int32_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<int64_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint16_t> >(build_csets.back())->PadNull(); break;
+           case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint32_t> >(build_csets.back())->PadNull(); break;
+           case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<uint64_t> >(build_csets.back())->PadNull(); break;
+           case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<float> >(build_csets.back())->PadNull();    break;
+           case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilderTensor<double> >(build_csets.back())->PadNull();   break;
            default: std::cerr << "no known type: " << ptype_arr << std::endl; ret_status = -1; break;
            }
            assert(ret_status == 1);
@@ -176,21 +176,23 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
     } else {
         for(uint32_t j = 0; j < padding_to; ++j) {
            switch(ptype) {
-           case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilder<int8_t> >(_seg_stack.back())->Append(0);   break;
-           case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int16_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int32_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int64_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilder<uint8_t> >(_seg_stack.back())->Append(0);  break;
-           case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint16_t> >(_seg_stack.back())->Append(0); break;
-           case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(_seg_stack.back())->Append(0); break;
-           case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint64_t> >(_seg_stack.back())->Append(0); break;
-           case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilder<float> >(_seg_stack.back())->Append(0);    break;
-           case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilder<double> >(_seg_stack.back())->Append(0);   break;
+           case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< ColumnSetBuilder<int8_t> >(build_csets.back())->PadNull();   break;
+           case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int16_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int32_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< ColumnSetBuilder<int64_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< ColumnSetBuilder<uint8_t> >(build_csets.back())->PadNull();  break;
+           case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint16_t> >(build_csets.back())->PadNull(); break;
+           case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(build_csets.back())->PadNull(); break;
+           case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< ColumnSetBuilder<uint64_t> >(build_csets.back())->PadNull(); break;
+           case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< ColumnSetBuilder<float> >(build_csets.back())->PadNull();    break;
+           case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< ColumnSetBuilder<double> >(build_csets.back())->PadNull();   break;
            default: std::cerr << "no known type: " << ptype << std::endl; ret_status = -1; break;
            }
            assert(ret_status == 1);
         }
     }
+
+    //std::cerr << "AFTER padding=" << build_csets.back()->n << std::endl;
 
     //std::cerr << "returning: " << col_id << " with ret_status=" << ret_status << std::endl;
     if(ret_status == 1) return(col_id);
@@ -198,7 +200,7 @@ int Table::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
 }
 
 // private
-int Table::AppendData(const RecordBuilder& builder,
+int TableConstructor::AppendData(const RecordBuilder& builder,
                       const uint32_t slot_offset,
                       std::shared_ptr<ColumnSet> dst_column)
 {
@@ -240,34 +242,37 @@ int Table::AppendData(const RecordBuilder& builder,
     return(ret_status);
 }
 
-int Table::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
+int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
     if(cset.get() == nullptr) return(-1);
 
+    // Todo: this might be expensive
     Compressor compressor;
 
     // Core updates: schemas
-    // Append a new FieldMetaData to the Core FieldMetaData list.
+    // Append a new FieldMetaData to the Core FieldMetaData list and use that offset.
     meta_data.core_meta.push_back(std::make_shared<FieldMetaData>());
+
     // Adding a RecordBatch to the core FieldMetaData will return the offset it was added to.
     uint32_t core_batch_id = meta_data.core_meta[batch_id]->AddBatch(cset);
     // Compress the Schema identifiers for this RecordBatch.
     static_cast<ZstdCompressor*>(&compressor)->Compress(cset, PIL_CSTORE_COLUMN, PIL_ZSTD_DEFAULT_LEVEL);
-    std::cerr << "SCHEMAS=" << cset->columns[0]->uncompressed_size << "->" << cset->columns[0]->compressed_size << std::endl;
+    //std::cerr << "SCHEMAS=" << cset->columns[0]->uncompressed_size << "->" << cset->columns[0]->compressed_size << std::endl;
     //std::cerr << "core-id=" << core_batch_id << "/" << meta_data.core_meta.back()->cset_meta.size() << std::endl;
     meta_data.core_meta[batch_id]->cset_meta[core_batch_id]->UpdateColumnSet(meta_data.batches[batch_id]->schemas);
 
     // Serialize batches
     meta_data.core_meta[0]->cset_meta[core_batch_id]->column_meta_data.back()->file_offset = out_stream.tellp(); // start of the data
-    std::cerr << "Serializing BATCHES" << std::endl;
+    //std::cerr << "Serializing BATCHES" << std::endl;
     // Write out the ColumnSet to disk in the appropriate place / file.
 
     // Todo: if not single archive
+    // This is bad!!!!!!!!!!!!!
     meta_data.core_meta[0]->cset_meta[core_batch_id]->SerializeColumnSet(meta_data.batches[batch_id]->schemas, out_stream);
 
     return(core_batch_id);
 }
 
-int Table::FinalizeBatch(const uint32_t batch_id) {
+int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
     Compressor compressor;
     uint32_t mem_in = 0, mem_out = 0;
 
@@ -281,21 +286,21 @@ int Table::FinalizeBatch(const uint32_t batch_id) {
     }
 
     // This is NOT thread safe.
-    for(size_t i = 0; i < _seg_stack.size(); ++i) {
+    for(size_t i = 0; i < build_csets.size(); ++i) {
         uint32_t global_id = meta_data.batches[batch_id]->local_dict[i];
         // Add ColumnSet to the FieldMetaData
-        int target = meta_data.AddColumnSet(_seg_stack[i], global_id, field_dict);
+        int target = meta_data.AddColumnSet(build_csets[i], global_id, field_dict);
 
         // Update memory usage.
-        mem_in += _seg_stack[i]->GetMemoryUsage();
+        mem_in += build_csets[i]->GetMemoryUsage();
 
         // Compress ColumnSet according as described in the paired FieldMeta
         // record or automatically.
-        int ret = compressor.Compress(_seg_stack[i], field_dict.dict[global_id]);
-        std::cerr << field_dict.dict[global_id].field_name << "\t" << "compressed: n=" << _seg_stack[i]->size() << " size=" << _seg_stack[i]->GetMemoryUsage() << "->" << ret << " (" << (float)_seg_stack[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
+        int ret = compressor.Compress(build_csets[i], field_dict.dict[global_id]);
+        std::cerr << field_dict.dict[global_id].field_name << "\t" << "compressed: n=" << build_csets[i]->size() << " size=" << build_csets[i]->GetMemoryUsage() << "->" << ret << " (" << (float)build_csets[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
 
         // Update the target meta information with the new compressed data sizes.
-        meta_data.UpdateColumnSet(_seg_stack[i], global_id, target);
+        meta_data.UpdateColumnSet(build_csets[i], global_id, target);
 
         // Write out.
 
@@ -305,14 +310,14 @@ int Table::FinalizeBatch(const uint32_t batch_id) {
             tgt_meta_field->OpenWriter("/Users/Mivagallery/Desktop/pil/test_" + field_dict.dict[global_id].field_name);
 
         // Write out the ColumnSet to disk in the appropriate place / file.
-        if(single_archive == false) tgt_meta_field->SerializeColumnSet(_seg_stack[i]);
-        else tgt_meta_field->SerializeColumnSet(_seg_stack[i], out_stream);
+        if(single_archive == false) tgt_meta_field->SerializeColumnSet(build_csets[i]);
+        else tgt_meta_field->SerializeColumnSet(build_csets[i], out_stream);
 
         mem_out += ret;
     }
 
     // Todo: do not release memory after each Batch update.
-    _seg_stack.clear();
+    build_csets.clear();
     std::cerr << "total: compressed: " << mem_in << "->" << mem_out << "(" << (float)mem_in/mem_out << "-fold)" << std::endl;
     c_in  += mem_in;
     c_out += mem_out;
@@ -325,7 +330,7 @@ int Table::FinalizeBatch(const uint32_t batch_id) {
     return(1);
 }
 
-int Table::Finalize() {
+int TableConstructor::Finalize() {
     uint32_t batch_id = meta_data.batches.size() == 0 ? 0 : meta_data.batches.size() - 1;
     int ok = FinalizeBatch(batch_id);
     assert(ok != -1);
@@ -334,7 +339,7 @@ int Table::Finalize() {
     return(out_stream.good());
 }
 
-void Table::Describe(std::ostream& stream) {
+void TableConstructor::Describe(std::ostream& stream) {
     stream << "---------------------------------" << std::endl;
     for(size_t i = 0; i < field_dict.dict.size(); ++i) {
         stream << field_dict.dict[i].field_name << ": ptype " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << " cstore: " << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << " n=" << meta_data.field_meta[i]->TotalOccurences() << " compmode: ";
@@ -350,7 +355,7 @@ void Table::Describe(std::ostream& stream) {
     }
     stream << "---------------------------------" << std::endl;
 
-   // return;
+   return;
 
     stream << "Batches=" << meta_data.batches.size() << std::endl;
     for(size_t i = 0; i < meta_data.batches.size(); ++i) {
@@ -364,6 +369,8 @@ void Table::Describe(std::ostream& stream) {
         stream << "]" << std::endl;
     }
     stream << "---------------------------------" << std::endl;
+
+    //return;
 
     stream << "Fields=" << meta_data.field_meta.size() << std::endl;
     for(size_t i = 0; i < meta_data.field_meta.size(); ++i) {

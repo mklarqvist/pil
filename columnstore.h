@@ -22,6 +22,7 @@ namespace pil {
 struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
+        have_dictionary(false),
         n(0), m(0), uncompressed_size(0), compressed_size(0),
         m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
@@ -70,10 +71,17 @@ public:
             }
         }
 
-        const uint32_t n_nullity = std::ceil((float)n / 32);
+        // Nullity vector
+        //const uint32_t n_nullity = std::ceil((float)n / 32);
         if(nullity.get() != nullptr) {
             const uint32_t* nulls = reinterpret_cast<const uint32_t*>(nullity->mutable_data());
             stream.write(reinterpret_cast<const char*>(nulls), nullity_c);
+        }
+
+        // Dictionary encoding
+        stream.write(reinterpret_cast<char*>(&have_dictionary), sizeof(bool));
+        if(have_dictionary) {
+            //stream.write()
         }
 
         return(1);
@@ -87,6 +95,12 @@ public:
     bool IsValid(const uint32_t p) { return(reinterpret_cast<uint32_t*>(nullity->mutable_data())[n / 32] & (1 << (p % 32))); }
 
 public:
+    bool have_dictionary;
+    // Todo: address (https://app.asana.com/0/1111151872856814/1111157143617759)
+    // int32_t num_values;
+    // int32_t num_rows;
+    // int32_t num_nulls;
+    // bool is_compressed;
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is nice to have during deserialization
     std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
@@ -96,8 +110,10 @@ public:
     // Any memory is owned by the respective Buffer instance (or its parents).
     MemoryPool* pool_;
     std::shared_ptr<ResizableBuffer> buffer; // Actual data BLOB
-    std::shared_ptr<ResizableBuffer> nullity; // NULLity vector
+    std::shared_ptr<ResizableBuffer> nullity; // NULLity vector Todo: make into structure
+    std::shared_ptr<ResizableBuffer> dictionary; // Dictionary used for predicate pushdown Todo: make into structure
     std::shared_ptr<ResizableBuffer> transformation_args; // BLOB storing the parameters for the transformation operations.
+                                                          // Every transform MUST store a value in the arguments.
 };
 
 template <class T>
@@ -318,7 +334,7 @@ public:
         }
         //std::cerr << columns.size() << "/" << n_values << "/" << n << std::endl;
 
-        for(int i = 0; i < n_values; ++i){
+        for(int i = 0; i < n_values; ++i) {
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(value[i]);
             assert(ret == 1);
@@ -341,6 +357,13 @@ public:
      * @return
      */
     int PadNull() {
+        if(columns.size() == 0) {
+            //std::cerr << "pushing back first column" << std::endl;
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            ++n;
+        }
+
+        //std::cerr << "in padnull: csize = " << columns.size() << std::endl;
         for(uint32_t i = 0; i < columns.size(); ++i) {
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
@@ -468,6 +491,14 @@ public:
      * @return
      */
     int PadNull() {
+        if(columns.size() == 0) {
+            //std::cerr << "pushing back first column" << std::endl;
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
+            n += 2;
+        }
+        assert(n == 2);
+
         if(columns[0]->n == 0) {
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
