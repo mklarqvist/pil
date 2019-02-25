@@ -30,7 +30,7 @@ public:
 // Use during construciton ONLY! This separates out construction and reading
 class TableConstructor : public Table {
 public:
-    TableConstructor() : single_archive(true), c_in(0), c_out(0){}
+    TableConstructor() : single_archive(true), batch_size(8192), c_in(0), c_out(0){}
     ~TableConstructor(){}
 
     /**<
@@ -157,6 +157,7 @@ public:
 
 public:
     bool single_archive; // Write a single archive or mutiple output files in a directory.
+    uint32_t batch_size;
     // Construction helpers
     uint64_t c_in, c_out; // Todo: delete
     //std::shared_ptr<RecordBatch> record_batch; // temporary instance of a RecordBatch

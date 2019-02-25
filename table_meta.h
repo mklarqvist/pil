@@ -66,7 +66,6 @@ public:
         if(cstore.get() == nullptr) return;
 
         n = cstore->n;
-        m = cstore->m;
         uncompressed_size = cstore->uncompressed_size;
         compressed_size   = cstore->compressed_size;
     }
@@ -78,7 +77,6 @@ public:
         stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&last_modified), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&n), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&m), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&compressed_size), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&stats_surrogate_min), sizeof(uint64_t));
@@ -92,8 +90,9 @@ public:
 public:
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
     uint64_t last_modified; // unix timestamp when last modified
-    uint32_t n, m, uncompressed_size, compressed_size; // number of elements
+    uint32_t n, uncompressed_size, compressed_size; // number of elements
     uint64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
+    // Todo: move out. too expensive to keep in primary index
     uint8_t md5_checksum[16]; // checksum for buffer
 };
 

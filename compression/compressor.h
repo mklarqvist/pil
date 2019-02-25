@@ -400,6 +400,7 @@ public:
                                            cset->columns[0]->buffer.mutable_data(),
                                            cset->columns[0]->buffer.length(),
                                            PIL_ZSTD_DEFAULT_LEVEL);
+
             memcpy(cset->columns[0]->buffer.mutable_data(), buffer->mutable_data(), ret1);
             cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
             cset->columns[0]->compressed_size = ret1;

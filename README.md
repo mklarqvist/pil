@@ -16,7 +16,6 @@ When executing queries in the most generic and basic manner, filtering happens v
 
 ## Subproject: Pillar
 
-
 `Pillar` is the specialized implementation that can consume the majority of the incumbent genomics interchange formats including: [SAM](htsspec), [BAM](htsspec), [CRAM](htsspec), [VCF](htsspec), [BCF](htsspec), [YON](https://github.com/mklarqvist/tachyon), [FASTA](https://en.wikipedia.org/wiki/FASTA_format), [FASTQ](https://academic.oup.com/nar/article/38/6/1767/3112533), [BED](https://www.ensembl.org/info/website/upload/bed.html), [GTF2](https://www.ensembl.org/info/website/upload/gff.html), [GFF3](https://www.ensembl.org/info/website/upload/gff3.html) and have native coding support for sequencing-specific range codecs (CRAM and [fqzcomp](https://github.com/jkbonfield/fqzcomp)), [PBWT](https://github.com/richarddurbin/pbwt) ([BGT](https://github.com/lh3/bgt)), genotype-PBWT (YON), multi-symbol-PBWT, and individual-centric WAH-bitmaps ([GQT](https://github.com/ryanlayer/gqt)).
 
 | Type            | Format(s)          |
@@ -68,6 +67,7 @@ We will use the first 50 million reads from `NA12878J_HiSeqX_R1` to convert into
 | BAM      | 1208014419 | 4m8.770s*, 4m47.160s** | 3.700185          | Partial       |
 | CRAM     | 860706428  | 1m29.555s              | 5.193266          | Partial       |
 | Pil      | 801811920  | 3m59.769s              | 5.57472           | Yes           |
+| Pil-65536| 773132410  | 3m40.953s              | 5.781516          | Yes           |
 
 \* `SAM`->`BAM`  
 \*\* `FASTQ` -> `BAM`
@@ -81,10 +81,11 @@ We will use the first 50 million reads from `NA12878J_HiSeqX_R1` to convert into
 * `samtools view NA12878J_HiSeqX_R1_50mil.fastq.bam -O cram > NA12878J_HiSeqX_R1_50mil.fastq.cram`
 * `gzip -c NA12878J_HiSeqX_R1_50mil.fastq.sam > NA12878J_HiSeqX_R1_50mil.fastq.sam.gz`
 * `Pil` used `PIL_COMPRESS_RC_QUAL` and `PIL_COMPRESS_RC_BASES` codecs for per-base quality scores and bases, respectively. Sequence names were tokenized by `:` (colon) and partitioned into `ColumnStores` without additional processing.
+* `Pil-65536` was run with the same settings but the `RecordBatch` size set to 65536 instead of 8192.
 
 ### SAM/BAM/CRAM: Aligned readset
 
-Aligned data from above.
+Aligned data from above resulting in 12,565,597 records.
 
 | Format | File size              | Import time | Compression ratio   | Random access |
 |--------|------------------------|-------------|---------------------|---------------|
@@ -92,6 +93,7 @@ Aligned data from above.
 | BAM    | 1540663158             | 5m5.326s    | 3.421517            | Partial       |
 | CRAM   | 534863873*             | 2m5.874s    | 9.855602            | Partial       |
 | Pil    | 1000020959 (560239248**) | 5m30.744s   | 5.271295 (9.409204**) | Yes           |
+| Pil-65536    | 960525582 (536238664**) | 5m5.223s   | 5.488043 (9.830335**) | Yes           |
 
 \* `CRAM` requires an external reference, in this case `hg19.fa.gz`, that is 948731427 bytes.  
 \*\* Running `Pil` with an external reference sequence like `CRAM`.
@@ -102,6 +104,7 @@ Aligned data from above.
 * `samtools view NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam -O bam > NA12878J_HiSeqX_R1_50mil.fastq.aligned.bam`
 * `samtools view NA12878J_HiSeqX_R1_50mil.fastq.aligned.bam -O cram > NA12878J_HiSeqX_R1_50mil.fastq.aligned.cram`
 * `Pil` used `PIL_COMPRESS_RC_QUAL` and `PIL_COMPRESS_RC_BASES` codecs for per-base quality scores and bases, respectively. Sequence names were tokenized by `:` (colon) and partitioned into `ColumnStores` without additional processing.
+* `Pil-65536` was run with the same settings but the `RecordBatch` size set to 65536 instead of 8192.
 
 
 [htsspec]: https://github.com/samtools/hts-specs

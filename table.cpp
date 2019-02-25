@@ -8,7 +8,7 @@ int TableConstructor::Append(RecordBuilder& builder) {
 
     // Check if the current RecordBatch has reached its Batch limit.
     // If it has then finalize the Batch.
-    if(meta_data.batches.back()->n_rec >= 8192) {
+    if(meta_data.batches.back()->n_rec >= batch_size) {
         uint32_t batch_id = meta_data.batches.size() == 0 ? 0 : meta_data.batches.size() - 1;
         //std::cerr << "FINALIZING: " << batch_id << std::endl;
         FinalizeBatch(batch_id);
@@ -342,7 +342,7 @@ int TableConstructor::Finalize() {
 void TableConstructor::Describe(std::ostream& stream) {
     stream << "---------------------------------" << std::endl;
     for(size_t i = 0; i < field_dict.dict.size(); ++i) {
-        stream << field_dict.dict[i].field_name << ": ptype " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << " cstore: " << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << " n=" << meta_data.field_meta[i]->TotalOccurences() << " compmode: ";
+        stream << field_dict.dict[i].field_name << "\t" << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << "\t" << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << "\tn=" << meta_data.field_meta[i]->TotalOccurences() << " compmode: ";
         if(field_dict.dict[i].transforms.size()) {
             stream << field_dict.dict[i].transforms[0];
             for(size_t j = 1; j < field_dict.dict[i].transforms.size(); ++j) {
