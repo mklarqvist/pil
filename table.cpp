@@ -41,6 +41,7 @@ int TableConstructor::Append(RecordBuilder& builder) {
 
     // Store Schema-id with each record.
     uint32_t pid = schema_dict.FindOrAdd(pattern);
+    std::cerr << "schema_id=" << pid << std::endl;
 
     // Check the local stack of ColumnSets if the target identifier is present.
     // If the target identifier is NOT available then we insert a new ColumnSet
@@ -85,11 +86,11 @@ int TableConstructor::Append(RecordBuilder& builder) {
         int32_t tgt_id = meta_data.batches.back()->FindLocalField(pad_tgts[i]);
         assert(build_csets[tgt_id].get() != nullptr);
         //std::cerr << "padding id: " << i << "->" << tgt_id << "/" << meta_data.batches.back()->local_dict.size() << std::endl;
-        if(tgt_id == -1) {
-            for(size_t k = 0; k < meta_data.batches.back()->local_dict.size(); ++k) {
-                std::cerr << meta_data.batches.back()->local_dict[k] << std::endl;
-            }
-        }
+        //if(tgt_id == -1) {
+        //    for(size_t k = 0; k < meta_data.batches.back()->local_dict.size(); ++k) {
+        //        std::cerr << meta_data.batches.back()->local_dict[k] << std::endl;
+        //    }
+        //}
         assert(tgt_id != -1);
 
         PIL_PRIMITIVE_TYPE ptype = field_dict.dict[pad_tgts[i]].ptype;

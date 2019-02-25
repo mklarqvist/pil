@@ -153,7 +153,7 @@ public:
         return 1;
     }
 
-    int Append(const T& value) {
+    int Append(const T value) {
         buffer.Append(reinterpret_cast<const uint8_t*>(&value), sizeof(T));
         ++n;
         uncompressed_size += sizeof(T);

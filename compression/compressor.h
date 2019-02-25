@@ -42,16 +42,16 @@ public:
         if(field.cstore == PIL_CSTORE_COLUMN) {
             int ret_status = -1;
             switch(field.ptype) {
-            case(PIL_TYPE_INT8):   ret_status = dict.Encode<uint8_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_INT16):  ret_status = dict.Encode<uint16_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_INT32):  ret_status = dict.Encode<uint32_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_INT64):  ret_status = dict.Encode<uint64_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_UINT8):  ret_status = dict.Encode<int8_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_UINT16): ret_status = dict.Encode<int16_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_UINT32): ret_status = dict.Encode<int32_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_UINT64): ret_status = dict.Encode<int64_t>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_FLOAT):  ret_status = dict.Encode<float>(cset, cset->columns[0], cset->columns[0]->n); break;
-            case(PIL_TYPE_DOUBLE): ret_status = dict.Encode<double>(cset, cset->columns[0], cset->columns[0]->n); break;
+            case(PIL_TYPE_INT8):   ret_status = dict.Encode<uint8_t>(cset, cset->columns[0]);  break;
+            case(PIL_TYPE_INT16):  ret_status = dict.Encode<uint16_t>(cset, cset->columns[0]); break;
+            case(PIL_TYPE_INT32):  ret_status = dict.Encode<uint32_t>(cset, cset->columns[0]); break;
+            case(PIL_TYPE_INT64):  ret_status = dict.Encode<uint64_t>(cset, cset->columns[0]); break;
+            case(PIL_TYPE_UINT8):  ret_status = dict.Encode<int8_t>(cset, cset->columns[0]);   break;
+            case(PIL_TYPE_UINT16): ret_status = dict.Encode<int16_t>(cset, cset->columns[0]);  break;
+            case(PIL_TYPE_UINT32): ret_status = dict.Encode<int32_t>(cset, cset->columns[0]);  break;
+            case(PIL_TYPE_UINT64): ret_status = dict.Encode<int64_t>(cset, cset->columns[0]);  break;
+            case(PIL_TYPE_FLOAT):  ret_status = dict.Encode<float>(cset, cset->columns[0]);    break;
+            case(PIL_TYPE_DOUBLE): ret_status = dict.Encode<double>(cset, cset->columns[0]);   break;
             }
 
         } else if(field.cstore == PIL_CSTORE_TENSOR) {
@@ -73,6 +73,8 @@ public:
         std::cerr << "IN DELTA ENCODER" << std::endl;
 
         if(field.cstore == PIL_CSTORE_COLUMN) {
+            std::shared_ptr<ColumnStore> tgt = cset->columns[0];
+
             int ret_status = -1;
             switch(field.ptype) {
             case(PIL_TYPE_INT8):
@@ -84,16 +86,16 @@ public:
             case(PIL_TYPE_UINT64):
             case(PIL_TYPE_FLOAT):
             case(PIL_TYPE_DOUBLE): return(-1);
-            case(PIL_TYPE_UINT32): compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->mutable_data()), cset->columns[0]->n, 0); break;
+            case(PIL_TYPE_UINT32): compute_deltas_inplace(reinterpret_cast<uint32_t*>(tgt->mutable_data()), tgt->n, 0); break;
             }
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA));
+            tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,tgt->buffer.length(),tgt->buffer.length()));
 
         } else if(field.cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "not allowed yet" << std::endl;
             exit(1);
 
         } else {
-            std::cerr << "unknwon" << std::endl;
+            std::cerr << "delta encode in tensor is not allowed" << std::endl;
             exit(1);
         }
 
@@ -121,27 +123,30 @@ public:
 	int Compress(std::shared_ptr<ColumnSet> cset, const PIL_CSTORE_TYPE& field_type, const int compression_level = 1) {
 	    if(cset.get() == nullptr) return(-1);
 
-            int ret = 0;
-            if(field_type == PIL_CSTORE_COLUMN) {
-               std::cerr << "in cstore col: n=" << cset->size() << std::endl;
-               for(int i = 0; i < cset->size(); ++i) {
-                   int ret2 = Compress(
-                           cset->columns[i]->buffer.mutable_data(),
-                           cset->columns[i]->buffer.length(),
-                           compression_level);
+	    int ret = 0;
+        if(field_type == PIL_CSTORE_COLUMN) {
+           std::cerr << "in cstore col: n=" << cset->size() << std::endl;
+           for(int i = 0; i < cset->size(); ++i) {
+               std::shared_ptr<ColumnStore> tgt = cset->columns[i];
 
-                   cset->columns[i]->compressed_size = ret2;
-                   memcpy(cset->columns[i]->buffer.mutable_data(), buffer->mutable_data(), ret2);
-                   cset->columns[i]->buffer.UnsafeSetLength(ret2);
-                   cset->columns[i]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD));
-                   ret += ret2;
-               }
-               return(ret);
-            } else if(field_type == PIL_CSTORE_TENSOR) {
-                std::cerr << "not allowed yet" << std::endl;
-                exit(1);
-            }
-            return(ret);
+               int64_t in_size = tgt->buffer.length();
+               int ret2 = Compress(
+                       tgt->buffer.mutable_data(),
+                       tgt->buffer.length(),
+                       compression_level);
+
+               tgt->compressed_size = ret2;
+               memcpy(tgt->buffer.mutable_data(), buffer->mutable_data(), ret2);
+               tgt->buffer.UnsafeSetLength(ret2);
+               tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, in_size, ret2));
+               ret += ret2;
+           }
+           return(ret);
+        } else if(field_type == PIL_CSTORE_TENSOR) {
+            std::cerr << "not allowed yet" << std::endl;
+            exit(1);
+        }
+        return(ret);
 	}
 
 	int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const int compression_level = 1) {
@@ -200,35 +205,41 @@ public:
         if(cstore == PIL_CSTORE_COLUMN) {
             std::cerr << "in cstore col" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
-                uint32_t n_l = cset->columns[i]->n;
-                int ret2 = Compress(cset->columns[i]->buffer.mutable_data(), cset->columns[i]->n, &n_l, 1);
-                cset->columns[i]->compressed_size = ret2;
-                memcpy(cset->columns[i]->buffer.mutable_data(), buffer->mutable_data(), ret2);
-                cset->columns[i]->buffer.UnsafeSetLength(ret2);
-                cset->columns[i]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL));
+                std::shared_ptr<ColumnStore> tgt = cset->columns[i];
+                uint32_t n_l = tgt->buffer.length();
+                int64_t n_in = tgt->buffer.length();
+                int ret2 = Compress(tgt->buffer.mutable_data(), tgt->buffer.length(), &n_l, 1);
+                tgt->compressed_size = ret2;
+                memcpy(tgt->buffer.mutable_data(), buffer->mutable_data(), ret2);
+                tgt->buffer.UnsafeSetLength(ret2);
+                tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL, n_in, ret2));
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "in cstore tensor" << std::endl;
-            //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->n << std::endl;
+            //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->buffer.length() << std::endl;
             std::cerr << "computing deltas in place" << std::endl;
+
+            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(), cset->columns[0]->buffer.length()));
             compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                                    cset->columns[0]->n,
                                    0);
 
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA));
 
+            // Compress QUALs from Column 1 with the SEQ lengths from Column 0
+            int64_t n_in = cset->columns[1]->buffer.length();
             int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
                             cset->columns[1]->buffer.length(),
                             reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
-                            cset->columns[0]->n);
+                            cset->columns[0]->buffer.length());
 
             memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
             cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->buffer.UnsafeSetLength(ret2);
-            cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL));
+            cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL, n_in, ret2));
             ret += ret2;
 
+            int64_t n_in0 = cset->columns[0]->buffer.length();
             int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
                                            cset->columns[0]->buffer.mutable_data(),
                                            cset->columns[0]->buffer.length(),
@@ -237,7 +248,7 @@ public:
             memcpy(cset->columns[0]->buffer.mutable_data(), buffer->mutable_data(), ret1);
             cset->columns[0]->compressed_size = ret1;
             cset->columns[0]->buffer.UnsafeSetLength(ret1);
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD));
+            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in0, ret1));
 
         } else {
             //std::cerr << "unknown cstore type" << std::endl;
@@ -355,24 +366,27 @@ public:
         if(cstore == PIL_CSTORE_COLUMN) {
             std::cerr << "in cstore col: COMPUTING BASES" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
-                uint32_t n_l = cset->columns[i]->n;
-                int ret2 = Compress(cset->columns[i]->buffer.mutable_data(), cset->columns[i]->n, &n_l, 1);
-                cset->columns[i]->compressed_size = ret2;
-                memcpy(cset->columns[i]->buffer.mutable_data(), buffer->mutable_data(), ret2);
-                cset->columns[i]->buffer.UnsafeSetLength(ret2);
-                cset->columns[i]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_BASES));
+                std::shared_ptr<ColumnStore> tgt = cset->columns[i];
+                uint32_t n_l = tgt->buffer.length();
+                int64_t n_in = tgt->buffer.length();
+                int ret2 = Compress(tgt->buffer.mutable_data(), tgt->buffer.length(), &n_l, 1);
+                tgt->compressed_size = ret2;
+                memcpy(tgt->buffer.mutable_data(), buffer->mutable_data(), ret2);
+                tgt->buffer.UnsafeSetLength(ret2);
+                tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_BASES, n_in, ret2));
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
-            //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->n << std::endl;
+            //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->buffer.length() << std::endl;
             std::cerr << "computing deltas in place" << std::endl;
+            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));
+
             compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                                    cset->columns[0]->n,
                                    0);
 
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA));
-
+            int64_t n_in = cset->columns[0]->buffer.length();
             int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
                             cset->columns[1]->buffer.length(),
                             reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
@@ -380,9 +394,10 @@ public:
 
             cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->buffer.UnsafeSetLength(ret2);
-            cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_BASES));
+            cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_BASES,n_in,ret2));
             memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
 
+            int64_t n_in0 = cset->columns[0]->buffer.length();
             int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
                                            cset->columns[0]->buffer.mutable_data(),
                                            cset->columns[0]->buffer.length(),
@@ -391,7 +406,7 @@ public:
             memcpy(cset->columns[0]->buffer.mutable_data(), buffer->mutable_data(), ret1);
             cset->columns[0]->compressed_size = ret1;
             cset->columns[0]->buffer.UnsafeSetLength(ret1);
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD));
+            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in0, ret1));
 
             ret += ret2;
             std::cerr << "done: " << ret << std::endl;

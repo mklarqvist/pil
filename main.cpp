@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
         ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
-        if(ss.good() == false){
+        if(ss.good() == false) {
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
         }
@@ -238,9 +238,14 @@ int main(int argc, char **argv) {
         table.SetField("RNAME", pil::PIL_TYPE_UINT32, ctypes);
 
         ctypes.clear();
-        ctypes.push_back(pil::PIL_ENCODE_CIGAR_NIBBLE);
+        //ctypes.push_back(pil::PIL_ENCODE_CIGAR_NIBBLE);
         ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
         table.SetField("CIGAR", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
+        ctypes.clear();
+        //ctypes.push_back(pil::PIL_ENCODE_DICT);
+        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        table.SetField("POS", pil::PIL_TYPE_UINT32, ctypes);
 
         std::unordered_map<std::string, uint32_t> RNAME_map;
         std::vector<std::string> RNAME_dict;

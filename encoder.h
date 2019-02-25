@@ -92,40 +92,39 @@ class DictionaryEncoder : public Encoder {
 public:
     template <class  T>
     int Encode(std::shared_ptr<ColumnSet> cset,
-               std::shared_ptr<ColumnStore> cstore,
-               const uint32_t n_in)
+               std::shared_ptr<ColumnStore> cstore)
     {
         uint32_t tgt_col = cset->columns.size();
         cset->columns.push_back(std::make_shared<ColumnStore>(pil::default_memory_pool()));
         ++cset->n;
 
-        int ret = Encode<T>(cstore, cset->columns[tgt_col], n_in);
-
-        cstore->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT));
+        int ret = Encode<T>(cstore, cset->columns[tgt_col]);
         // todo: add transformations arg
         return ret;
     }
 
     template <class T>
     int Encode(std::shared_ptr<ColumnStore> src,
-               std::shared_ptr<ColumnStore> dst,
-               const uint32_t n_in)
+               std::shared_ptr<ColumnStore> dst)
     {
+        std::cerr << "dict input length=" << src->buffer.length() << std::endl;
+        assert(src->n * sizeof(T) == src->buffer.length());
         if(buffer.get() == nullptr) {
-            assert(AllocateResizableBuffer(pool_, n_in*sizeof(T) + 64, &buffer) == 1);
+            assert(AllocateResizableBuffer(pool_, src->buffer.length() + 16384, &buffer) == 1);
         }
 
-        if(buffer->capacity() < n_in*sizeof(T) + 64) {
-            assert(buffer->Reserve(n_in*sizeof(T) + 64) == 1);
+        if(buffer->capacity() < src->buffer.length() + 16384){
+           //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
+           assert(buffer->Reserve(src->buffer.length() + 16384) == 1);
         }
 
         typedef std::unordered_map<T, uint32_t> map_type;
         map_type map;
-        std::vector<uint32_t> list;
-        const T* in = reinterpret_cast<const T*>(src->mutable_data());
+        std::vector<T> list;
+        T* in = reinterpret_cast<T*>(src->mutable_data());
         T* dat = reinterpret_cast<T*>(buffer->mutable_data());
 
-        for(uint32_t i = 0; i < n_in; ++i) {
+        for(uint32_t i = 0; i < src->n; ++i) {
             if(map.find(in[i]) == map.end()) {
                 map[in[i]] = list.size();
                 dat[i] = list.size();
@@ -133,15 +132,23 @@ public:
             } else dat[i] = map.find(in[i])->second;
         }
 
-        std::shared_ptr< ColumnStoreBuilder<uint32_t> > b = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(dst);
+        std::shared_ptr< ColumnStoreBuilder<T> > b = std::static_pointer_cast< ColumnStoreBuilder<T> >(dst);
         for(size_t i = 0; i < list.size(); ++i) {
             b->Append(list[i]);
         }
 
-        // todo: test: replacing original data with dict-encoded data
-        memcpy(src->mutable_data(), dat, src->uncompressed_size);
+        std::cerr << "b buffer=" << b->buffer.length() << " and src=" << src->buffer.length() << std::endl;
+        //memcpy(dst->mutable_data(), dat, b->buffer.length());
+        b->compressed_size = b->buffer.length();
+        b->buffer.UnsafeSetLength(b->buffer.length());
+        b->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, b->buffer.length(), b->buffer.length()));
 
-        std::cerr << "map=" << list.size() << " out of " << n_in << std::endl;
+        // todo: test: replacing original data with dict-encoded data
+        for(uint32_t i = 0; i < src->n; ++i) {
+            dat[i] = map[dat[i]];
+        }
+
+        std::cerr << "map=" << list.size() << " out of " << src->n << std::endl;
         std::cerr << "dst=" << dst->n << " sz=" << dst->uncompressed_size << std::endl;
         return(1);
     }

@@ -22,11 +22,13 @@ struct TransformMetaTuple {
 struct TransformMeta {
     TransformMeta() : ctype(PIL_COMPRESS_NONE), u_sz(0), c_sz(0), n_tuples(0){}
     TransformMeta(PIL_COMPRESSION_TYPE p) : ctype(p), u_sz(0), c_sz(0), n_tuples(0){}
+    TransformMeta(PIL_COMPRESSION_TYPE p, int64_t un_sz) : ctype(p), u_sz(un_sz), c_sz(0), n_tuples(0){}
+    TransformMeta(PIL_COMPRESSION_TYPE p, int64_t un_sz, int64_t co_sz) : ctype(p), u_sz(un_sz), c_sz(co_sz), n_tuples(0){}
 
-   PIL_COMPRESSION_TYPE ctype;
-   int64_t u_sz, c_sz; // uncompressed/compressed size of the referred columnstore
-   int64_t n_tuples; // for serialization only
-   std::vector< std::unique_ptr<TransformMetaTuple> > tuples;
+    PIL_COMPRESSION_TYPE ctype;
+    int64_t u_sz, c_sz; // uncompressed/compressed size of the referred columnstore
+    int64_t n_tuples; // for serialization only
+    std::vector< std::unique_ptr<TransformMetaTuple> > tuples;
 };
 
 }
