@@ -24,7 +24,7 @@ public:
     int ComputeSegmentStats(std::shared_ptr<ColumnStore> cstore) {
         if(cstore.get() == nullptr) return(-1);
 
-        const T* values = reinterpret_cast<const T*>(cstore->buffer->mutable_data());
+        const T* values = reinterpret_cast<const T*>(cstore->buffer.mutable_data());
         T min = std::numeric_limits<T>::max();
         T max = std::numeric_limits<T>::min();
 

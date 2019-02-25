@@ -130,6 +130,11 @@ public:
                  PIL_PRIMITIVE_TYPE ptype_array,
                  const std::vector<PIL_COMPRESSION_TYPE>& ctype)
     {
+        // Check for validity of transformation order.
+        if(Encoder::ValidTransformationOrder(ctype) == false) {
+            return(-2);
+        }
+
         if(field_dict.Find(field_name) == - 1) {
             meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
             int ret = field_dict.FindOrAdd(field_name, ptype, ptype_array);

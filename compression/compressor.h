@@ -19,6 +19,21 @@
 
 namespace pil {
 
+// Should add at least
+// CODEC, uncompresed size, compressed size, N values, (type, length, data)-tuples
+struct CompressorMetaTuple {
+    PIL_PRIMITIVE_TYPE ptype;
+    int32_t n_data;
+    uint8_t* data;
+};
+
+struct CompressorMeta {
+   PIL_COMPRESSION_TYPE ctype;
+   int64_t u_sz, c_sz;
+   int64_t n_tuples;
+   CompressorMetaTuple* tuples;
+};
+
 class Compressor {
 public:
     Compressor() : pool_(pil::default_memory_pool()){}
@@ -123,12 +138,13 @@ public:
                std::cerr << "in cstore col: n=" << cset->size() << std::endl;
                for(int i = 0; i < cset->size(); ++i) {
                    int ret2 = Compress(
-                           cset->columns[i]->buffer->mutable_data(),
-                           cset->columns[i]->uncompressed_size,
+                           cset->columns[i]->buffer.mutable_data(),
+                           cset->columns[i]->buffer.length(),
                            compression_level);
 
                    cset->columns[i]->compressed_size = ret2;
-                   memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+                   memcpy(cset->columns[i]->buffer.mutable_data(), buffer->mutable_data(), ret2);
+                   cset->columns[i]->buffer.UnsafeSetLength(ret2);
                    cset->columns[i]->transformations.push_back(PIL_COMPRESS_ZSTD);
                    ret += ret2;
                }
@@ -197,41 +213,45 @@ public:
             std::cerr << "in cstore col" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
                 uint32_t n_l = cset->columns[i]->n;
-                int ret2 = Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                int ret2 = Compress(cset->columns[i]->buffer.mutable_data(), cset->columns[i]->n, &n_l, 1);
                 cset->columns[i]->compressed_size = ret2;
                 cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
-                memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+                memcpy(cset->columns[i]->buffer.mutable_data(), buffer->mutable_data(), ret2);
+                cset->columns[i]->buffer.UnsafeSetLength(ret2);
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "in cstore tensor" << std::endl;
-            //std::cerr << "buffer believe=" << cset->columns[1]->buffer->size() << " and " << cset->columns[1]->uncompressed_size << " and n=" << cset->columns[0]->n << std::endl;
+            //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->n << std::endl;
             std::cerr << "computing deltas in place" << std::endl;
-            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                                    cset->columns[0]->n,
                                    0);
 
             cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
 
-            int ret2 = Compress(cset->columns[1]->buffer->mutable_data(),
-                            cset->columns[1]->uncompressed_size,
-                            reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+            int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
+                            cset->columns[1]->buffer.length(),
+                            reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                             cset->columns[0]->n);
 
-            memcpy(cset->columns[1]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+            memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
             cset->columns[1]->compressed_size = ret2;
+            cset->columns[1]->buffer.UnsafeSetLength(ret2);
             cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_QUAL);
             ret += ret2;
 
             int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
-                                           cset->columns[0]->buffer->mutable_data(),
-                                           cset->columns[0]->uncompressed_size,
+                                           cset->columns[0]->buffer.mutable_data(),
+                                           cset->columns[0]->buffer.length(),
                                            PIL_ZSTD_DEFAULT_LEVEL);
-            memcpy(cset->columns[0]->buffer->mutable_data(), buffer->mutable_data(), ret1);
+            memcpy(cset->columns[0]->buffer.mutable_data(), buffer->mutable_data(), ret1);
             cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
             cset->columns[0]->compressed_size = ret1;
+            cset->columns[0]->buffer.UnsafeSetLength(ret1);
 
-            std::cerr << "done: " << ret << std::endl;
+
+            //std::cerr << "done: " << ret << std::endl;
         } else {
             //std::cerr << "unknown cstore type" << std::endl;
             return(-1);
@@ -349,38 +369,41 @@ public:
             std::cerr << "in cstore col: COMPUTING BASES" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
                 uint32_t n_l = cset->columns[i]->n;
-                int ret2 = Compress(cset->columns[i]->buffer->mutable_data(), cset->columns[i]->n, &n_l, 1);
+                int ret2 = Compress(cset->columns[i]->buffer.mutable_data(), cset->columns[i]->n, &n_l, 1);
                 cset->columns[i]->transformations.push_back(PIL_COMPRESS_RC_BASES);
                 cset->columns[i]->compressed_size = ret2;
-                memcpy(cset->columns[i]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+                memcpy(cset->columns[i]->buffer.mutable_data(), buffer->mutable_data(), ret2);
+                cset->columns[i]->buffer.UnsafeSetLength(ret2);
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
             std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
-            //std::cerr << "buffer believe=" << cset->columns[1]->buffer->size() << " and " << cset->columns[1]->uncompressed_size << " and n=" << cset->columns[0]->n << std::endl;
+            //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->n << std::endl;
             std::cerr << "computing deltas in place" << std::endl;
-            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                                    cset->columns[0]->n,
                                    0);
 
             cset->columns[0]->transformations.push_back(PIL_ENCODE_DELTA);
 
-            int ret2 = Compress(cset->columns[1]->buffer->mutable_data(),
-                            cset->columns[1]->uncompressed_size,
-                            reinterpret_cast<uint32_t*>(cset->columns[0]->buffer->mutable_data()),
+            int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
+                            cset->columns[1]->buffer.length(),
+                            reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                             cset->columns[0]->n);
 
             cset->columns[1]->compressed_size = ret2;
+            cset->columns[1]->buffer.UnsafeSetLength(ret2);
             cset->columns[1]->transformations.push_back(PIL_COMPRESS_RC_BASES);
-            memcpy(cset->columns[1]->buffer->mutable_data(), buffer->mutable_data(), ret2);
+            memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
 
             int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
-                                           cset->columns[0]->buffer->mutable_data(),
-                                           cset->columns[0]->uncompressed_size,
+                                           cset->columns[0]->buffer.mutable_data(),
+                                           cset->columns[0]->buffer.length(),
                                            PIL_ZSTD_DEFAULT_LEVEL);
-            memcpy(cset->columns[0]->buffer->mutable_data(), buffer->mutable_data(), ret1);
+            memcpy(cset->columns[0]->buffer.mutable_data(), buffer->mutable_data(), ret1);
             cset->columns[0]->transformations.push_back(PIL_COMPRESS_ZSTD);
             cset->columns[0]->compressed_size = ret1;
+            cset->columns[0]->buffer.UnsafeSetLength(ret1);
 
             ret += ret2;
             std::cerr << "done: " << ret << std::endl;

@@ -9,8 +9,8 @@
 #include <cmath>
 
 #include "pil.h"
-#include "buffer.h"
-#include "bit_utils.h"
+#include "buffer_builder.h"
+//#include "bit_utils.h"
 
 namespace pil {
 
@@ -23,19 +23,18 @@ struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
         have_dictionary(false),
-        n(0), m(0), uncompressed_size(0), compressed_size(0),
+        n(0), uncompressed_size(0), compressed_size(0),
         m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
     {
     }
 
     uint32_t size() const { return n; }
-    uint32_t capacity() const { return m; }
     uint32_t GetMemoryUsage() const { return uncompressed_size; }
 
     // Pointer to data.
-    std::shared_ptr<ResizableBuffer> data() { return buffer; }
-    uint8_t* mutable_data() { return buffer->mutable_data(); }
+    //std::shared_ptr<ResizableBuffer> data() { return buffer; }
+    uint8_t* mutable_data() { return buffer.mutable_data(); }
     std::shared_ptr<ResizableBuffer> transforms() { return transformation_args; }
 
     // PrettyPrint representation of array suitable for debugging.
@@ -44,7 +43,6 @@ public:
     // Serialize/deserialize to/from disk
     int Serialize(std::ostream& stream) {
         stream.write(reinterpret_cast<char*>(&n), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&m), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&compressed_size),   sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&nullity_u), sizeof(uint32_t));
@@ -59,17 +57,17 @@ public:
             stream.write(reinterpret_cast<char*>(&t_type), sizeof(uint32_t));
         }
 
-        if(buffer.get() != nullptr) {
+        //if(buffer.get() != nullptr) {
             // If the data has been transformed we write out the compressed data
             // otherwise we write out the uncompressed data.
             if(n_transforms != 0) {
                 std::cerr << "writing transformed n= " << size() << " c=" << compressed_size << std::endl;
-                stream.write(reinterpret_cast<char*>(buffer->mutable_data()), compressed_size);
+                stream.write(reinterpret_cast<char*>(mutable_data()), compressed_size);
             } else {
                 std::cerr << "writing untransformed data= " << size() << " u=" << uncompressed_size << std::endl;
-                stream.write(reinterpret_cast<char*>(buffer->mutable_data()), uncompressed_size);
+                stream.write(reinterpret_cast<char*>(mutable_data()), uncompressed_size);
             }
-        }
+        //}
 
         // Nullity vector
         //const uint32_t n_nullity = std::ceil((float)n / 32);
@@ -81,6 +79,8 @@ public:
         // Dictionary encoding
         stream.write(reinterpret_cast<char*>(&have_dictionary), sizeof(bool));
         if(have_dictionary) {
+            assert(dictionary.get() != nullptr);
+
             //stream.write()
         }
 
@@ -96,30 +96,17 @@ public:
 
 public:
     bool have_dictionary;
-    // Todo: address (https://app.asana.com/0/1111151872856814/1111157143617759)
-    // int32_t num_values;
-    // int32_t num_rows;
-    // int32_t num_nulls;
-    // bool is_compressed;
-    uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
-    uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is nice to have during deserialization
+    uint32_t n, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
+    uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
 
-    // It is disallowed to call Dictionary encoding as a non-final step
-    // excluding compression. It is also disallowed to call Dictionary
-    // encoding more than once (1).
-    //
-    // Allowed: transform 1, transform 2, dictionary encoding, compression
-    // Allowed: transform, dictionary encoding, compression1, compression2
-    // Disallowed: transform 1, compression, dictionary encoding
-    // Disallowed: transform 1, dictionary encoding, transform 2, compression
-    // Disallowed: dictionary encoding, transform 1
     std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
                                                        // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                                        // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
 
     // Any memory is owned by the respective Buffer instance (or its parents).
     MemoryPool* pool_;
-    std::shared_ptr<ResizableBuffer> buffer; // Actual data BLOB
+    BufferBuilder buffer;
+    //std::shared_ptr<ResizableBuffer> buffer; // Actual data BLOB
     std::shared_ptr<ResizableBuffer> nullity; // NULLity vector Todo: make into structure
     std::shared_ptr<ResizableBuffer> dictionary; // Dictionary used for predicate pushdown Todo: make into structure
     std::shared_ptr<ResizableBuffer> transformation_args; // BLOB storing the parameters for the transformation operations.
@@ -162,51 +149,20 @@ public:
     }
 
     int Append(const T& value) {
-        if(buffer.get() == nullptr){
-            //std::cerr << "first allocation" << std::endl;
-            assert(AllocateResizableBuffer(pool_, 16384*sizeof(T), &buffer) == 1);
-            m = 16384;
-            //std::cerr << "buffer=" << buffer->capacity() << std::endl;
-        }
-
-        //std::cerr << n << "/" << m << ":" << buffer->capacity() << std::endl;
-
-        if(n == m){
-            //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
-            assert(buffer->Reserve(n*sizeof(T) + 16384*sizeof(T)) == 1);
-            m = n + 16384;
-            //std::cerr << "now=" << buffer->capacity() << std::endl;
-        }
-
-        reinterpret_cast<T*>(mutable_data())[n++] = value;
+        buffer.Append(reinterpret_cast<const uint8_t*>(&value), sizeof(T));
+        ++n;
         uncompressed_size += sizeof(T);
         return(1);
     }
 
     int Append(const T* value, uint32_t n_values) {
-        if(buffer.get() == nullptr){
-            //std::cerr << "first allocation" << std::endl;
-            assert(AllocateResizableBuffer(pool_, 16384*sizeof(T), &buffer) == 1);
-            m = 16384;
-            //std::cerr << "buffer=" << buffer->capacity() << std::endl;
-        }
-
-        //std::cerr << n << "/" << m << ":" << buffer->capacity() << std::endl;
-
-        if(n == m || n + n_values >= m){
-            //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
-            assert(buffer->Reserve(n*sizeof(T) + 16384*sizeof(T)) == 1);
-            m = n + 16384;
-        }
-
-        T* dat = reinterpret_cast<T*>(mutable_data());
-        memcpy(&dat[n], value, n_values * sizeof(T));
+        buffer.Append(reinterpret_cast<const uint8_t*>(value), sizeof(T)*n_values);
         n += n_values;
         uncompressed_size += n_values * sizeof(T);
         return(1);
     }
 
-    const T* data() const { return reinterpret_cast<const T*>(buffer->mutable_data()); }
+    const T* data() const { return reinterpret_cast<const T*>(buffer.data()); }
     T front() const { return data()[0]; }
     T back() const { return data()[n - 1]; }
 };
