@@ -231,7 +231,7 @@ public:
             int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
                             cset->columns[1]->buffer.length(),
                             reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
-                            cset->columns[0]->buffer.length());
+                            cset->columns[0]->n);
 
             memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
             cset->columns[1]->compressed_size = ret2;

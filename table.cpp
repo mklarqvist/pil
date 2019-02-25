@@ -41,7 +41,7 @@ int TableConstructor::Append(RecordBuilder& builder) {
 
     // Store Schema-id with each record.
     uint32_t pid = schema_dict.FindOrAdd(pattern);
-    std::cerr << "schema_id=" << pid << std::endl;
+    //std::cerr << "schema_id=" << pid << std::endl;
 
     // Check the local stack of ColumnSets if the target identifier is present.
     // If the target identifier is NOT available then we insert a new ColumnSet
