@@ -101,7 +101,7 @@ public:
 
         int ret = Encode<T>(cstore, cset->columns[tgt_col], n_in);
 
-        cstore->transformations.push_back(PIL_ENCODE_DICT);
+        cstore->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT));
         // todo: add transformations arg
         return ret;
     }

@@ -7,9 +7,13 @@
 #include <cassert>
 #include <iostream>
 #include <cmath>
+#include <vector>
 
 #include "pil.h"
 #include "buffer_builder.h"
+
+// Todo: fix -> this is for encoder meta
+#include "compression/transform_meta.h"
 //#include "bit_utils.h"
 
 namespace pil {
@@ -35,7 +39,7 @@ public:
     // Pointer to data.
     //std::shared_ptr<ResizableBuffer> data() { return buffer; }
     uint8_t* mutable_data() { return buffer.mutable_data(); }
-    std::shared_ptr<ResizableBuffer> transforms() { return transformation_args; }
+    //std::shared_ptr<ResizableBuffer> transforms() { return transformation_args; }
 
     // PrettyPrint representation of array suitable for debugging.
     std::string ToString() const;
@@ -48,6 +52,8 @@ public:
         stream.write(reinterpret_cast<char*>(&nullity_u), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&nullity_c), sizeof(uint32_t));
 
+        // Todo
+        /*
         uint32_t n_transforms = transformations.size();
         stream.write(reinterpret_cast<char*>(&n_transforms), sizeof(uint32_t));
 
@@ -56,11 +62,12 @@ public:
             uint32_t t_type = transformations[i];
             stream.write(reinterpret_cast<char*>(&t_type), sizeof(uint32_t));
         }
+        */
 
         //if(buffer.get() != nullptr) {
             // If the data has been transformed we write out the compressed data
             // otherwise we write out the uncompressed data.
-            if(n_transforms != 0) {
+            if(transformation_args.size() != 0) {
                 std::cerr << "writing transformed n= " << size() << " c=" << compressed_size << std::endl;
                 stream.write(reinterpret_cast<char*>(mutable_data()), compressed_size);
             } else {
@@ -99,18 +106,16 @@ public:
     uint32_t n, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
 
-    std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
+    //std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
                                                        // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                                        // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
 
     // Any memory is owned by the respective Buffer instance (or its parents).
     MemoryPool* pool_;
     BufferBuilder buffer;
-    //std::shared_ptr<ResizableBuffer> buffer; // Actual data BLOB
     std::shared_ptr<ResizableBuffer> nullity; // NULLity vector Todo: make into structure
     std::shared_ptr<ResizableBuffer> dictionary; // Dictionary used for predicate pushdown Todo: make into structure
-    std::shared_ptr<ResizableBuffer> transformation_args; // BLOB storing the parameters for the transformation operations.
-                                                          // Every transform MUST store a value in the arguments.
+    std::vector< std::shared_ptr<TransformMeta> > transformation_args; // Every transform MUST store a value.
 };
 
 template <class T>
