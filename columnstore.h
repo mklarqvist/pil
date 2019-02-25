@@ -103,6 +103,16 @@ public:
     // bool is_compressed;
     uint32_t n, m, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is nice to have during deserialization
+
+    // It is disallowed to call Dictionary encoding as a non-final step
+    // excluding compression. It is also disallowed to call Dictionary
+    // encoding more than once (1).
+    //
+    // Allowed: transform 1, transform 2, dictionary encoding, compression
+    // Allowed: transform, dictionary encoding, compression1, compression2
+    // Disallowed: transform 1, compression, dictionary encoding
+    // Disallowed: transform 1, dictionary encoding, transform 2, compression
+    // Disallowed: dictionary encoding, transform 1
     std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
                                                        // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
                                                        // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD

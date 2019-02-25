@@ -19,6 +19,15 @@ TEST(TableInsertion, SingleValue) {
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
     ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(1, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -40,6 +49,14 @@ TEST(TableInsertion, TwoValues) {
     ASSERT_EQ(2, table.build_csets[0]->columns[0]->n);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(2, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
 
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
@@ -64,10 +81,20 @@ TEST(TableInsertion, TwoUnbalancedValues) {
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
     ASSERT_EQ(2, table.build_csets[0]->columns[0]->n);
     ASSERT_EQ(2, table.build_csets[0]->columns[1]->n);
+
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
     ASSERT_EQ(false, table.build_csets[0]->columns[1]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[1]->IsValid(1));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(2, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -109,6 +136,14 @@ TEST(TableInsertion, UnbalancedValuesTriangular) {
     ASSERT_EQ(false, table.build_csets[0]->columns[1]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[1]->IsValid(1));
     ASSERT_EQ(false, table.build_csets[0]->columns[1]->IsValid(2));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(3, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
 
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
@@ -154,6 +189,16 @@ TEST(TableInsertion, UnbalancedDecreasing) {
     ASSERT_EQ(true, table.build_csets[0]->columns[2]->IsValid(0));
     ASSERT_EQ(false, table.build_csets[0]->columns[2]->IsValid(1));
     ASSERT_EQ(false, table.build_csets[0]->columns[2]->IsValid(2));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(3, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+
+    ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
 // tensor
@@ -171,6 +216,14 @@ TEST(TableInsertion, TensorSingleValue) {
     ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); //  This will always be n+1
     ASSERT_EQ(1, table.build_csets[0]->columns[1]->n); //  This will always be sum total n ELEMENTS
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
+
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(1, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -199,6 +252,13 @@ TEST(TableInsertion, TensorTwoUnbalancedValues) {
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2)); // this is the +1 position since the root {0,1} has cardinality 2
 
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+
+    ASSERT_EQ(2, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -239,7 +299,13 @@ TEST(TableInsertion, TensorTwoUnbalancedIncreasing) {
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(3));
 
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
 
+    ASSERT_EQ(3, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -278,7 +344,13 @@ TEST(TableInsertion, TensorTwoUnbalancedDecreasing) {
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
 
+    ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
 
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+    ASSERT_EQ(3, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -307,6 +379,14 @@ TEST(TableInsertion, SingleValueTwoColumns) {
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
 
     ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
+    ASSERT_EQ(2, table.schema_dict.dict[0].ids.size());
+
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[0].ids[1]].field_name.c_str());
+
+    ASSERT_EQ(1, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -367,6 +447,18 @@ TEST(TableInsertion, MixedSchemas) {
     ASSERT_EQ(true, table.build_csets[3]->columns[0]->IsValid(1));
 
     ASSERT_EQ(2, table.schema_dict.dict.size());
+    ASSERT_EQ(2, table.schema_dict.dict[0].ids.size());
+    ASSERT_EQ(2, table.schema_dict.dict[1].ids.size());
+
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[0].ids[1]].field_name.c_str());
+    ASSERT_STREQ("FIELD1-second", table.field_dict.dict[table.schema_dict.dict[1].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2-second", table.field_dict.dict[table.schema_dict.dict[1].ids[1]].field_name.c_str());
+
+    ASSERT_EQ(2, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+    ASSERT_EQ(1, schemas[1]);
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -473,7 +565,22 @@ TEST(TableInsertion, MixedSchemasThree) {
     ASSERT_EQ(true, table.build_csets[5]->columns[0]->IsValid(2));
 
     ASSERT_EQ(3, table.schema_dict.dict.size());
+    ASSERT_EQ(2, table.schema_dict.dict[0].ids.size());
+    ASSERT_EQ(2, table.schema_dict.dict[1].ids.size());
+    ASSERT_EQ(2, table.schema_dict.dict[2].ids.size());
 
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[0].ids[1]].field_name.c_str());
+    ASSERT_STREQ("FIELD1-second", table.field_dict.dict[table.schema_dict.dict[1].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2-second", table.field_dict.dict[table.schema_dict.dict[1].ids[1]].field_name.c_str());
+    ASSERT_STREQ("FIELD1-third", table.field_dict.dict[table.schema_dict.dict[2].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2-third", table.field_dict.dict[table.schema_dict.dict[2].ids[1]].field_name.c_str());
+
+    ASSERT_EQ(3, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+    ASSERT_EQ(1, schemas[1]);
+    ASSERT_EQ(2, schemas[2]);
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -530,6 +637,18 @@ TEST(TableInsertion, MixedSchemasPartialOverlap) {
     ASSERT_EQ(true, table.build_csets[2]->columns[0]->IsValid(1));
 
     ASSERT_EQ(2, table.schema_dict.dict.size()); // These are still distinct schemas
+    ASSERT_EQ(2, table.schema_dict.dict[0].ids.size());
+    ASSERT_EQ(2, table.schema_dict.dict[1].ids.size());
+
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[0].ids[1]].field_name.c_str());
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[1].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2-second", table.field_dict.dict[table.schema_dict.dict[1].ids[1]].field_name.c_str());
+
+    ASSERT_EQ(2, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+    ASSERT_EQ(1, schemas[1]);
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
@@ -622,7 +741,24 @@ TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
     ASSERT_EQ(true, table.build_csets[3]->columns[0]->IsValid(2));
 
     ASSERT_EQ(3, table.schema_dict.dict.size()); // These are still distinct schemas
+    ASSERT_EQ(2, table.schema_dict.dict[0].ids.size());
+    ASSERT_EQ(2, table.schema_dict.dict[1].ids.size());
+    ASSERT_EQ(2, table.schema_dict.dict[2].ids.size());
 
+    ASSERT_STREQ("FIELD1-odd", table.field_dict.dict[table.schema_dict.dict[0].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[0].ids[1]].field_name.c_str());
+
+    ASSERT_STREQ("FIELD1", table.field_dict.dict[table.schema_dict.dict[1].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[1].ids[1]].field_name.c_str());
+
+    ASSERT_STREQ("FIELD2", table.field_dict.dict[table.schema_dict.dict[2].ids[0]].field_name.c_str());
+    ASSERT_STREQ("FIELD1-odd-again", table.field_dict.dict[table.schema_dict.dict[2].ids[1]].field_name.c_str());
+
+    ASSERT_EQ(3, table.meta_data.batches.back()->n_rec); // number of records in this batch
+    const uint32_t* schemas = reinterpret_cast<uint32_t*>(table.meta_data.batches.back()->schemas->columns[0]->mutable_data());
+    ASSERT_EQ(0, schemas[0]); // first schema should be id 0
+    ASSERT_EQ(1, schemas[1]);
+    ASSERT_EQ(2, schemas[2]);
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 

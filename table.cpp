@@ -149,7 +149,7 @@ int TableConstructor::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
     build_csets.push_back(std::unique_ptr<ColumnSet>(new ColumnSet()));
 
     const uint32_t padding_to = meta_data.batches.back()->n_rec;
-    if(padding_to != 0) std::cerr << "padding up to: " << padding_to << std::endl;
+    //if(padding_to != 0) std::cerr << "padding up to: " << padding_to << std::endl;
 
     int ret_status = 0;
     // Special case when there is no padding we have to force the correct

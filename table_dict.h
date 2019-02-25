@@ -93,7 +93,7 @@ struct FieldDictionary {
 
             column_id = s->second;
         } else {
-            std::cerr << "did not find: " << field_name << std::endl;
+            //std::cerr << "did not find: " << field_name << std::endl;
             column_id = dict.size();
             map[field_name] = column_id;
             dict.push_back(DictionaryFieldType());
@@ -124,7 +124,7 @@ struct SchemaDictionary {
             //std::cerr << "found: " << s->first << "@" << s->second << std::endl;
             pid = s->second;
         } else {
-            std::cerr << "did not find pattern hash: " << phash << std::endl;
+            //std::cerr << "did not find pattern hash: " << phash << std::endl;
             pid = dict.size();
             map[phash] = pid;
             dict.push_back(pattern);
