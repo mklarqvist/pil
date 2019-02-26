@@ -23,6 +23,8 @@ typedef enum {
     PIL_TYPE_FIXED_LEN_BYTE_ARRAY
 } PIL_PRIMITIVE_TYPE;
 
+static int32_t  PIL_PRIMITIVE_TYPE_WIDTHS[14] = {-1,1,1,2,2,4,4,8,8,4,4,1,0,0};
+
 const std::string PIL_PRIMITIVE_TYPE_STRING[14] = {
         "UNKNOWN",
         "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64",

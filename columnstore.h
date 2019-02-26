@@ -68,10 +68,10 @@ public:
             // If the data has been transformed we write out the compressed data
             // otherwise we write out the uncompressed data.
             if(transformation_args.size() != 0) {
-                std::cerr << "writing transformed n= " << size() << " c=" << compressed_size << std::endl;
+                //std::cerr << "writing transformed n= " << size() << " c=" << compressed_size << std::endl;
                 stream.write(reinterpret_cast<char*>(mutable_data()), compressed_size);
             } else {
-                std::cerr << "writing untransformed data= " << size() << " u=" << uncompressed_size << std::endl;
+                //std::cerr << "writing untransformed data= " << size() << " u=" << uncompressed_size << std::endl;
                 stream.write(reinterpret_cast<char*>(mutable_data()), uncompressed_size);
             }
         //}
@@ -105,10 +105,6 @@ public:
     bool have_dictionary;
     uint32_t n, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
-
-    //std::vector<PIL_COMPRESSION_TYPE> transformations; // order of transformations:
-                                                       // most usually simply PIL_COMPRESS_ZSTD or more advanced use-cases like
-                                                       // PIL_TRANSFORM_SORT, PIL_ENCODE_DICTIONARY, or PIL_COMPRESS_ZSTD
 
     // Any memory is owned by the respective Buffer instance (or its parents).
     MemoryPool* pool_;

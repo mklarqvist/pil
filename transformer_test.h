@@ -1,7 +1,7 @@
 #ifndef TRANSFORMER_TEST_H_
 #define TRANSFORMER_TEST_H_
 
-#include "encoder.h"
+#include "transformer.h"
 #include <gtest/gtest.h>
 
 namespace pil {

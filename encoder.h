@@ -56,7 +56,7 @@ public:
     int Encode(std::shared_ptr<ColumnStore> src,
                std::shared_ptr<ColumnStore> dst)
     {
-        std::cerr << "dict input length=" << src->buffer.length() << std::endl;
+        //std::cerr << "dict input length=" << src->buffer.length() << std::endl;
         assert(src->n * sizeof(T) == src->buffer.length());
         if(buffer.get() == nullptr) {
             assert(AllocateResizableBuffer(pool_, src->buffer.length() + 16384, &buffer) == 1);
@@ -86,7 +86,7 @@ public:
             b->Append(list[i]);
         }
 
-        std::cerr << "b buffer=" << b->buffer.length() << " and src=" << src->buffer.length() << std::endl;
+        //std::cerr << "b buffer=" << b->buffer.length() << " and src=" << src->buffer.length() << std::endl;
         //memcpy(dst->mutable_data(), dat, b->buffer.length());
         b->compressed_size = b->buffer.length();
         b->buffer.UnsafeSetLength(b->buffer.length());
@@ -97,8 +97,8 @@ public:
             dat[i] = map[dat[i]];
         }
 
-        std::cerr << "map=" << list.size() << " out of " << src->n << std::endl;
-        std::cerr << "dst=" << dst->n << " sz=" << dst->uncompressed_size << std::endl;
+        //std::cerr << "map=" << list.size() << " out of " << src->n << std::endl;
+        //std::cerr << "dst=" << dst->n << " sz=" << dst->uncompressed_size << std::endl;
         return(1);
     }
 };

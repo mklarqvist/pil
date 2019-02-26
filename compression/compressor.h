@@ -38,7 +38,7 @@ public:
     int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
         if(cset.get() == nullptr) return(-1);
 
-        std::cerr << "IN DICTIONARY ENCODER" << std::endl;
+        //std::cerr << "IN DICTIONARY ENCODER" << std::endl;
 
         DictionaryEncoder dict;
         if(field.cstore == PIL_CSTORE_COLUMN) {
@@ -72,7 +72,7 @@ public:
     int DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
         if(cset.get() == nullptr) return(-1);
 
-        std::cerr << "IN DELTA ENCODER" << std::endl;
+        //std::cerr << "IN DELTA ENCODER" << std::endl;
 
         if(field.cstore == PIL_CSTORE_COLUMN) {
             std::shared_ptr<ColumnStore> tgt = cset->columns[0];
@@ -122,7 +122,7 @@ public:
 
 	    int ret = 0;
         if(field_type == PIL_CSTORE_COLUMN) {
-           std::cerr << "in cstore col: n=" << cset->size() << std::endl;
+           //std::cerr << "in cstore col: n=" << cset->size() << std::endl;
            for(int i = 0; i < cset->size(); ++i) {
                std::shared_ptr<ColumnStore> tgt = cset->columns[i];
 
@@ -200,7 +200,7 @@ public:
 
         int ret = 0;
         if(cstore == PIL_CSTORE_COLUMN) {
-            std::cerr << "in cstore col" << std::endl;
+            //std::cerr << "in cstore col" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
                 std::shared_ptr<ColumnStore> tgt = cset->columns[i];
                 uint32_t n_l = tgt->buffer.length();
@@ -213,9 +213,9 @@ public:
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
-            std::cerr << "in cstore tensor" << std::endl;
+            //std::cerr << "in cstore tensor" << std::endl;
             //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->buffer.length() << std::endl;
-            std::cerr << "computing deltas in place" << std::endl;
+            //std::cerr << "computing deltas in place" << std::endl;
 
             cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(), cset->columns[0]->buffer.length()));
             compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
@@ -346,7 +346,7 @@ public:
         //Compress(qual, n_src, qlevel, &rc, model_qual);
 
         rc.FinishEncode();
-        std::cerr << "qual encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;
+        //std::cerr << "qual encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;
 
         delete[] model_qual;
 
@@ -361,7 +361,7 @@ public:
 
         int ret = 0;
         if(cstore == PIL_CSTORE_COLUMN) {
-            std::cerr << "in cstore col: COMPUTING BASES" << std::endl;
+            //std::cerr << "in cstore col: COMPUTING BASES" << std::endl;
             for(int i = 0; i < cset->columns.size(); ++i) {
                 std::shared_ptr<ColumnStore> tgt = cset->columns[i];
                 uint32_t n_l = tgt->buffer.length();
@@ -374,9 +374,9 @@ public:
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
-            std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
+            //std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
             //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->buffer.length() << std::endl;
-            std::cerr << "computing deltas in place" << std::endl;
+            //std::cerr << "computing deltas in place" << std::endl;
             cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));
 
             compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
@@ -406,7 +406,7 @@ public:
             cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in0, ret1));
 
             ret += ret2;
-            std::cerr << "done: " << ret << std::endl;
+            //std::cerr << "done: " << ret << std::endl;
         } else {
             //std::cerr << "unknown cstore type" << std::endl;
             return(-1);
@@ -464,7 +464,7 @@ public:
         }
 
        rc.FinishEncode();
-       std::cerr << "BASES encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;
+       //std::cerr << "BASES encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;
 
        delete[] model_seq16;
        return(rc.size_out());

@@ -96,12 +96,15 @@ public:
      * @return
      */
     int SetField(const std::string& field_name, PIL_PRIMITIVE_TYPE ptype, const std::vector<PIL_COMPRESSION_TYPE>& ctype) {
+        // Check for validity of transformation order.
+        if(Transformer::ValidTransformationOrder(ctype) == false) {
+            return(-2);
+        }
+
         if(field_dict.Find(field_name) == - 1) {
             meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
             int ret = field_dict.FindOrAdd(field_name, ptype, PIL_TYPE_UNKNOWN);
-            //std::cerr << "returned=" << ret << std::endl;
             int _segid = BatchAddColumn(ptype, PIL_TYPE_UNKNOWN, ret);
-            //std::cerr << "_segid=" << _segid << std::endl;
             field_dict.dict[ret].transforms = ctype;
         } else {
             //std::cerr << "already exists" << std::endl;
@@ -131,16 +134,13 @@ public:
                  const std::vector<PIL_COMPRESSION_TYPE>& ctype)
     {
         // Check for validity of transformation order.
-        if(Encoder::ValidTransformationOrder(ctype) == false) {
+        if(Transformer::ValidTransformationOrder(ctype) == false) {
             return(-2);
         }
 
         if(field_dict.Find(field_name) == - 1) {
             meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
             int ret = field_dict.FindOrAdd(field_name, ptype, ptype_array);
-            //std::cerr << "returned=" << ret << std::endl;
-            //int _segid = BatchAddColumn(ptype, ptype_array, ret);
-            //std::cerr << "_segid=" << _segid << std::endl;
             field_dict.dict[ret].transforms = ctype;
         } else {
             //std::cerr << "already exists" << std::endl;

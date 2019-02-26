@@ -14,6 +14,7 @@
 #include "table_test.h"
 #include "buffer_builder_test.h"
 #include "transformer_test.h"
+#include "record_builder_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {

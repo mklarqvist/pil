@@ -37,7 +37,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
     //std::cerr << "auto compression ---->" << std::endl;
     int ret = 0;
     if(field.cstore == PIL_CSTORE_COLUMN) {
-       std::cerr << "COMPRESS: ZSTD@columnar: n=" << cset->size() << std::endl;
+       //std::cerr << "COMPRESS: ZSTD@columnar: n=" << cset->size() << std::endl;
        for(int i = 0; i < cset->size(); ++i) {
            // Not every ColumnStore has a Nullity bitmap. For example, Dictionary
            // columns.
@@ -52,7 +52,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
                cset->columns[i]->nullity_c = retNull;
                ret += retNull;
                memcpy(cset->columns[i]->nullity->mutable_data(), buffer->mutable_data(), retNull);
-               std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
+               //std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
            }
 
            int64_t n_in = cset->columns[i]->buffer.length();
@@ -61,7 +61,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
                    cset->columns[i]->buffer.length(),
                    PIL_ZSTD_DEFAULT_LEVEL);
 
-           std::cerr << "data-zstd: " << cset->columns[i]->buffer.length() << "->" << ret2 << " (" << (float)cset->columns[i]->buffer.length()/ret2 << "-fold)" << std::endl;
+           //std::cerr << "data-zstd: " << cset->columns[i]->buffer.length() << "->" << ret2 << " (" << (float)cset->columns[i]->buffer.length()/ret2 << "-fold)" << std::endl;
 
            cset->columns[i]->compressed_size = ret2;
            cset->columns[i]->buffer.UnsafeSetLength(ret2);
@@ -72,7 +72,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        }
        return(ret);
     } else if(field.cstore == PIL_CSTORE_TENSOR) {
-       std::cerr << "computing deltas in place" << std::endl;
+       //std::cerr << "computing deltas in place" << std::endl;
        cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));
        compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
                               cset->columns[0]->n,
@@ -99,9 +99,9 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
       cset->columns[0]->nullity_c = retNull;
       memcpy(cset->columns[0]->nullity->mutable_data(), buffer->mutable_data(), retNull);
       ret += retNull;
-      std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
+      //std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
 
-       std::cerr << "delta-zstd: " << cset->columns[0]->buffer.length() << "->" << ret1 << " (" << (float)cset->columns[0]->buffer.length()/ret1 << "-fold)" << std::endl;
+       //std::cerr << "delta-zstd: " << cset->columns[0]->buffer.length() << "->" << ret1 << " (" << (float)cset->columns[0]->buffer.length()/ret1 << "-fold)" << std::endl;
 
        int64_t n_in1 = cset->columns[1]->buffer.length();
        int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
@@ -109,7 +109,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
                                       cset->columns[1]->buffer.length(),
                                       PIL_ZSTD_DEFAULT_LEVEL);
 
-       std::cerr << "data-zstd: " << cset->columns[1]->buffer.length() << "->" << ret2 << " (" << (float)cset->columns[1]->buffer.length()/ret2 << "-fold)" << std::endl;
+       //std::cerr << "data-zstd: " << cset->columns[1]->buffer.length() << "->" << ret2 << " (" << (float)cset->columns[1]->buffer.length()/ret2 << "-fold)" << std::endl;
        memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
        cset->columns[1]->compressed_size = ret2;
        cset->columns[1]->buffer.UnsafeSetLength(ret2);
