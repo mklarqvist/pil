@@ -27,13 +27,13 @@ struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
         have_dictionary(false),
-        n(0), uncompressed_size(0), compressed_size(0),
+        n_records(0), n_elements(0), uncompressed_size(0), compressed_size(0),
         m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
     {
     }
 
-    uint32_t size() const { return n; }
+    uint32_t size() const { return n_records; }
     uint32_t GetMemoryUsage() const { return uncompressed_size; }
 
     // Pointer to data.
@@ -46,7 +46,7 @@ public:
 
     // Serialize/deserialize to/from disk
     int Serialize(std::ostream& stream) {
-        stream.write(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&n_records), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&compressed_size),   sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&nullity_u), sizeof(uint32_t));
@@ -103,7 +103,7 @@ public:
 
 public:
     bool have_dictionary;
-    uint32_t n, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
+    uint32_t n_records, n_elements, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
 
     // Any memory is owned by the respective Buffer instance (or its parents).
@@ -134,38 +134,40 @@ public:
             m_nullity = 16384 * 32; // 32 bits for every integer used in the Nullity bitmap
         }
 
-        if(n == m_nullity) {
+        if(n_records == m_nullity) {
             //std::cerr << "should never happen" << std::endl;
             //exit(1);
-            assert(nullity->Reserve(n*(uint32_t) + 16384*sizeof(uint32_t)) == 1);
+            assert(nullity->Reserve(n_records*(uint32_t) + 16384*sizeof(uint32_t)) == 1);
             //nullity->ZeroPadding();
-            m_nullity = n*32 + 16384 * 32;
+            m_nullity = n_records*32 + 16384 * 32;
             //memset(&nullity->mutable_data()[n*sizeof(uint32_t)], 0, );
             std::cerr << "TODO" << std::endl;
             exit(1);
         }
 
-        reinterpret_cast<uint32_t*>(nullity->mutable_data())[n / 32] |= (yes << (n % 32));
+        reinterpret_cast<uint32_t*>(nullity->mutable_data())[n_records / 32] |= (yes << (n_records % 32));
         return 1;
     }
 
     int Append(const T value) {
         buffer.Append(reinterpret_cast<const uint8_t*>(&value), sizeof(T));
-        ++n;
+        ++n_records;
+        ++n_elements;
         uncompressed_size += sizeof(T);
         return(1);
     }
 
     int Append(const T* value, uint32_t n_values) {
         buffer.Append(reinterpret_cast<const uint8_t*>(value), sizeof(T)*n_values);
-        n += n_values;
+        ++n_records;
+        n_elements += n_values;
         uncompressed_size += n_values * sizeof(T);
         return(1);
     }
 
     const T* data() const { return reinterpret_cast<const T*>(buffer.data()); }
     T front() const { return data()[0]; }
-    T back() const { return data()[n - 1]; }
+    T back() const { return data()[n_records - 1]; }
 };
 
 
@@ -244,7 +246,7 @@ public:
             assert(n >= values.size());
 
             // todo: insert padding from 0 to current offset in record batch
-            const uint32_t padding_to = columns[0]->n;
+            const uint32_t padding_to = columns[0]->n_records;
             // Pad every column added this way.
             for(int i = start_size; i < values.size(); ++i) {
                 //std::cerr << i << "/" << values.size() << " -> (WIDTH) padding up to: " << padding_to << std::endl;
@@ -288,7 +290,7 @@ public:
             assert((int)n >= n_values);
 
             // todo: insert padding from 0 to current offset in record batch
-            const uint32_t padding_to = columns[0]->n;
+            const uint32_t padding_to = columns[0]->n_records;
             // Pad every column added this way.
             for(int i = start_size; i < n_values; ++i) {
                 //std::cerr << i << "/" << n_values << " -> (WIDTH) padding up to: " << padding_to << std::endl;
@@ -342,7 +344,7 @@ public:
     std::vector<int64_t> ColumnLengths() const{
         std::vector<int64_t> lengths;
         for(int i = 0; i < n; ++i)
-            lengths.push_back(columns[i]->n);
+            lengths.push_back(columns[i]->n_records);
 
         return(lengths);
     }
@@ -371,14 +373,15 @@ public:
         // 0 to the start such to support constant time lookup. This will resulting
         // in this column being n + 1 length.
         // We do NOT care about the Nullity vector for the data column as it has no meaning.
-        if(columns[0]->n == 0) {
+        if(columns[0]->n_records == 0) {
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
             ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(1);
             assert(ret == 1);
         } else {
-            const uint32_t n_recs = columns[0]->n;
+            const uint32_t n_recs = columns[0]->n_records;
+            assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 1);
@@ -400,14 +403,15 @@ public:
         }
         assert(n == 2);
 
-        if(columns[0]->n == 0) {
+        if(columns[0]->n_records == 0) {
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
             ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(values.size());
             assert(ret == 1);
         } else {
-            const uint32_t n_recs = columns[0]->n;
+            const uint32_t n_recs = columns[0]->n_records;
+            assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + values.size());
@@ -431,14 +435,15 @@ public:
         }
         assert(n == 2);
 
-        if(columns[0]->n == 0) {
+        if(columns[0]->n_records == 0) {
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
             ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(n_values);
             assert(ret == 1);
         } else {
-            const uint32_t n_recs = columns[0]->n;
+            const uint32_t n_recs = columns[0]->n_records;
+            assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             //std::cerr << "appending: " << n_recs << " for " << cum + n_values << " as " << cum << "+" << n_values << std::endl;
@@ -446,6 +451,7 @@ public:
             assert(ret == 1);
         }
 
+        std::cerr << "appending=" << n_values << std::endl;
         int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(value, n_values);
         assert(ret == 1);
 
@@ -466,14 +472,15 @@ public:
         }
         assert(n == 2);
 
-        if(columns[0]->n == 0) {
+        if(columns[0]->n_records == 0) {
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
             ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
         } else {
-            const uint32_t n_recs = columns[0]->n;
+            const uint32_t n_recs = columns[0]->n_records;
+            assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs];
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 0);
@@ -485,7 +492,7 @@ public:
     std::vector<int64_t> ColumnLengths() const{
         std::vector<int64_t> lengths;
         for(int i = 0; i < n; ++i)
-            lengths.push_back(columns[i]->n);
+            lengths.push_back(columns[i]->n_records);
 
         return(lengths);
     }

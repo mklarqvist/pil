@@ -17,7 +17,7 @@ TEST(TableInsertion, SingleValue) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
@@ -46,7 +46,7 @@ TEST(TableInsertion, TwoValues) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
 
@@ -71,7 +71,7 @@ TEST(TableInsertion, TwoUnbalancedValues) {
     rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     vecvals2 = {2, 3};
@@ -79,8 +79,8 @@ TEST(TableInsertion, TwoUnbalancedValues) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
@@ -108,7 +108,7 @@ TEST(TableInsertion, UnbalancedValuesTriangular) {
     rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     vecvals2 = {2, 3};
@@ -116,8 +116,8 @@ TEST(TableInsertion, UnbalancedValuesTriangular) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
     ASSERT_EQ(false, table.build_csets[0]->columns[1]->IsValid(0));
@@ -127,8 +127,8 @@ TEST(TableInsertion, UnbalancedValuesTriangular) {
     rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
@@ -158,7 +158,7 @@ TEST(TableInsertion, UnbalancedDecreasing) {
     rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(3, table.build_csets[0]->columns.size());
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[1]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[2]->IsValid(0));
@@ -167,7 +167,7 @@ TEST(TableInsertion, UnbalancedDecreasing) {
     rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(3, table.build_csets[0]->columns.size());
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
     ASSERT_EQ(true, table.build_csets[0]->columns[1]->IsValid(0));
@@ -179,7 +179,7 @@ TEST(TableInsertion, UnbalancedDecreasing) {
     rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(3, table.build_csets[0]->columns.size());
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
@@ -213,8 +213,8 @@ TEST(TableInsertion, TensorSingleValue) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size()); // This will always be 2: The offset array and the data array
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); //  This will always be n+1
-    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n); //  This will always be sum total n ELEMENTS
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); //  This will always be n+1
+    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n_records); //  This will always be sum total n ELEMENTS
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
@@ -237,8 +237,8 @@ TEST(TableInsertion, TensorTwoUnbalancedValues) {
     rbuild.AddArray<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(2, table.build_csets[0]->columns.size()); // This will always be 2: The offset array and the data array
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); //  This will always be n+1
-    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n); //  This will always be sum total n ELEMENTS
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); //  This will always be n+1
+    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     vecvals2 = {2, 3};
@@ -246,8 +246,8 @@ TEST(TableInsertion, TensorTwoUnbalancedValues) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2)); // this is the +1 position since the root {0,1} has cardinality 2
@@ -272,8 +272,8 @@ TEST(TableInsertion, TensorTwoUnbalancedIncreasing) {
     rbuild.AddArray<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(2, table.build_csets[0]->columns.size()); // This will always be 2: The offset array and the data array
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); //  This will always be n+1
-    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n); //  This will always be sum total n ELEMENTS
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); //  This will always be n+1
+    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     vecvals2 = {2, 3};
@@ -281,8 +281,8 @@ TEST(TableInsertion, TensorTwoUnbalancedIncreasing) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2)); // this is the +1 position since the root {0,1} has cardinality 2
@@ -292,8 +292,8 @@ TEST(TableInsertion, TensorTwoUnbalancedIncreasing) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(4, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(6, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(4, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
@@ -320,8 +320,8 @@ TEST(TableInsertion, TensorTwoUnbalancedDecreasing) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size()); // This will always be 2: The offset array and the data array
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); //  This will always be n+1
-    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n); //  This will always be sum total n ELEMENTS
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); //  This will always be n+1
+    ASSERT_EQ(1, table.build_csets[0]->columns[1]->n_records); //  This will always be sum total n ELEMENTS
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
 
     vecvals2 = {1, 2};
@@ -329,8 +329,8 @@ TEST(TableInsertion, TensorTwoUnbalancedDecreasing) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(5, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
 
@@ -339,8 +339,8 @@ TEST(TableInsertion, TensorTwoUnbalancedDecreasing) {
     ASSERT_EQ(1, table.Append(rbuild));
     ASSERT_EQ(1, table.build_csets.size());
     ASSERT_EQ(2, table.build_csets[0]->columns.size());
-    ASSERT_EQ(4, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(6, table.build_csets[0]->columns[1]->n);
+    ASSERT_EQ(4, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
 
@@ -372,8 +372,8 @@ TEST(TableInsertion, SingleValueTwoColumns) {
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
 
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -409,8 +409,8 @@ TEST(TableInsertion, MixedSchemas) {
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
 
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -431,10 +431,10 @@ TEST(TableInsertion, MixedSchemas) {
     ASSERT_EQ(1, table.build_csets[2]->columns.size());
     ASSERT_EQ(1, table.build_csets[3]->columns.size());
 
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); // These should all equal 2 as we pad all non-overlapping columns
-    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[3]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); // These should all equal 2 as we pad all non-overlapping columns
+    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[3]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -481,8 +481,8 @@ TEST(TableInsertion, MixedSchemasThree) {
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
 
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -503,10 +503,10 @@ TEST(TableInsertion, MixedSchemasThree) {
     ASSERT_EQ(1, table.build_csets[2]->columns.size());
     ASSERT_EQ(1, table.build_csets[3]->columns.size());
 
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); // These should all equal 2 as we pad all non-overlapping columns
-    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[3]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); // These should all equal 2 as we pad all non-overlapping columns
+    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[3]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -536,12 +536,12 @@ TEST(TableInsertion, MixedSchemasThree) {
     ASSERT_EQ(1, table.build_csets[4]->columns.size());
     ASSERT_EQ(1, table.build_csets[5]->columns.size());
 
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n); // These should all equal 2 as we pad all non-overlapping columns
-    ASSERT_EQ(3, table.build_csets[1]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[2]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[3]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[4]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[5]->columns[0]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records); // These should all equal 2 as we pad all non-overlapping columns
+    ASSERT_EQ(3, table.build_csets[1]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[2]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[3]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[4]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[5]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -603,8 +603,8 @@ TEST(TableInsertion, MixedSchemasPartialOverlap) {
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
 
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -624,9 +624,9 @@ TEST(TableInsertion, MixedSchemasPartialOverlap) {
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
     ASSERT_EQ(1, table.build_csets[2]->columns.size());
 
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); // These should all equal 2 as we pad all non-overlapping columns
-    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); // These should all equal 2 as we pad all non-overlapping columns
+    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -671,8 +671,8 @@ TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
     ASSERT_EQ(1, table.build_csets[0]->columns.size());
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
 
-    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n);
-    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n);
+    ASSERT_EQ(1, table.build_csets[0]->columns[0]->n_records);
+    ASSERT_EQ(1, table.build_csets[1]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -692,9 +692,9 @@ TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
     ASSERT_EQ(1, table.build_csets[1]->columns.size());
     ASSERT_EQ(1, table.build_csets[2]->columns.size());
 
-    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n); // These should all equal 2 as we pad all non-overlapping columns
-    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n);
-    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n);
+    ASSERT_EQ(2, table.build_csets[0]->columns[0]->n_records); // These should all equal 2 as we pad all non-overlapping columns
+    ASSERT_EQ(2, table.build_csets[1]->columns[0]->n_records);
+    ASSERT_EQ(2, table.build_csets[2]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -720,10 +720,10 @@ TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
     ASSERT_EQ(1, table.build_csets[2]->columns.size());
     ASSERT_EQ(1, table.build_csets[3]->columns.size());
 
-    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n); // These should all equal 3 as we pad all non-overlapping columns
-    ASSERT_EQ(3, table.build_csets[1]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[2]->columns[0]->n);
-    ASSERT_EQ(3, table.build_csets[3]->columns[0]->n);
+    ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records); // These should all equal 3 as we pad all non-overlapping columns
+    ASSERT_EQ(3, table.build_csets[1]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[2]->columns[0]->n_records);
+    ASSERT_EQ(3, table.build_csets[3]->columns[0]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
     ASSERT_EQ(true, table.build_csets[1]->columns[0]->IsValid(0));
@@ -762,6 +762,7 @@ TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
+/*
 TEST(TableInsertion, MixedSchemasExtreme) {
     TableConstructor table;
     RecordBuilder rbuild;
@@ -782,7 +783,7 @@ TEST(TableInsertion, MixedSchemasExtreme) {
 
     // Every column should have 5000 elements.
     for(int i = 0; i < 5000; ++i) {
-        ASSERT_EQ(5000, table.build_csets[i]->columns[0]->n); // this should be 5000
+        ASSERT_EQ(5000, table.build_csets[i]->columns[0]->n_records); // this should be 5000
         ASSERT_EQ(true, table.build_csets[i]->columns[0]->IsValid(i));
     }
 
@@ -790,6 +791,7 @@ TEST(TableInsertion, MixedSchemasExtreme) {
 
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
+*/
 
 }
 

@@ -82,7 +82,7 @@ public:
     void Set(std::shared_ptr<ColumnStore> cstore) {
         if(cstore.get() == nullptr) return;
 
-        n = cstore->n;
+        n = cstore->n_records;
         uncompressed_size = cstore->uncompressed_size;
         compressed_size   = cstore->compressed_size;
     }

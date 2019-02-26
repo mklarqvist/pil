@@ -554,7 +554,7 @@ int main(int argc, char **argv) {
 
         std::cerr << "cset n=" << table.build_csets.size() << std::endl;
         for(int i = 0; i < table.build_csets.size(); ++i){
-            std::cerr << i << ": " << table.build_csets[i]->columns.size() << " cols. first n= " << table.build_csets[i]->columns.front()->n << std::endl;
+            std::cerr << i << ": " << table.build_csets[i]->columns.size() << " cols. first n= " << table.build_csets[i]->columns.front()->n_records << std::endl;
         }
 
         std::cerr << "stacks:" << std::endl;

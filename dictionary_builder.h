@@ -23,10 +23,36 @@ protected:
 template <class T>
 class NumericDictionaryBuilder : public DictionaryBuilder {
 public:
+    int Encode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+        if(cset.get() == nullptr) return(-1);
+
+        std::cerr << "in dictionary wrapper" << std::endl;
+
+        if(field.cstore == PIL_CSTORE_COLUMN) {
+            int ret = 0;
+            for(int i = 0; i < cset->size(); ++i) {
+                assert(cset->columns[i].get() != nullptr);
+                ret = Encode(cset->columns[i]);
+            }
+            return(ret);
+        } else {
+            assert(cset->columns[1].get() != nullptr);
+            //return(Encode(cset->columns[1]));
+            return(1);
+        }
+    }
+
    int Encode(std::shared_ptr<ColumnStore> column) {
+       if(column.get() == nullptr) return(-1);
+
        //std::cerr << "in dictionary encode" << std::endl;
-       //std::cerr << "dict input length=" << src->buffer.length() << std::endl;
-       assert(column->n * sizeof(T) == column->buffer.length());
+       //std::cerr << "dict input length=" << column->buffer.length() << std::endl;
+       if(column->nullity.get() == nullptr) {
+           std::cerr << "no nullity" << std::endl;
+           return(-1);
+       }
+
+       assert(column->n_elements * sizeof(T) == column->buffer.length());
 
        typedef std::unordered_map<T, uint32_t> map_type;
        map_type map;
@@ -35,7 +61,7 @@ public:
 
        // Iterate over values in N
        int64_t n_valid = 0;
-       for(uint32_t i = 0; i < column->n; ++i) {
+       for(uint32_t i = 0; i < column->n_records; ++i) {
            // If value is not in the map we add it to the hash-map and
            // the list of values.
            // If the position is invalid (using nullity map) then don't use it.
@@ -63,7 +89,7 @@ public:
            // 2) empty local buffer (unsafe set to 0)
            // 3) update local buffer with dictionary-encoded columnstore data
            // test
-           for(uint32_t i = 0; i < column->n; ++i) {
+           for(uint32_t i = 0; i < column->n_records; ++i) {
                if(column->IsValid(i) == false) {
                    // place a 0
                    in[i] = 0;
@@ -86,7 +112,58 @@ public:
        return(1);
    }
 
-   int Encode(std::shared_ptr<ColumnStore> column, std::shared_ptr<ColumnStore> strides) { return -1; }
+   int Encode(std::shared_ptr<ColumnStore> column, std::shared_ptr<ColumnStore> strides) {
+       if(column.get() == nullptr) return(-1);
+
+       std::cerr << "in dictionary encode WITH STRIDES" << std::endl;
+       //std::cerr << "dict input length=" << column->buffer.length() << std::endl;
+       if(strides->nullity.get() == nullptr) {
+           std::cerr << "no nullity!!!!" << std::endl;
+           return(-1);
+       }
+
+       assert(column->n_elements * sizeof(T) == column->buffer.length());
+
+       typedef std::unordered_map<std::vector<T>, uint32_t> map_type;
+       //map_type map;
+       std::vector< std::vector<T> > list; // list of lists of type T
+       T* in = reinterpret_cast<T*>(column->mutable_data());
+       const uint32_t* s = reinterpret_cast<const uint32_t*>(strides->mutable_data());
+       const uint32_t n_s = strides->n_records - 1;
+
+       // Iterate over values in N
+       int64_t n_valid = 0;
+       //int64_t cum_offset = 0;
+       T* local_buffer = new T[8196];
+
+       for(uint32_t i = 0; i < n_s; ++i) {
+           // If value is not in the map we add it to the hash-map and
+           // the list of values.
+           // If the position is invalid (using nullity map) then don't use it.
+           if(strides->IsValid(i) == false) {
+               std::cerr << "skipping: " << i << " l=" << s[i] << std::endl;
+               continue;
+           }
+
+           const uint32_t l = s[i + 1] - s[i];
+           std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
+           memcpy(local_buffer, &in[s[i]], l);
+
+           /*
+           if(map.find(in[i]) == map.end()) {
+               map[in[i]] = list.size();
+               //buffer_->Append(list.size());
+               list.push_back(in[i]);
+           }
+           */
+           ++n_valid;
+
+       }
+
+       delete[] local_buffer;
+
+       return(1);
+   }
 
 protected:
 

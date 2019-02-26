@@ -19,10 +19,10 @@ int Compressor::Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldT
         int ret2 = -1;
         switch(field.transforms[i]) {
         case(PIL_COMPRESS_AUTO):
-        case(PIL_COMPRESS_ZSTD): ret2 = CompressAuto(cset, field); break;
-        case(PIL_ENCODE_DICT):   ret2 = DictionaryEncode(cset->columns[0], field); break;
-        case(PIL_ENCODE_DELTA):  ret2 = DeltaEncode(cset, field); break;
-        case(PIL_COMPRESS_RC_QUAL): ret2 = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
+        case(PIL_COMPRESS_ZSTD):     ret2 = CompressAuto(cset, field); break;
+        case(PIL_ENCODE_DICT):       ret2 = DictionaryEncode(cset, field); break;
+        case(PIL_ENCODE_DELTA):      ret2 = DeltaEncode(cset, field); break;
+        case(PIL_COMPRESS_RC_QUAL):  ret2 = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_BASES): ret2 = static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore); break;
         default: std::cerr << "unknown ctype: " << (int)field.transforms.front() << std::endl; break;
         }
@@ -42,7 +42,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
            // Not every ColumnStore has a Nullity bitmap. For example, Dictionary
            // columns.
            if(cset->columns[i]->nullity.get() != nullptr) {
-               const uint32_t n_nullity = std::ceil((float)cset->columns[i]->n / 32);
+               const uint32_t n_nullity = std::ceil((float)cset->columns[i]->n_records / 32);
                int retNull = static_cast<ZstdCompressor*>(this)->Compress(
                                   cset->columns[i]->nullity->mutable_data(),
                                   n_nullity,
@@ -75,10 +75,12 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        }
        return(ret);
     } else if(field.cstore == PIL_CSTORE_TENSOR) {
+        DictionaryEncode(cset->columns[1], cset->columns[0], field);
+
        //std::cerr << "computing deltas in place" << std::endl;
        cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));
        compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
-                              cset->columns[0]->n,
+                              cset->columns[0]->n_records,
                               0);
 
        int64_t n_in = cset->columns[0]->buffer.length();
@@ -92,7 +94,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        cset->columns[0]->buffer.UnsafeSetLength(ret1);
        cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD,n_in,ret1));
 
-       const uint32_t n_nullity = std::ceil((float)cset->columns[0]->n / 32);
+       const uint32_t n_nullity = std::ceil((float)cset->columns[0]->n_records / 32);
        int retNull = static_cast<ZstdCompressor*>(this)->Compress(
                                      cset->columns[0]->nullity->mutable_data(),
                                      n_nullity,
@@ -107,7 +109,6 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        //std::cerr << "delta-zstd: " << cset->columns[0]->buffer.length() << "->" << ret1 << " (" << (float)cset->columns[0]->buffer.length()/ret1 << "-fold)" << std::endl;
 
       // Attempt Dictionary encoder for Data
-      DictionaryEncode(cset->columns[1], field);
 
        int64_t n_in1 = cset->columns[1]->buffer.length();
        int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
