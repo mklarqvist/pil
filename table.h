@@ -95,23 +95,7 @@ public:
      * @param ctype
      * @return
      */
-    int SetField(const std::string& field_name, PIL_PRIMITIVE_TYPE ptype, const std::vector<PIL_COMPRESSION_TYPE>& ctype) {
-        // Check for validity of transformation order.
-        if(Transformer::ValidTransformationOrder(ctype) == false) {
-            return(-2);
-        }
-
-        if(field_dict.Find(field_name) == - 1) {
-            meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
-            int ret = field_dict.FindOrAdd(field_name, ptype, PIL_TYPE_UNKNOWN);
-            int _segid = BatchAddColumn(ptype, PIL_TYPE_UNKNOWN, ret);
-            field_dict.dict[ret].transforms = ctype;
-        } else {
-            //std::cerr << "already exists" << std::endl;
-        }
-
-        return(1);
-    }
+    int SetField(const std::string& field_name, PIL_PRIMITIVE_TYPE ptype, const std::vector<PIL_COMPRESSION_TYPE>& ctype);
 
     /**<
     * Pre-hint the existence of a field with the given parameters and set the
@@ -131,23 +115,7 @@ public:
     int SetField(const std::string& field_name,
                  PIL_PRIMITIVE_TYPE ptype,
                  PIL_PRIMITIVE_TYPE ptype_array,
-                 const std::vector<PIL_COMPRESSION_TYPE>& ctype)
-    {
-        // Check for validity of transformation order.
-        if(Transformer::ValidTransformationOrder(ctype) == false) {
-            return(-2);
-        }
-
-        if(field_dict.Find(field_name) == - 1) {
-            meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
-            int ret = field_dict.FindOrAdd(field_name, ptype, ptype_array);
-            field_dict.dict[ret].transforms = ctype;
-        } else {
-            //std::cerr << "already exists" << std::endl;
-        }
-
-        return(1);
-    }
+                 const std::vector<PIL_COMPRESSION_TYPE>& ctype);
 
     /**<
      * Finalize import of data.
@@ -159,7 +127,7 @@ public:
     bool single_archive; // Write a single archive or mutiple output files in a directory.
     uint32_t batch_size;
     // Construction helpers
-    uint64_t c_in, c_out; // Todo: delete
+    uint64_t c_in, c_out; // Todo: delete - these are temporary
     //std::shared_ptr<RecordBatch> record_batch; // temporary instance of a RecordBatch
     std::vector< std::shared_ptr<ColumnSet> > build_csets; // temporary ColumnSets used during construction.
     std::ofstream out_stream;

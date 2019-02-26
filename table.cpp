@@ -2,6 +2,45 @@
 
 namespace pil {
 
+int TableConstructor::SetField(const std::string& field_name, PIL_PRIMITIVE_TYPE ptype, const std::vector<PIL_COMPRESSION_TYPE>& ctype) {
+    // Check for validity of transformation order.
+    if(Transformer::ValidTransformationOrder(ctype) == false) {
+        return(-2);
+    }
+
+    if(field_dict.Find(field_name) == - 1) {
+        meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
+        int ret = field_dict.FindOrAdd(field_name, ptype, PIL_TYPE_UNKNOWN);
+        int _segid = BatchAddColumn(ptype, PIL_TYPE_UNKNOWN, ret);
+        field_dict.dict[ret].transforms = ctype;
+    } else {
+        //std::cerr << "already exists" << std::endl;
+    }
+
+    return(1);
+}
+
+int TableConstructor::SetField(const std::string& field_name,
+             PIL_PRIMITIVE_TYPE ptype,
+             PIL_PRIMITIVE_TYPE ptype_array,
+             const std::vector<PIL_COMPRESSION_TYPE>& ctype)
+{
+    // Check for validity of transformation order.
+    if(Transformer::ValidTransformationOrder(ctype) == false) {
+        return(-2);
+    }
+
+    if(field_dict.Find(field_name) == - 1) {
+        meta_data.field_meta.push_back(std::make_shared<FieldMetaData>());
+        int ret = field_dict.FindOrAdd(field_name, ptype, ptype_array);
+        field_dict.dict[ret].transforms = ctype;
+    } else {
+        //std::cerr << "already exists" << std::endl;
+    }
+
+    return(1);
+}
+
 int TableConstructor::Append(RecordBuilder& builder) {
     if(meta_data.batches.size() == 0)
         meta_data.batches.push_back(std::make_shared<RecordBatch>());
@@ -247,7 +286,7 @@ int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, con
     if(cset.get() == nullptr) return(-1);
 
     // Todo: this might be expensive
-    Compressor compressor;
+    Transformer transformer;
 
     // Core updates: schemas
     // Append a new FieldMetaData to the Core FieldMetaData list and use that offset.
@@ -256,7 +295,7 @@ int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, con
     // Adding a RecordBatch to the core FieldMetaData will return the offset it was added to.
     uint32_t core_batch_id = meta_data.core_meta[batch_id]->AddBatch(cset);
     // Compress the Schema identifiers for this RecordBatch.
-    static_cast<ZstdCompressor*>(&compressor)->Compress(cset, PIL_CSTORE_COLUMN, PIL_ZSTD_DEFAULT_LEVEL);
+    static_cast<ZstdCompressor*>(&transformer)->Compress(cset, PIL_CSTORE_COLUMN, PIL_ZSTD_DEFAULT_LEVEL);
     //std::cerr << "SCHEMAS=" << cset->columns[0]->uncompressed_size << "->" << cset->columns[0]->compressed_size << std::endl;
     //std::cerr << "core-id=" << core_batch_id << "/" << meta_data.core_meta.back()->cset_meta.size() << std::endl;
     meta_data.core_meta[batch_id]->cset_meta[core_batch_id]->UpdateColumnSet(meta_data.batches[batch_id]->schemas);
@@ -268,6 +307,7 @@ int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, con
 
     // Todo: if not single archive
     // This is bad!!!!!!!!!!!!!
+    // Write output data.
     meta_data.core_meta[0]->cset_meta[core_batch_id]->SerializeColumnSet(meta_data.batches[batch_id]->schemas, out_stream);
 
     return(core_batch_id);

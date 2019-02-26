@@ -12,6 +12,7 @@
 #include "frequency_model.h"
 #include "fastdelta.h"
 #include "base_model.h"
+#include "../dictionary_builder.h"
 
 // todo
 #include "../encoder.h"
@@ -35,30 +36,34 @@ public:
     virtual int Decompress(){ return 1; }
 
     // TOdo: fix
-    int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
-        if(cset.get() == nullptr) return(-1);
+    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field) {
+        if(cstore.get() == nullptr) return(-1);
 
-        //std::cerr << "IN DICTIONARY ENCODER" << std::endl;
+        //std::cerr << "IN DICTIONARY ENCODER before decision" << std::endl;
 
-        DictionaryEncoder dict;
+        DictionaryBuilder dict;
+
         if(field.cstore == PIL_CSTORE_COLUMN) {
             int ret_status = -1;
             switch(field.ptype) {
-            case(PIL_TYPE_INT8):   ret_status = dict.Encode<uint8_t>(cset, cset->columns[0]);  break;
-            case(PIL_TYPE_INT16):  ret_status = dict.Encode<uint16_t>(cset, cset->columns[0]); break;
-            case(PIL_TYPE_INT32):  ret_status = dict.Encode<uint32_t>(cset, cset->columns[0]); break;
-            case(PIL_TYPE_INT64):  ret_status = dict.Encode<uint64_t>(cset, cset->columns[0]); break;
-            case(PIL_TYPE_UINT8):  ret_status = dict.Encode<int8_t>(cset, cset->columns[0]);   break;
-            case(PIL_TYPE_UINT16): ret_status = dict.Encode<int16_t>(cset, cset->columns[0]);  break;
-            case(PIL_TYPE_UINT32): ret_status = dict.Encode<int32_t>(cset, cset->columns[0]);  break;
-            case(PIL_TYPE_UINT64): ret_status = dict.Encode<int64_t>(cset, cset->columns[0]);  break;
-            case(PIL_TYPE_FLOAT):  ret_status = dict.Encode<float>(cset, cset->columns[0]);    break;
-            case(PIL_TYPE_DOUBLE): ret_status = dict.Encode<double>(cset, cset->columns[0]);   break;
+            case(PIL_TYPE_INT8):   ret_status = static_cast<NumericDictionaryBuilder<int8_t>*>(&dict)->Encode(cstore);  break;
+            case(PIL_TYPE_INT16):  ret_status = static_cast<NumericDictionaryBuilder<int16_t>*>(&dict)->Encode(cstore); break;
+            case(PIL_TYPE_INT32):  ret_status = static_cast<NumericDictionaryBuilder<int32_t>*>(&dict)->Encode(cstore);break;
+            case(PIL_TYPE_INT64):  ret_status = static_cast<NumericDictionaryBuilder<int64_t>*>(&dict)->Encode(cstore); break;
+            case(PIL_TYPE_UINT8):  ret_status = static_cast<NumericDictionaryBuilder<uint8_t>*>(&dict)->Encode(cstore);   break;
+            case(PIL_TYPE_UINT16): ret_status = static_cast<NumericDictionaryBuilder<uint16_t>*>(&dict)->Encode(cstore);  break;
+            case(PIL_TYPE_UINT32): ret_status = static_cast<NumericDictionaryBuilder<uint32_t>*>(&dict)->Encode(cstore);  break;
+            case(PIL_TYPE_UINT64): ret_status = static_cast<NumericDictionaryBuilder<uint64_t>*>(&dict)->Encode(cstore);  break;
+            case(PIL_TYPE_FLOAT):  ret_status = static_cast<NumericDictionaryBuilder<float>*>(&dict)->Encode(cstore);    break;
+            case(PIL_TYPE_DOUBLE): ret_status = static_cast<NumericDictionaryBuilder<double>*>(&dict)->Encode(cstore);   break;
             }
+            std::cerr << "ret_status=" << ret_status << std::endl;
 
         } else if(field.cstore == PIL_CSTORE_TENSOR) {
-            std::cerr << "not allowed yet" << std::endl;
-            exit(1);
+            // Todo: fix
+            //std::cerr << "not allowed yet" << std::endl;
+            return(1);
+            //exit(1);
 
         } else {
             std::cerr << "unknwon" << std::endl;

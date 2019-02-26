@@ -56,10 +56,10 @@ int main(int argc, char **argv) {
     pil::RecordBuilder rbuild;
 
     // Set to 1 for FASTQ test
-    if(1) {
+    if(0) {
         std::ifstream ss;
-        ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
+        //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -68,8 +68,8 @@ int main(int argc, char **argv) {
         ss.seekg(0);
 
         //table.single_archive = true;
-        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
-        table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
         if(table.out_stream.good() == false) {
             std::cerr << "failed to open output file" << std::endl;
             return 1;
@@ -112,8 +112,8 @@ int main(int argc, char **argv) {
                 // @ERR194146.812444544 HSQ1008:141:D0CC8ACXX:3:2204:14148:71629/1
 
 
-#define never 1
-#ifdef never
+#define never 0
+#if never == 1
                 // 1: Split by space
                 // 2: Split first by .
                 // 3: Split second by :
@@ -179,14 +179,11 @@ int main(int argc, char **argv) {
             }
 
             if(ltype == 1) {
-                //int rec = enc.Encode(reinterpret_cast<const uint8_t*>(line.data()), line.size());
                 rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
-                //rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(enc.data()->mutable_data()), rec);
             }
 
             if(ltype == 3) {
                 rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
-                //std::cerr << line << std::endl;
             }
 
             ++ltype;
@@ -200,7 +197,7 @@ int main(int argc, char **argv) {
     }
 
     // Set to 1 for SAM test
-    if(0) {
+    if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
@@ -235,20 +232,20 @@ int main(int argc, char **argv) {
         //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         table.SetField("BASES", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
 
-        ctypes.clear();
-        ctypes.push_back(pil::PIL_ENCODE_DICT);
-        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
-        table.SetField("RNAME", pil::PIL_TYPE_UINT32, ctypes);
-
-        ctypes.clear();
-        //ctypes.push_back(pil::PIL_ENCODE_CIGAR_NIBBLE);
-        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
-        table.SetField("CIGAR", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
-
-        ctypes.clear();
+        //ctypes.clear();
         //ctypes.push_back(pil::PIL_ENCODE_DICT);
-        ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
-        table.SetField("POS", pil::PIL_TYPE_UINT32, ctypes);
+        //ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        //table.SetField("RNAME", pil::PIL_TYPE_UINT32, ctypes);
+
+        //ctypes.clear();
+        //ctypes.push_back(pil::PIL_ENCODE_CIGAR_NIBBLE);
+        //ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        //table.SetField("CIGAR", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes);
+
+        //ctypes.clear();
+        //ctypes.push_back(pil::PIL_ENCODE_DICT);
+        //ctypes.push_back(pil::PIL_COMPRESS_ZSTD);
+        //table.SetField("POS", pil::PIL_TYPE_UINT32, ctypes);
 
         std::unordered_map<std::string, uint32_t> RNAME_map;
         std::vector<std::string> RNAME_dict;

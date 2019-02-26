@@ -86,7 +86,7 @@ public:
         // Dictionary encoding
         stream.write(reinterpret_cast<char*>(&have_dictionary), sizeof(bool));
         if(have_dictionary) {
-            assert(dictionary.get() != nullptr);
+            //assert(dictionary.get() != nullptr);
 
             //stream.write()
         }

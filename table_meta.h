@@ -28,9 +28,26 @@ public:
         T min = std::numeric_limits<T>::max();
         T max = std::numeric_limits<T>::min();
 
-        for(int i = 0; i < n; ++i) {
-            min = std::min(min, values[i]);
-            max = std::max(max, values[i]);
+        if(cstore->nullity.get() == nullptr) { // if nullity is available
+            for(uint32_t i = 0; i < n; ++i) {
+                min = std::min(min, values[i]);
+                max = std::max(max, values[i]);
+            }
+        } else { // if not available
+            uint32_t n_valid = 0;
+            for(uint32_t i = 0; i < n; ++i) {
+                if(cstore->IsValid(i) == false) continue;
+                min = std::min(min, values[i]);
+                max = std::max(max, values[i]);
+                ++n_valid;
+            }
+
+            // If there is no valid values then set both to 0.
+            // Todo: this should be smarter
+            if(n_valid == 0) {
+                min = 0;
+                max = 0;
+            }
         }
 
         // Cast the placeholder bytes to the target type and assign
