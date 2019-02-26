@@ -136,17 +136,20 @@ public:
        //int64_t cum_offset = 0;
        T* local_buffer = new T[8196];
 
+      // bool die = false;
        for(uint32_t i = 0; i < n_s; ++i) {
            // If value is not in the map we add it to the hash-map and
            // the list of values.
            // If the position is invalid (using nullity map) then don't use it.
            if(strides->IsValid(i) == false) {
-               std::cerr << "skipping: " << i << " l=" << s[i] << std::endl;
+               //std::cerr << "skipping: " << i << " l=" << s[i] << std::endl;
                continue;
            }
 
-           const uint32_t l = s[i + 1] - s[i];
-           std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
+           const int64_t l = s[i + 1] - s[i];
+           //if(l < 0) exit(1);
+           //die += (l < 0);
+           //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
            memcpy(local_buffer, &in[s[i]], l);
 
            /*
@@ -157,10 +160,11 @@ public:
            }
            */
            ++n_valid;
-
        }
+       std::cerr << "Valid records=" << n_valid << "/" << column->n_records << std::endl;
 
        delete[] local_buffer;
+       //if(die) exit(1);
 
        return(1);
    }

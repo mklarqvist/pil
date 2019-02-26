@@ -418,10 +418,8 @@ public:
             assert(ret == 1);
         }
 
-        for(int i = 0; i < values.size(); ++i){
-            int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(values[i]);
-            assert(ret == 1);
-        }
+        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(values.data(), values.size());
+        assert(ret == 1);
 
         return(1);
     }
@@ -451,7 +449,8 @@ public:
             assert(ret == 1);
         }
 
-        std::cerr << "appending=" << n_values << std::endl;
+        //std::cerr << "appending=" << n_values << std::endl;
+        assert(n_values > 0);
         int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(value, n_values);
         assert(ret == 1);
 
@@ -481,7 +480,7 @@ public:
         } else {
             const uint32_t n_recs = columns[0]->n_records;
             assert(n_recs != 0);
-            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs];
+            const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 0);
             assert(ret == 1);
