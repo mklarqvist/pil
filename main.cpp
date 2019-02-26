@@ -12,8 +12,8 @@
 
 // test
 #include "table_test.h"
-#include "encoder_test.h"
 #include "buffer_builder_test.h"
+#include "transformer_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {
@@ -55,10 +55,10 @@ int main(int argc, char **argv) {
     pil::RecordBuilder rbuild;
 
     // Set to 1 for FASTQ test
-    if(0) {
+    if(1) {
         std::ifstream ss;
-        //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
+        ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -66,9 +66,9 @@ int main(int argc, char **argv) {
         uint64_t file_size = ss.tellg();
         ss.seekg(0);
 
-        table.single_archive = true;
-        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
-        //table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
+        //table.single_archive = true;
+        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
         if(table.out_stream.good() == false) {
             std::cerr << "failed to open output file" << std::endl;
             return 1;
@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
                 // @ERR194146.812444544 HSQ1008:141:D0CC8ACXX:3:2204:14148:71629/1
 
 
+#define never 1
 #ifdef never
                 // 1: Split by space
                 // 2: Split first by .
@@ -161,7 +162,7 @@ int main(int argc, char **argv) {
 
                 uint8_t name9 = std::atoi(last[1].c_str());
                 rbuild.Add<uint8_t>("NAME-10", pil::PIL_TYPE_UINT8, name9);
-#endif
+#else
                 // @ST-E00106:108:H03M0ALXX:1:1101:2248:1238
                 std::vector<std::string> parts = StringSplit(line, ":", false);
 
@@ -173,6 +174,7 @@ int main(int argc, char **argv) {
                     name = std::atoi(parts[k - 1].c_str());
                     rbuild.Add<uint32_t>("NAME-" + std::to_string(k), pil::PIL_TYPE_UINT32, name);
                 }
+#endif
             }
 
             if(ltype == 1) {
@@ -197,7 +199,7 @@ int main(int argc, char **argv) {
     }
 
     // Set to 1 for SAM test
-    if(1) {
+    if(0) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);

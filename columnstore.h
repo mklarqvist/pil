@@ -99,7 +99,7 @@ public:
     int Deserialize(std::ostream& stream);
 
     // Check if the given element is valid by looking up that bit in the bitmap.
-    bool IsValid(const uint32_t p) { return(reinterpret_cast<uint32_t*>(nullity->mutable_data())[n / 32] & (1 << (p % 32))); }
+    bool IsValid(const uint32_t p) { return(reinterpret_cast<uint32_t*>(nullity->mutable_data())[p / 32] & (1 << (p % 32))); }
 
 public:
     bool have_dictionary;

@@ -1,96 +1,96 @@
-#ifndef ENCODER_TEST_H_
-#define ENCODER_TEST_H_
+#ifndef TRANSFORMER_TEST_H_
+#define TRANSFORMER_TEST_H_
 
 #include "encoder.h"
 #include <gtest/gtest.h>
 
 namespace pil {
 
-TEST(EncoderTests, ValidityEmptyList) {
+TEST(TransformerTests, ValidityEmptyList) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes;
 
-    ASSERT_EQ(true, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValiditySingleList) {
+TEST(TransformerTests, ValiditySingleList) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes = {PIL_COMPRESS_ZSTD};
 
-    ASSERT_EQ(true, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityDictCompress) {
+TEST(TransformerTests, ValidityDictCompress) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes = {PIL_ENCODE_DICT, PIL_COMPRESS_ZSTD};
 
-    ASSERT_EQ(true, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityDictCompressMultiple) {
+TEST(TransformerTests, ValidityDictCompressMultiple) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes = {PIL_ENCODE_DICT, PIL_COMPRESS_ZSTD, PIL_COMPRESS_RC_BASES};
 
-    ASSERT_EQ(true, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityIllegalDictMultiple) {
+TEST(TransformerTests, ValidityIllegalDictMultiple) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes = {PIL_ENCODE_DICT, PIL_ENCODE_DICT};
 
-    ASSERT_EQ(false, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(false, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityIllegalDictOrder) {
+TEST(TransformerTests, ValidityIllegalDictOrder) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes = {PIL_COMPRESS_ZSTD, PIL_ENCODE_DICT};
 
-    ASSERT_EQ(false, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(false, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityIllegalDictOrder2) {
+TEST(TransformerTests, ValidityIllegalDictOrder2) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes = {PIL_ENCODE_DICT, PIL_ENCODE_DELTA};
 
-    ASSERT_EQ(false, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(false, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityComplex) {
+TEST(TransformerTests, ValidityComplex) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
         {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_CIGAR_NIBBLE,PIL_ENCODE_DELTA_DELTA,
          PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL};
 
-    ASSERT_EQ(true, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityComplex2) {
+TEST(TransformerTests, ValidityComplex2) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
         {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_CIGAR_NIBBLE,PIL_ENCODE_DELTA_DELTA,
          PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL, PIL_COMPRESS_RC_ILLUMINA_NAME,
          PIL_COMPRESS_RC_BASES};
 
-    ASSERT_EQ(true, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityIllegalDuplicate) {
+TEST(TransformerTests, ValidityIllegalDuplicate) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
         {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_CIGAR_NIBBLE,PIL_ENCODE_DELTA_DELTA,
          PIL_ENCODE_DICT,PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL};
 
-    ASSERT_EQ(false, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(false, Transformer::ValidTransformationOrder(ctypes));
 }
 
-TEST(EncoderTests, ValidityIllegalAuto) {
+TEST(TransformerTests, ValidityIllegalAuto) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
         {PIL_COMPRESS_AUTO,PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL};
 
-    ASSERT_EQ(false, Encoder::ValidTransformationOrder(ctypes));
+    ASSERT_EQ(false, Transformer::ValidTransformationOrder(ctypes));
 }
 
 }
 
-#endif /* ENCODER_TEST_H_ */
+#endif /* TRANSFORMER_TEST_H_ */

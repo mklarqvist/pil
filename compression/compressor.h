@@ -6,6 +6,7 @@
 #include "zstd.h"
 #include "zstd_errors.h"
 
+#include "../transformer.h"
 #include "../table_dict.h"
 #include "../columnstore.h"
 #include "frequency_model.h"
@@ -21,9 +22,10 @@ namespace pil {
 
 // std::vector< CompressorMeta > transformer_args;
 
-class Compressor {
+class Compressor : public Transformer {
 public:
-    Compressor() : pool_(pil::default_memory_pool()){}
+    Compressor(){}
+    Compressor(std::shared_ptr<ResizableBuffer> data) : Transformer(data){}
     virtual ~Compressor(){}
 
     int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
@@ -103,11 +105,6 @@ public:
     }
 
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
-
-protected:
-    // Any memory is owned by the respective Buffer instance (or its parents).
-    MemoryPool* pool_;
-    std::shared_ptr<ResizableBuffer> buffer;
 };
 
 class ZstdCompressor : public Compressor {

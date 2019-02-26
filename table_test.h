@@ -771,13 +771,11 @@ TEST(TableInsertion, MixedSchemasExtreme) {
     // Insert 5000 different single-schema tuples into the table.
     std::vector<float> vecvals;
     for(int i = 0; i < 5000; ++i) {
-        vecvals = {i};
+        vecvals = {(float)i}; // cast as float to avoid narrowing error in clang
         rbuild.Add<float>("FIELD1-" + std::to_string(i), pil::PIL_TYPE_FLOAT, vecvals);
         ASSERT_EQ(1, table.Append(rbuild));
         ASSERT_EQ(i+1, table.build_csets.size());
-        //ASSERT_EQ(true, table.build_csets[i]->columns[0]->IsValid(i));
-        //std::cerr << "FIELD1-" + std::to_string(i) << " at=" << i << "/" << 5000 << " cap=" << table.build_csets.capacity() << std::endl;
-        //ASSERT_EQ(true, table.build_csets[i]->columns[0]->IsValid(i));
+        ASSERT_EQ(true, table.build_csets[i]->columns[0]->IsValid(i));
     }
 
     ASSERT_EQ(5000, table.build_csets.size()); // number of columns in the current batch
@@ -785,8 +783,7 @@ TEST(TableInsertion, MixedSchemasExtreme) {
     // Every column should have 5000 elements.
     for(int i = 0; i < 5000; ++i) {
         ASSERT_EQ(5000, table.build_csets[i]->columns[0]->n); // this should be 5000
-        //std::cerr << "validity=" << i << "/" << 5000 << std::endl;
-        //ASSERT_EQ(true, table.build_csets[i]->columns[0]->IsValid(i));
+        ASSERT_EQ(true, table.build_csets[i]->columns[0]->IsValid(i));
     }
 
     ASSERT_EQ(5000, table.meta_data.batches.back()->n_rec); // number of records in this batch
