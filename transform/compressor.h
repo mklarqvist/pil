@@ -6,16 +6,16 @@
 #include "zstd.h"
 #include "zstd_errors.h"
 
-#include "../transformer.h"
+#include "transformer.h"
 #include "../table_dict.h"
 #include "../columnstore.h"
-#include "frequency_model.h"
-#include "fastdelta.h"
-#include "base_model.h"
-#include "../dictionary_builder.h"
+#include "dictionary_builder.h"
 
 // todo
-#include "../encoder.h"
+#include "encoder.h"
+#include "base_model.h"
+#include "fastdelta.h"
+#include "frequency_model.h"
 
 #define PIL_ZSTD_DEFAULT_LEVEL 1
 
@@ -314,6 +314,7 @@ public:
         // Todo: fix illumina hack
         bool illumina_fastq = true;
         int val0 = illumina_fastq ? 59 : 33;
+        //int val0 = 0;
 
         /* Removing "Killer Bees" */
         while (len2 > 0 && qual[len2 - 1] == '#') len2--;

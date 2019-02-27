@@ -1,23 +1,17 @@
 #ifndef DICTIONARY_BUILDER_H_
 #define DICTIONARY_BUILDER_H_
 
-#include "columnstore.h"
-#include "buffer_builder.h"
+#include "../columnstore.h"
+#include "transformer.h"
+#include "../buffer_builder.h"
 
 namespace pil {
 
 // Class for constructing Dictionaries from ColumnStore data.
 // These are used during import steps only.
-class DictionaryBuilder {
+class DictionaryBuilder : public Transformer {
 public:
-   DictionaryBuilder() : n_records_(0){}
    virtual ~DictionaryBuilder(){}
-
-   inline int64_t size() const { return n_records_; }
-
-protected:
-   int64_t n_records_;
-   std::shared_ptr<BufferBuilder> buffer_;
 };
 
 template <class T>
@@ -124,9 +118,9 @@ public:
 
        assert(column->n_elements * sizeof(T) == column->buffer.length());
 
-       typedef std::unordered_map<std::vector<T>, uint32_t> map_type;
-       //map_type map;
-       std::vector< std::vector<T> > list; // list of lists of type T
+       typedef std::unordered_map<uint64_t, uint32_t> map_type;
+       map_type map;
+       std::vector< uint64_t > list; // list of lists of type T
        T* in = reinterpret_cast<T*>(column->mutable_data());
        const uint32_t* s = reinterpret_cast<const uint32_t*>(strides->mutable_data());
        const uint32_t n_s = strides->n_records - 1;
@@ -134,9 +128,10 @@ public:
        // Iterate over values in N
        int64_t n_valid = 0;
        //int64_t cum_offset = 0;
-       T* local_buffer = new T[8196];
+       //T* local_buffer = new T[8196];
 
       // bool die = false;
+       uint64_t hash = 0;
        for(uint32_t i = 0; i < n_s; ++i) {
            // If value is not in the map we add it to the hash-map and
            // the list of values.
@@ -150,20 +145,21 @@ public:
            //if(l < 0) exit(1);
            //die += (l < 0);
            //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
-           memcpy(local_buffer, &in[s[i]], l);
+           //memcpy(local_buffer, &in[s[i]], l);
+           hash = XXH64(&in[s[i]], l, 123718);
 
-           /*
-           if(map.find(in[i]) == map.end()) {
-               map[in[i]] = list.size();
+
+           if(map.find(hash) == map.end()) {
+               map[hash] = list.size();
                //buffer_->Append(list.size());
-               list.push_back(in[i]);
+               list.push_back(hash);
            }
-           */
+
            ++n_valid;
        }
-       std::cerr << "Valid records=" << n_valid << "/" << column->n_records << std::endl;
+       std::cerr << "Valid records=" << n_valid << "/" << column->n_records << " unique=" << list.size() << std::endl;
 
-       delete[] local_buffer;
+       //delete[] local_buffer;
        //if(die) exit(1);
 
        return(1);

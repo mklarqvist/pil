@@ -5,9 +5,9 @@
 #include <cmath>
 #include <unordered_map>
 
-#include "pil.h"
+#include "../pil.h"
 #include "transformer.h"
-#include "buffer.h"
+#include "../buffer.h"
 
 namespace pil {
 

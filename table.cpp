@@ -425,9 +425,9 @@ void TableConstructor::Describe(std::ostream& stream) {
 
         stream << "\t\tcsets=[\n";
         for(size_t k = 0; k < meta_data.field_meta[i]->cset_meta.size(); ++k) {
-            stream << "\t\t\t[" << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[0]->n;
+            stream << "\t\t\t[" << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[0]->n_records;
             for(size_t j = 1; j < meta_data.field_meta[i]->cset_meta[k]->column_meta_data.size(); ++j) {
-                stream << "," << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[j]->n;
+                stream << "," << meta_data.field_meta[i]->cset_meta[k]->column_meta_data[j]->n_records;
             }
             stream << "]\n";
         }

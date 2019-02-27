@@ -3,8 +3,8 @@
 
 #include <ctime>
 
-#include "compression/compressor.h"
-#include "compression/variant_digest_manager.h"
+#include "transform/compressor.h"
+#include "transform/variant_digest_manager.h"
 
 namespace pil {
 
@@ -29,13 +29,13 @@ public:
         T max = std::numeric_limits<T>::min();
 
         if(cstore->nullity.get() == nullptr) { // if nullity is available
-            for(uint32_t i = 0; i < n; ++i) {
+            for(uint32_t i = 0; i < n_elements; ++i) {
                 min = std::min(min, values[i]);
                 max = std::max(max, values[i]);
             }
         } else { // if not available
             uint32_t n_valid = 0;
-            for(uint32_t i = 0; i < n; ++i) {
+            for(uint32_t i = 0; i < n_elements; ++i) {
                 if(cstore->IsValid(i) == false) continue;
                 min = std::min(min, values[i]);
                 max = std::max(max, values[i]);
@@ -82,7 +82,9 @@ public:
     void Set(std::shared_ptr<ColumnStore> cstore) {
         if(cstore.get() == nullptr) return;
 
-        n = cstore->n_records;
+        n_records = cstore->n_records;
+        n_elements = cstore->n_elements;
+        n_null = cstore->n_null;
         uncompressed_size = cstore->uncompressed_size;
         compressed_size   = cstore->compressed_size;
     }
@@ -93,7 +95,9 @@ public:
     int Serialize(std::ostream& stream) {
         stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&last_modified), sizeof(uint64_t));
-        stream.write(reinterpret_cast<char*>(&n), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&n_records), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&n_elements), sizeof(uint32_t));
+        stream.write(reinterpret_cast<char*>(&n_null), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&compressed_size), sizeof(uint32_t));
         stream.write(reinterpret_cast<char*>(&stats_surrogate_min), sizeof(uint64_t));
@@ -107,7 +111,7 @@ public:
 public:
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
     uint64_t last_modified; // unix timestamp when last modified
-    uint32_t n, uncompressed_size, compressed_size; // number of elements
+    uint32_t n_records, n_elements, n_null, uncompressed_size, compressed_size; // number of elements
     uint64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
     // Todo: move out. too expensive to keep in primary index
     uint8_t md5_checksum[16]; // checksum for buffer
@@ -289,7 +293,7 @@ public:
 
         for(size_t i = 0; i < cset_meta.size(); ++i) {
             for(size_t j = 0; j < cset_meta[i]->column_meta_data.size(); ++j) {
-                n += cset_meta[i]->column_meta_data[j]->n;
+                n += cset_meta[i]->column_meta_data[j]->n_records;
             }
         }
 

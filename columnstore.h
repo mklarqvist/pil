@@ -13,7 +13,7 @@
 #include "buffer_builder.h"
 
 // Todo: fix -> this is for encoder meta
-#include "compression/transform_meta.h"
+#include "transform/transform_meta.h"
 //#include "bit_utils.h"
 
 namespace pil {
@@ -27,7 +27,7 @@ struct ColumnStore {
 public:
     ColumnStore(MemoryPool* pool) :
         have_dictionary(false),
-        n_records(0), n_elements(0), uncompressed_size(0), compressed_size(0),
+        n_records(0), n_elements(0), n_null(0), uncompressed_size(0), compressed_size(0),
         m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
     {
@@ -103,7 +103,8 @@ public:
 
 public:
     bool have_dictionary;
-    uint32_t n_records, n_elements, uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
+    uint32_t n_records, n_elements, n_null;
+    uint32_t uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
 
     // Any memory is owned by the respective Buffer instance (or its parents).
@@ -145,6 +146,7 @@ public:
             exit(1);
         }
 
+        n_null += (yes == false);
         reinterpret_cast<uint32_t*>(nullity->mutable_data())[n_records / 32] |= (yes << (n_records % 32));
         return 1;
     }

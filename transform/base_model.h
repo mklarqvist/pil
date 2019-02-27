@@ -1,7 +1,7 @@
 #ifndef BASE_MODEL_H_
 #define BASE_MODEL_H_
 
-#include "range_coder.h"
+#include "../transform/range_coder.h"
 
 namespace pil {
 

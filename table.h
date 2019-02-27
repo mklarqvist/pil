@@ -11,7 +11,7 @@
 #include "memory_pool.h"
 #include "columnstore.h"
 #include "record_builder.h"
-#include "encoder.h"
+#include "transform/transformer.h"
 
 namespace pil {
 

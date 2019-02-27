@@ -1,8 +1,8 @@
 #ifndef TRANSFORMER_H_
 #define TRANSFORMER_H_
 
-#include "pil.h"
-#include "buffer.h"
+#include "../pil.h"
+#include "../buffer.h"
 
 namespace pil {
 

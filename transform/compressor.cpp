@@ -1,7 +1,8 @@
+#include "../transform/compressor.h"
+
 #include <iostream>
 
-#include "compressor.h"
-#include "variant_digest_manager.h"
+#include "../transform/variant_digest_manager.h"
 
 namespace pil {
 

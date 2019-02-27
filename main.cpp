@@ -4,8 +4,6 @@
 #include "columnstore.h"
 #include "table.h"
 
-#include "encoder.h"
-
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -13,7 +11,7 @@
 // test
 #include "table_test.h"
 #include "buffer_builder_test.h"
-#include "transformer_test.h"
+#include "transform/transformer_test.h"
 #include "record_builder_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
@@ -59,7 +57,9 @@ int main(int argc, char **argv) {
     if(0) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq", std::ios::ate | std::ios::in);
+        //ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq", std::ios::ate | std::ios::in);
+        ss.open("/home/mk819/Downloads/229b_ont.fq", std::ios::ate | std::ios::in);
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -68,8 +68,10 @@ int main(int argc, char **argv) {
         ss.seekg(0);
 
         //table.single_archive = true;
-        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/Users/Mivagallery/Desktop/pil/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
+
         if(table.out_stream.good() == false) {
             std::cerr << "failed to open output file" << std::endl;
             return 1;
@@ -82,7 +84,6 @@ int main(int argc, char **argv) {
 
         std::vector<pil::PIL_COMPRESSION_TYPE> ctypes;
         ctypes.push_back(pil::PIL_COMPRESS_RC_QUAL);
-        //ctypes.push_back(pil::PIL_ENCODE_BASES_2BIT);
         assert(table.SetField("QUAL", pil::PIL_TYPE_BYTE_ARRAY, pil::PIL_TYPE_UINT8, ctypes) == 1);
 
         ctypes.clear();
@@ -108,6 +109,7 @@ int main(int argc, char **argv) {
         // We control wether we create a Tensor-model or Column-split-model ColumnStore
         // by using either Add (split-model) or AddArray (Tensor-model).
         while(std::getline(ss, line)){
+            //std::cerr << (int)ltype << " " << line << std::endl;
             if(ltype == 0) {
                 // @ERR194146.812444544 HSQ1008:141:D0CC8ACXX:3:2204:14148:71629/1
 
@@ -165,6 +167,7 @@ int main(int argc, char **argv) {
                 rbuild.Add<uint8_t>("NAME-10", pil::PIL_TYPE_UINT8, name9);
 #else
                 // @ST-E00106:108:H03M0ALXX:1:1101:2248:1238
+                /*
                 std::vector<std::string> parts = StringSplit(line, ":", false);
 
                 rbuild.AddArray<uint8_t>("NAME-1", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&parts[0]), parts[0].size());
@@ -175,14 +178,17 @@ int main(int argc, char **argv) {
                     name = std::atoi(parts[k - 1].c_str());
                     rbuild.Add<uint32_t>("NAME-" + std::to_string(k), pil::PIL_TYPE_UINT32, name);
                 }
+                */
 #endif
             }
 
             if(ltype == 1) {
+                assert(line.size() > 0);
                 rbuild.AddArray<uint8_t>("BASES", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
             }
 
             if(ltype == 3) {
+                assert(line.size() > 0);
                 rbuild.AddArray<uint8_t>("QUAL", pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(line.data()), line.size());
             }
 
@@ -202,7 +208,11 @@ int main(int argc, char **argv) {
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
+        //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
+
+
         if(ss.good() == false) {
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -212,8 +222,10 @@ int main(int argc, char **argv) {
 
         //table.single_archive = true;
         //table.batch_size = 65536*4;
-        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
+
         if(table.out_stream.good() == false) {
             std::cerr << "failed to open output file" << std::endl;
             return 1;
@@ -261,6 +273,7 @@ int main(int argc, char **argv) {
             uint32_t l = 0;
             while (std::getline(ss, s, '\t')) {
                 if(l == 0) {
+                    /*
                     std::stringstream ss2(s);
                     std::string s2;
                     std::vector<std::string> tk2;
@@ -282,6 +295,9 @@ int main(int argc, char **argv) {
                     rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name6);
                     uint32_t name7 = std::atoi(tk2[6].data());
                     rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name7);
+                    */
+                    rbuild.AddArray<uint8_t>("NAME", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&line[0]), line.size());
+
                 }
 
                 if(l == 1) {
@@ -384,7 +400,9 @@ int main(int argc, char **argv) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq");
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
-        ss.open("/media/mdrk/NVMe/1kgp3_chr20_50k.vcf", std::ios::ate | std::ios::in);
+         ss.open("/media/mdrk/NVMe/1kgp3_chr20_50k.vcf", std::ios::ate | std::ios::in);
+        //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
+
         if(ss.good() == false){
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
@@ -392,6 +410,7 @@ int main(int argc, char **argv) {
         uint64_t file_size = ss.tellg();
         ss.seekg(0);
 
+        //table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
         table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
         if(table.out_stream.good() == false) {

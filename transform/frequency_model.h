@@ -17,7 +17,7 @@
 #ifndef FREQUENCY_MODEL_H_
 #define FREQUENCY_MODEL_H_
 
-#include "range_coder.h"
+#include "../transform/range_coder.h"
 
 // Shrinking this to 1<<10 gives 2-3% smaller qualities, but 50% longer
 #define MAX_FREQ (1<<16)-32
