@@ -14,6 +14,7 @@
 
 // Todo: fix -> this is for encoder meta
 #include "transform/transform_meta.h"
+#include "transform/column_dictionary.h"
 //#include "bit_utils.h"
 
 namespace pil {
@@ -34,7 +35,12 @@ public:
     }
 
     uint32_t size() const { return n_records; }
-    uint32_t GetMemoryUsage() const { return uncompressed_size; }
+
+    uint32_t GetMemoryUsage() const {
+        uint32_t ret = uncompressed_size + nullity_u;
+        if(have_dictionary) ret += dictionary->GetUncompressedSize();
+        return(ret);
+    }
 
     // Pointer to data.
     //std::shared_ptr<ResizableBuffer> data() { return buffer; }
@@ -45,54 +51,7 @@ public:
     std::string ToString() const;
 
     // Serialize/deserialize to/from disk
-    int Serialize(std::ostream& stream) {
-        stream.write(reinterpret_cast<char*>(&n_records), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&compressed_size),   sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&nullity_u), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&nullity_c), sizeof(uint32_t));
-
-        // Todo
-        /*
-        uint32_t n_transforms = transformations.size();
-        stream.write(reinterpret_cast<char*>(&n_transforms), sizeof(uint32_t));
-
-        //assert(transformations.size() != 0);
-        for(size_t i = 0; i < transformations.size(); ++i) {
-            uint32_t t_type = transformations[i];
-            stream.write(reinterpret_cast<char*>(&t_type), sizeof(uint32_t));
-        }
-        */
-
-        //if(buffer.get() != nullptr) {
-            // If the data has been transformed we write out the compressed data
-            // otherwise we write out the uncompressed data.
-            if(transformation_args.size() != 0) {
-                //std::cerr << "writing transformed n= " << size() << " c=" << compressed_size << std::endl;
-                stream.write(reinterpret_cast<char*>(mutable_data()), compressed_size);
-            } else {
-                //std::cerr << "writing untransformed data= " << size() << " u=" << uncompressed_size << std::endl;
-                stream.write(reinterpret_cast<char*>(mutable_data()), uncompressed_size);
-            }
-        //}
-
-        // Nullity vector
-        //const uint32_t n_nullity = std::ceil((float)n / 32);
-        if(nullity.get() != nullptr) {
-            const uint32_t* nulls = reinterpret_cast<const uint32_t*>(nullity->mutable_data());
-            stream.write(reinterpret_cast<const char*>(nulls), nullity_c);
-        }
-
-        // Dictionary encoding
-        stream.write(reinterpret_cast<char*>(&have_dictionary), sizeof(bool));
-        if(have_dictionary) {
-            //assert(dictionary.get() != nullptr);
-
-            //stream.write()
-        }
-
-        return(1);
-    }
+    int Serialize(std::ostream& stream);
 
     // Deserialization is for DEBUG use only. Otherwise, use the
     // correct concrete Array types.
@@ -111,7 +70,7 @@ public:
     MemoryPool* pool_;
     BufferBuilder buffer;
     std::shared_ptr<ResizableBuffer> nullity; // NULLity vector Todo: make into structure
-    std::shared_ptr<ResizableBuffer> dictionary; // Dictionary used for predicate pushdown Todo: make into structure
+    std::shared_ptr<ColumnDictionary> dictionary; // Dictionary used for predicate pushdown Todo: make into structure
     std::vector< std::shared_ptr<TransformMeta> > transformation_args; // Every transform MUST store a value.
 };
 

@@ -92,11 +92,12 @@ Aligned data from above resulting in 12,565,597 records.
 | SAM    | 5271405563             | -           | 1                   | No            |
 | BAM    | 1540663158             | 5m5.326s    | 3.421517            | Partial       |
 | CRAM   | 534863873*             | 2m5.874s    | 9.855602            | Partial       |
-| Pil    | 1000020959 (560239248**) | 5m30.744s   | 5.271295 (9.409204**) | Yes           |
-| Pil-65536    | 960525582 (536238664**) | 5m5.223s   | 5.488043 (9.830335**) | Yes           |
+| Pil    | 945503012 (498481408**) | 5m22.283s   | 5.575239 (10.57493**) | Yes           |
+| Pil-65536    | 915311876 (484110493**) | 5m5.223s   | 5.759136 (10.88885**) | Yes           |
 
 \* `CRAM` requires an external reference, in this case `hg19.fa.gz`, that is 948731427 bytes.  
-\*\* Running `Pil` with an external reference sequence like `CRAM`.
+\*\* Running `Pil` with an external reference sequence like `CRAM` and dropping CIGAR fields (they can be
+recomputed on-the-fly).
 
 #### Settings
 

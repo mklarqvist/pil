@@ -333,15 +333,20 @@ int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
         int target = meta_data.AddColumnSet(build_csets[i], global_id, field_dict);
 
         // Update memory usage.
-        mem_in += build_csets[i]->GetMemoryUsage();
+        const int64_t sz_untransformed = build_csets[i]->GetMemoryUsage();
+        mem_in += sz_untransformed;
 
         // Compress ColumnSet according as described in the paired FieldMeta
         // record or automatically.
-        int ret = compressor.Compress(build_csets[i], field_dict.dict[global_id]);
-        std::cerr << field_dict.dict[global_id].field_name << "\t" << "compressed: n=" << build_csets[i]->size() << " size=" << build_csets[i]->GetMemoryUsage() << "->" << ret << " (" << (float)build_csets[i]->GetMemoryUsage()/ret << "-fold)" << std::endl;
+        const int64_t sz_compressed = compressor.Compress(build_csets[i], field_dict.dict[global_id]);
+        // Debug
+        std::cerr << field_dict.dict[global_id].field_name << ": " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[global_id].ptype] << "\t"
+                << "compressed: n=" << build_csets[i]->size() << " size=" << sz_untransformed  << "->" << build_csets[i]->GetMemoryUsage()
+                << "->" << sz_compressed << " (" << (float)sz_untransformed/sz_compressed << "-fold)" << std::endl;
 
         // Update the target meta information with the new compressed data sizes.
         meta_data.UpdateColumnSet(build_csets[i], global_id, target);
+        mem_out += sz_compressed;
 
         // Write out.
 
@@ -353,8 +358,6 @@ int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
         // Write out the ColumnSet to disk in the appropriate place / file.
         if(single_archive == false) tgt_meta_field->SerializeColumnSet(build_csets[i]);
         else tgt_meta_field->SerializeColumnSet(build_csets[i], out_stream);
-
-        mem_out += ret;
     }
 
     // Todo: do not release memory after each Batch update.

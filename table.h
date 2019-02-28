@@ -30,7 +30,7 @@ public:
 // Use during construciton ONLY! This separates out construction and reading
 class TableConstructor : public Table {
 public:
-    TableConstructor() : single_archive(true), batch_size(8192), c_in(0), c_out(0){}
+    TableConstructor() : single_archive(true), batch_size(65536), c_in(0), c_out(0){}
     ~TableConstructor(){}
 
     /**<

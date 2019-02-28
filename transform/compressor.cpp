@@ -40,6 +40,21 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
     if(field.cstore == PIL_CSTORE_COLUMN) {
        //std::cerr << "COMPRESS: ZSTD@columnar: n=" << cset->size() << std::endl;
        for(int i = 0; i < cset->size(); ++i) {
+           // try dictionary encoding
+          int has_dict = DictionaryEncode(cset->columns[i], field);
+          if(has_dict) {
+            int ret_dict = static_cast<ZstdCompressor*>(this)->Compress(
+                            cset->columns[i]->dictionary->mutable_data(),
+                            cset->columns[i]->dictionary->GetUncompressedSize(),
+                            PIL_ZSTD_DEFAULT_LEVEL);
+
+            cset->columns[i]->dictionary->UnsafeSetCompressedSize(ret_dict);
+            std::cerr << "DICT ZSTD: " << cset->columns[i]->dictionary->GetUncompressedSize() << "->" << cset->columns[i]->dictionary->GetCompressedSize() << " (" <<
+                 (float)cset->columns[i]->dictionary->GetUncompressedSize()/cset->columns[i]->dictionary->GetCompressedSize() << "-fold)" << std::endl;
+
+            ret += ret_dict;
+        }
+
            // Not every ColumnStore has a Nullity bitmap. For example, Dictionary
            // columns.
            if(cset->columns[i]->nullity.get() != nullptr) {
@@ -55,9 +70,6 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
                memcpy(cset->columns[i]->nullity->mutable_data(), buffer->mutable_data(), retNull);
                //std::cerr << "nullity-zstd: " << n_nullity << "->" << retNull << " (" << (float)n_nullity/retNull << "-fold)" << std::endl;
            }
-
-           // try dictionary encoding
-           DictionaryEncode(cset->columns[i], field);
 
            int64_t n_in = cset->columns[i]->buffer.length();
            int ret2 = static_cast<ZstdCompressor*>(this)->Compress(
@@ -76,7 +88,18 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        }
        return(ret);
     } else if(field.cstore == PIL_CSTORE_TENSOR) {
-        DictionaryEncode(cset->columns[1], cset->columns[0], field);
+        int has_dict = DictionaryEncode(cset->columns[1], cset->columns[0], field);
+        if(has_dict) {
+           int ret_dict = static_cast<ZstdCompressor*>(this)->Compress(
+                              cset->columns[1]->dictionary->mutable_data(),
+                              cset->columns[1]->dictionary->GetUncompressedSize(),
+                              PIL_ZSTD_DEFAULT_LEVEL);
+
+           ret += ret_dict;
+           cset->columns[1]->dictionary->UnsafeSetCompressedSize(ret_dict);
+           std::cerr << "DICT ZSTD: " << cset->columns[1]->dictionary->GetUncompressedSize() << "->" << cset->columns[1]->dictionary->GetCompressedSize() << " (" <<
+                   (float)cset->columns[1]->dictionary->GetUncompressedSize()/cset->columns[1]->dictionary->GetCompressedSize() << "-fold)" << std::endl;
+       }
 
        //std::cerr << "computing deltas in place" << std::endl;
        cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));

@@ -208,8 +208,8 @@ int main(int argc, char **argv) {
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
-        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
-        ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        //ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
 
 
@@ -221,10 +221,10 @@ int main(int argc, char **argv) {
         ss.seekg(0);
 
         //table.single_archive = true;
-        //table.batch_size = 65536*4;
-        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.batch_size = 65536;
+        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
-        table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
 
         if(table.out_stream.good() == false) {
             std::cerr << "failed to open output file" << std::endl;
@@ -273,7 +273,7 @@ int main(int argc, char **argv) {
             uint32_t l = 0;
             while (std::getline(ss, s, '\t')) {
                 if(l == 0) {
-                    /*
+
                     std::stringstream ss2(s);
                     std::string s2;
                     std::vector<std::string> tk2;
@@ -295,8 +295,8 @@ int main(int argc, char **argv) {
                     rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name6);
                     uint32_t name7 = std::atoi(tk2[6].data());
                     rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name7);
-                    */
-                    rbuild.AddArray<uint8_t>("NAME", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&line[0]), line.size());
+
+                    //rbuild.AddArray<uint8_t>("NAME", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&line[0]), line.size());
 
                 }
 
@@ -367,21 +367,41 @@ int main(int argc, char **argv) {
                 }
 
                 if(l >= 11) {
+                    // Tags in SAM is stored AS NN:N:<data>
+                    // we will store only
+
                    // std::cerr << "token: " << s << std::endl;
-                    std::stringstream ss2(s);
-                    std::string s2;
-                    std::vector<std::string> tk2;
-                    while (std::getline(ss2, s2, ':')) {
-                        //std::cerr << s2 << " and ";
-                        tk2.push_back(s2);
-                    }
+                   const char* end_pos = s.data() + s.size();
+                   size_t cur_pos = 0;
+                   const char* position = std::find(s.data() + cur_pos, end_pos, ':');
+                   uint32_t n_found = 0;
+                   std::string field_name;
+                   char field_type;
+                   const char* start_data;
+                   while(true) {
+                       if(position == end_pos || n_found == 2) break;
+                       if(n_found == 0) {
+                           field_name = std::string(s.data(), position - s.data());
+                           //std::cerr << "field_name=" << field_name << std::endl;
+                       } else if(n_found == 1) {
+                           field_type = s.data()[position - s.data() + 1];
+                           //std::cerr << "field_type=" << field_type << std::endl;
+                           start_data = position + 3;
+                       }
+                       ++n_found;
+                   }
+
                     //std::cerr << std::endl;
-                    if(tk2[1].size() == 1 && tk2[1][0] == 'i') {
+                    if(field_type == 'i') {
                         //std::cerr << "is integer type" << std::endl;
-                        uint32_t val = std::atoi(tk2[2].data());
-                        rbuild.Add<uint32_t>(tk2[0], pil::PIL_TYPE_UINT32, val);
+                        uint32_t val = std::atoi(start_data);
+                        rbuild.Add<uint32_t>(field_name, pil::PIL_TYPE_UINT32, val);
                     } else {
-                        rbuild.AddArray<uint8_t>(tk2[0], pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(s.data()), s.size());
+                        //std::cerr << "length of data =" << (s.data() + s.length()) - start_data << std::endl;
+                        uint32_t l_data = (s.data() + s.length()) - start_data;
+                       // std::cerr << std::string(start_data, l_data) << std::endl;
+                        // const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T* value, uint32_t n_values
+                        rbuild.AddArray<uint8_t>(field_name, pil::PIL_TYPE_UINT8, reinterpret_cast<const uint8_t*>(start_data), l_data);
                     }
                 }
 
