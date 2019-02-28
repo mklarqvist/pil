@@ -80,7 +80,14 @@ public:
            // uint32_t now
 
            // 1) insert values into dictionary buffer of columnstore
+           column->dictionary->Resize(list.size() * sizeof(T) );
+           T* dict = reinterpret_cast<T*>(column->dictionary->mutable_data());
+           for(int i = 0; i < list.size(); ++i)
+               dict[i] = list[i];
+
            // 2) empty local buffer (unsafe set to 0)
+
+
            // 3) update local buffer with dictionary-encoded columnstore data
            // test
            for(uint32_t i = 0; i < column->n_records; ++i) {
