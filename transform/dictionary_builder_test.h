@@ -6,6 +6,20 @@
 
 namespace pil {
 
+// core
+TEST(DictionaryBuilderTests, ContainsUninitialized) {
+    std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
+    NumericDictionaryBuilder<uint32_t> dict;
+    ASSERT_EQ(-1, dict.Contains<uint32_t>(10));
+}
+
+TEST(DictionaryBuilderTests, GetUninitialized) {
+    std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
+    NumericDictionaryBuilder<uint32_t> dict;
+    uint32_t ret;
+    ASSERT_EQ(-1, dict.Get<uint32_t>(10, ret));
+}
+
 // uint32t
 TEST(DictionaryBuilderTests, FindSingleUInt) {
     std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
@@ -38,7 +52,9 @@ TEST(DictionaryBuilderTests, GetSingleUInt) {
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<uint32_t>(10));
-    ASSERT_EQ(10, dict.Get<uint32_t>(0));
+    uint32_t ret;
+    ASSERT_EQ(1, dict.Get<uint32_t>(0,ret));
+    ASSERT_EQ(10, ret);
 }
 
 TEST(DictionaryBuilderTests, GetSingleUIntFail) {
@@ -50,7 +66,22 @@ TEST(DictionaryBuilderTests, GetSingleUIntFail) {
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<uint32_t>(10));
-    ASSERT_NE(25, dict.Get<uint32_t>(0));
+    uint32_t ret;
+    ASSERT_EQ(1, dict.Get<uint32_t>(0, ret));
+    ASSERT_NE(25, ret);
+}
+
+TEST(DictionaryBuilderTests, GetSingleUIntFailOutofBounds) {
+    std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
+
+    cbuild->Append(10);
+
+    NumericDictionaryBuilder<uint32_t> dict;
+    ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
+    ASSERT_EQ(1, dict.NumberRecords());
+    ASSERT_EQ(1, dict.Contains<uint32_t>(10));
+    uint32_t ret;
+    ASSERT_EQ(-4, dict.Get<uint32_t>(251, ret));
 }
 
 // int32t
@@ -85,7 +116,9 @@ TEST(DictionaryBuilderTests, GetSingleInt) {
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<int32_t>(-10));
-    ASSERT_EQ(-10, dict.Get<int32_t>(0));
+    int32_t ret;
+    ASSERT_EQ(1, dict.Get<int32_t>(0, ret));
+    ASSERT_EQ(-10, ret);
 }
 
 TEST(DictionaryBuilderTests, GetSingleIntFail) {
@@ -97,7 +130,9 @@ TEST(DictionaryBuilderTests, GetSingleIntFail) {
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<int32_t>(-10));
-    ASSERT_NE(-25, dict.Get<int32_t>(0));
+    int32_t ret;
+    ASSERT_EQ(1, dict.Get<int32_t>(0, ret));
+    ASSERT_NE(-25, ret);
 }
 
 // float
@@ -109,7 +144,7 @@ TEST(DictionaryBuilderTests, FindSingleFloat) {
     NumericDictionaryBuilder<float> dict;
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
-    ASSERT_DOUBLE_EQ(1, dict.Contains<float>(10.5));
+    ASSERT_EQ(1, dict.Contains<float>(10.5));
 }
 
 TEST(DictionaryBuilderTests, FindSingleFloatFail) {
@@ -120,7 +155,7 @@ TEST(DictionaryBuilderTests, FindSingleFloatFail) {
     NumericDictionaryBuilder<float> dict;
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
-    ASSERT_DOUBLE_EQ(0, dict.Contains<float>(44.3));
+    ASSERT_EQ(0, dict.Contains<float>(44.3));
 }
 
 TEST(DictionaryBuilderTests, GetSingleFloat) {
@@ -132,7 +167,9 @@ TEST(DictionaryBuilderTests, GetSingleFloat) {
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<float>(10.5));
-    ASSERT_DOUBLE_EQ(10.5, dict.Get<float>(0));
+    float ret;
+    ASSERT_EQ(1, dict.Get<float>(0, ret));
+    ASSERT_FLOAT_EQ(10.5, ret);
 }
 
 // double
@@ -144,7 +181,7 @@ TEST(DictionaryBuilderTests, FindSingleDouble) {
     NumericDictionaryBuilder<double> dict;
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
-    ASSERT_DOUBLE_EQ(1, dict.Contains<double>(10.5));
+    ASSERT_EQ(1, dict.Contains<double>(10.5));
 }
 
 TEST(DictionaryBuilderTests, FindSingleDoubleFail) {
@@ -155,7 +192,7 @@ TEST(DictionaryBuilderTests, FindSingleDoubleFail) {
     NumericDictionaryBuilder<double> dict;
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
-    ASSERT_DOUBLE_EQ(0, dict.Contains<double>(44.3));
+    ASSERT_EQ(0, dict.Contains<double>(44.3));
 }
 
 TEST(DictionaryBuilderTests, GetSingleDouble) {
@@ -167,7 +204,9 @@ TEST(DictionaryBuilderTests, GetSingleDouble) {
     ASSERT_EQ(1, dict.Encode(cbuild->columns[0], true));
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<double>(10.5));
-    ASSERT_DOUBLE_EQ(10.5, dict.Get<double>(0));
+    double ret;
+    ASSERT_EQ(1, dict.Get<double>(0, ret));
+    ASSERT_DOUBLE_EQ(10.5, ret);
 }
 
 
@@ -207,8 +246,11 @@ TEST(DictionaryBuilderTests, GetSingleLargeSet) {
     ASSERT_EQ(1000, dict.NumberRecords());
     ASSERT_EQ(1, dict.Contains<uint32_t>(541));
 
-    for(int i = 0; i < 1000; ++i)
-        ASSERT_EQ(i, dict.Get<uint32_t>(i));
+    uint32_t ret;
+    for(int i = 0; i < 1000; ++i) {
+        ASSERT_EQ(1, dict.Get<uint32_t>(i, ret));
+        ASSERT_EQ(i, ret);
+    }
 }
 
 // tensors
@@ -237,6 +279,36 @@ TEST(DictionaryBuilderTests, FindSingleIntTensorAnyNone) {
     ASSERT_EQ(1, dict.NumberRecords());
     ASSERT_EQ(4, dict.NumberElements());
     ASSERT_EQ(0, dict.Contains<uint32_t>(241));
+}
+
+TEST(DictionaryBuilderTests, FindSingleIntTensorGetIllegal) {
+    std::shared_ptr< ColumnSetBuilderTensor<uint32_t> > cbuild = std::make_shared< ColumnSetBuilderTensor<uint32_t> >();
+
+    std::vector<uint32_t> vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+
+    NumericDictionaryBuilder<uint32_t> dict;
+    ASSERT_EQ(1, dict.Encode(cbuild->columns[1], cbuild->columns[0], true));
+    ASSERT_EQ(1, dict.NumberRecords());
+    ASSERT_EQ(4, dict.NumberElements());
+    ASSERT_EQ(1, dict.Contains<uint32_t>(10));
+    uint32_t ret;
+    ASSERT_EQ(-5, dict.Get<uint32_t>(0, ret));
+}
+
+TEST(DictionaryBuilderTests, FindSingleIntTensorGetIllegalOutofBounds) {
+    std::shared_ptr< ColumnSetBuilderTensor<uint32_t> > cbuild = std::make_shared< ColumnSetBuilderTensor<uint32_t> >();
+
+    std::vector<uint32_t> vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+
+    NumericDictionaryBuilder<uint32_t> dict;
+    ASSERT_EQ(1, dict.Encode(cbuild->columns[1], cbuild->columns[0], true));
+    ASSERT_EQ(1, dict.NumberRecords());
+    ASSERT_EQ(4, dict.NumberElements());
+    ASSERT_EQ(1, dict.Contains<uint32_t>(10));
+    uint32_t ret;
+    ASSERT_EQ(-4, dict.Get<uint32_t>(251, ret));
 }
 
 TEST(DictionaryBuilderTests, FindSingleIntTensorExact) {
@@ -379,6 +451,32 @@ TEST(DictionaryBuilderTests, FindSingleDoubleTensorExactLarge) {
     ASSERT_EQ(3, dict.NumberRecords());
     ASSERT_EQ(9, dict.NumberElements());
     vals = {21,49.41};
+    ASSERT_EQ(1, dict.Contains<double>(&vals[0], vals.size()));
+}
+
+TEST(DictionaryBuilderTests, FindSingleDoubleTensorExactLargeAll) {
+    std::shared_ptr< ColumnSetBuilderTensor<double> > cbuild = std::make_shared< ColumnSetBuilderTensor<double> >();
+
+    std::vector<double> vals = {10.3,12.4,14.121,21.81};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {12.41,14.123,16.191};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {21,49.41};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {10.3,12.4,14.121,21.81};
+    cbuild->Append(vals.data(), vals.size());
+
+    NumericDictionaryBuilder<double> dict;
+    ASSERT_EQ(1, dict.Encode(cbuild->columns[1], cbuild->columns[0], true));
+    ASSERT_EQ(3, dict.NumberRecords());
+    ASSERT_EQ(9, dict.NumberElements());
+    vals = {10.3,12.4,14.121,21.81};
+    ASSERT_EQ(1, dict.Contains<double>(&vals[0], vals.size()));
+    vals = {12.41,14.123,16.191};
+    ASSERT_EQ(1, dict.Contains<double>(&vals[0], vals.size()));
+    vals = {21,49.41};
+    ASSERT_EQ(1, dict.Contains<double>(&vals[0], vals.size()));
+    vals = {10.3,12.4,14.121,21.81};
     ASSERT_EQ(1, dict.Contains<double>(&vals[0], vals.size()));
 }
 

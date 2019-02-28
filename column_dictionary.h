@@ -12,24 +12,32 @@ public:
     virtual ~ColumnDictionary(){}
 
     template <class T>
-    T Get(const int64_t p) const {
+    int Get(const int64_t p, T& dst) const {
         if(buffer.get() == nullptr) return(-1);
         if(sz_u % sizeof(T) != 0) {
            std::cerr << sz_u << "%" << sizeof(T) << "=" << (sz_u%sizeof(T)) << std::endl;
            return(-2);
        }
 
+        if(p >= n_records) return(-4);
+
        if(have_lengths) {
            return(-5);
        }
 
        // retrieve data at pos p
-     const T* data = reinterpret_cast<T*>(buffer->mutable_data());
+       const T* data = reinterpret_cast<T*>(buffer->mutable_data());
 
        // data[p] -> dict encoded value
        //
-       if(p >= n_records) return (-4);
-       return(data[p]);
+
+       dst = data[p];
+       return(1);
+    }
+
+    template <class T>
+    int Get(const int64_t p, const T* dst, int64_t& dst_len) const {
+
     }
 
     //int64_t Find(const int64_t p) const;
