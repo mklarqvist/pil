@@ -398,7 +398,6 @@ public:
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
-            std::cerr << "appending null valid at " << columns[0]->n_records << std::endl;
             ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(n_values);
             assert(ret == 1);
         } else {
@@ -406,8 +405,6 @@ public:
             assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true, 1);
-            std::cerr << "appending null valid at " << n_recs-1 << std::endl;
-            //std::cerr << "appending: " << n_recs << " for " << cum + n_values << " as " << cum << "+" << n_values << std::endl;
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + n_values);
             assert(ret == 1);
         }

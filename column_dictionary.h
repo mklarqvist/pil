@@ -11,7 +11,27 @@ public:
     explicit ColumnDictionary(MemoryPool* mpool = default_memory_pool()) : have_lengths(false), n_records(0), n_elements(0), sz_u(0), sz_c(0), sz_lu(0), sz_lc(0), pool(mpool){}
     virtual ~ColumnDictionary(){}
 
-    //int64_t Get(const int64_t p) const;
+    template <class T>
+    T Get(const int64_t p) const {
+        if(buffer.get() == nullptr) return(-1);
+        if(sz_u % sizeof(T) != 0) {
+           std::cerr << sz_u << "%" << sizeof(T) << "=" << (sz_u%sizeof(T)) << std::endl;
+           return(-2);
+       }
+
+       if(have_lengths) {
+           return(-5);
+       }
+
+       // retrieve data at pos p
+     const T* data = reinterpret_cast<T*>(buffer->mutable_data());
+
+       // data[p] -> dict encoded value
+       //
+       if(p >= n_records) return (-4);
+       return(data[p]);
+    }
+
     //int64_t Find(const int64_t p) const;
     template <class T>
     int Contains(const T p) const {
