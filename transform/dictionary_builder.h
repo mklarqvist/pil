@@ -14,15 +14,12 @@ class DictionaryBuilder : public ColumnDictionary {
 public:
    virtual ~DictionaryBuilder(){}
 
-   int Serialize(std::ostream& stream) {
-       stream.write(reinterpret_cast<char*>(&n_records), sizeof(int64_t));
-       stream.write(reinterpret_cast<char*>(&n_elements), sizeof(int64_t));
-       stream.write(reinterpret_cast<char*>(&sz_u), sizeof(int64_t));
-       stream.write(reinterpret_cast<char*>(&sz_c), sizeof(int64_t));
-       if(sz_c != 0) stream.write(reinterpret_cast<char*>(buffer->mutable_data()), sz_c);
-       else stream.write(reinterpret_cast<char*>(buffer->mutable_data()), sz_u);
-       return(1);
-   }
+   /**<
+    * Serialize the Dictionary to a destination output stream.
+    * @param stream Destination output stream inheriting from std::ostream.
+    * @return Returns -1 if stream is bad or the total written size in bytes otherwise.
+    */
+   int Serialize(std::ostream& stream);
 };
 
 template <class T>
@@ -218,32 +215,50 @@ public:
           // Step 1: Set dict buffer size to columndata size
           if(buffer.get() == nullptr) {
               //column->dictionary = std::make_shared<ColumnDictionary>(this);
-              AllocateResizableBuffer(pool, list.size()*sizeof(uint32_t) + sz_list, &buffer);
+              AllocateResizableBuffer(pool, sz_list, &buffer);
           } else {
-             int ret = buffer->Resize(list.size()*sizeof(uint32_t) + sz_list);
+             int ret = buffer->Resize(sz_list, false);
           }
+
+          if(lengths.get() == nullptr) {
+            //column->dictionary = std::make_shared<ColumnDictionary>(this);
+            AllocateResizableBuffer(pool, list.size()*sizeof(uint32_t), &lengths);
+        } else {
+           int ret = lengths->Resize(list.size()*sizeof(uint32_t));
+        }
 
           // 1) insert values into dictionary buffer of columnstore
           //column->dictionary->Resize(list.size() * sizeof(T) );
 
-
-          sz_u = list.size()*sizeof(uint32_t) + sz_list;
+          have_lengths = true;
+          sz_u = sz_list;
           n_records = list.size();
           n_elements = sz_list / sizeof(T);
+          sz_lu = list.size()*sizeof(uint32_t);
           T* dict = reinterpret_cast<T*>(buffer->mutable_data());
-          size_t dict_offset = 0;
+          uint32_t* ls = reinterpret_cast<uint32_t*>(lengths->mutable_data());
 
           // Store as {length1,length2,...,lengthN}Z + {data}
+          size_t dict_offset = 0;
           for(int i = 0; i < list.size(); ++i) {
-              *reinterpret_cast<uint32_t*>(&dict[dict_offset]) = (uint32_t)list[i].size();
-              dict_offset += sizeof(uint32_t);
-              memcpy(&dict[dict_offset], list[i].data(), list[i].size());
-              dict_offset += list[i].size();
+              ls[i] = list[i].size();
+              memcpy(&dict[dict_offset], list[i].data(), list[i].size()*sizeof(T));
+              dict_offset += list[i].size()*sizeof(T);
           }
+          std::cerr << "done insert" << std::endl;
 
           //for(int i = 0; i < n_records; ++i)
           //    std::cerr << ", " << (int)dict[i];
           //std::cerr << std::endl;
+
+
+          int64_t dict_o = 0;
+          for(int i = 0; i < n_records; ++i) {
+              std::cerr << ls[i] << ": " << std::string(reinterpret_cast<char*>(&dict[dict_o]), ls[i]) << std::endl;
+              dict_o += ls[i];
+          }
+          std::cerr << std::endl;
+
 
 
           uint32_t* d = new uint32_t[n_s];

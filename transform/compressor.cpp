@@ -97,8 +97,19 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
 
            ret += ret_dict;
            cset->columns[1]->dictionary->UnsafeSetCompressedSize(ret_dict);
+
+           int ret_dict_stride = static_cast<ZstdCompressor*>(this)->Compress(
+                                         cset->columns[1]->dictionary->mutable_length_data(),
+                                         cset->columns[1]->dictionary->GetUncompressedLengthSize(),
+                                         PIL_ZSTD_DEFAULT_LEVEL);
+
+          ret += ret_dict_stride;
+          cset->columns[1]->dictionary->UnsafeSetCompressedLengthSize(ret_dict_stride);
+
            std::cerr << "DICT ZSTD: " << cset->columns[1]->dictionary->GetUncompressedSize() << "->" << cset->columns[1]->dictionary->GetCompressedSize() << " (" <<
                    (float)cset->columns[1]->dictionary->GetUncompressedSize()/cset->columns[1]->dictionary->GetCompressedSize() << "-fold)" << std::endl;
+           std::cerr << "DICT ZSTD: " << cset->columns[1]->dictionary->GetUncompressedLengthSize() << "->" << cset->columns[1]->dictionary->GetCompressedLengthSize() << " (" <<
+                          (float)cset->columns[1]->dictionary->GetUncompressedLengthSize()/cset->columns[1]->dictionary->GetCompressedLengthSize() << "-fold)" << std::endl;
        }
 
        //std::cerr << "computing deltas in place" << std::endl;

@@ -1,6 +1,7 @@
 #ifndef BIT_UTILS_H_
 #define BIT_UTILS_H_
 
+#include <cassert>
 #include <cstdint>
 
 #if defined(__GNUC__)
