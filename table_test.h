@@ -250,7 +250,7 @@ TEST(TableInsertion, TensorTwoUnbalancedValues) {
     ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
-    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2)); // this is the +1 position since the root {0,1} has cardinality 2
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
 
     ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
     ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
@@ -285,7 +285,7 @@ TEST(TableInsertion, TensorTwoUnbalancedIncreasing) {
     ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
-    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2)); // this is the +1 position since the root {0,1} has cardinality 2
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
 
     vecvals2 = {3, 4, 5};
     rbuild.AddArray<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
@@ -296,8 +296,8 @@ TEST(TableInsertion, TensorTwoUnbalancedIncreasing) {
     ASSERT_EQ(3, table.build_csets[0]->columns[1]->n_records);
 
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
-    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(3));
 
     ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
     ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());
@@ -332,7 +332,7 @@ TEST(TableInsertion, TensorTwoUnbalancedDecreasing) {
     ASSERT_EQ(3, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(2, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
-    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
 
     vecvals2 = {1};
     rbuild.AddArray<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
@@ -342,7 +342,7 @@ TEST(TableInsertion, TensorTwoUnbalancedDecreasing) {
     ASSERT_EQ(4, table.build_csets[0]->columns[0]->n_records);
     ASSERT_EQ(3, table.build_csets[0]->columns[1]->n_records);
     ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(0));
-    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(2));
+    ASSERT_EQ(true, table.build_csets[0]->columns[0]->IsValid(1));
 
     ASSERT_EQ(1, table.schema_dict.dict.size()); // number of schemas
     ASSERT_EQ(1, table.schema_dict.dict[0].ids.size());

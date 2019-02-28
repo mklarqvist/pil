@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
 ../buffer.cpp \
+../column_dictionary.cpp \
 ../columnstore.cpp \
 ../main.cpp \
 ../memory_pool.cpp \
@@ -12,6 +13,7 @@ CPP_SRCS += \
 
 OBJS += \
 ./buffer.o \
+./column_dictionary.o \
 ./columnstore.o \
 ./main.o \
 ./memory_pool.o \
@@ -19,6 +21,7 @@ OBJS += \
 
 CPP_DEPS += \
 ./buffer.d \
+./column_dictionary.d \
 ./columnstore.d \
 ./main.d \
 ./memory_pool.d \

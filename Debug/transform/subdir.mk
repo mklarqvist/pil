@@ -4,19 +4,16 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../transform/column_dictionary.cpp \
 ../transform/compressor.cpp \
 ../transform/dictionary_builder.cpp \
 ../transform/fastdelta.cpp 
 
 OBJS += \
-./transform/column_dictionary.o \
 ./transform/compressor.o \
 ./transform/dictionary_builder.o \
 ./transform/fastdelta.o 
 
 CPP_DEPS += \
-./transform/column_dictionary.d \
 ./transform/compressor.d \
 ./transform/dictionary_builder.d \
 ./transform/fastdelta.d 

@@ -1,7 +1,7 @@
 #ifndef DICTIONARY_BUILDER_H_
 #define DICTIONARY_BUILDER_H_
 
-#include "column_dictionary.h"
+#include "../column_dictionary.h"
 #include "../buffer_builder.h"
 #include "../table_dict.h"
 #include "../columnstore.h"
@@ -25,7 +25,7 @@ public:
 template <class T>
 class NumericDictionaryBuilder : public DictionaryBuilder {
 public:
-    int Encode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+    int Encode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const bool force = false) {
         if(cset.get() == nullptr) return(-1);
 
         std::cerr << "in dictionary wrapper" << std::endl;
@@ -34,17 +34,15 @@ public:
             int ret = 0;
             for(int i = 0; i < cset->size(); ++i) {
                 assert(cset->columns[i].get() != nullptr);
-                ret = Encode(cset->columns[i]);
+                ret = Encode(cset->columns[i], force);
             }
             return(ret);
         } else {
-            assert(cset->columns[1].get() != nullptr);
-            //return(Encode(cset->columns[1]));
-            return(1);
+            return(-1);
         }
     }
 
-   int Encode(std::shared_ptr<ColumnStore> column) {
+   int Encode(std::shared_ptr<ColumnStore> column, const bool force = false) {
        if(column.get() == nullptr) return(-1);
 
        //std::cerr << "in dictionary encode" << std::endl;
@@ -80,7 +78,7 @@ public:
 
        const double ratio_cardinality = (double)list.size() / n_valid;
 
-       if(ratio_cardinality < 0.2) { // 20% or less and we store a dictionary for the data
+       if(ratio_cardinality < 0.2 || force) { // 20% or less and we store a dictionary for the data
            std::cerr << "DICT ENCODE unique=" << list.size() << "/" << n_valid << " (" << ratio_cardinality << ")" << std::endl;
 
            column->have_dictionary = true;
@@ -140,7 +138,7 @@ public:
        return(0);
    }
 
-   int Encode(std::shared_ptr<ColumnStore> column, std::shared_ptr<ColumnStore> strides) {
+   int Encode(std::shared_ptr<ColumnStore> column, std::shared_ptr<ColumnStore> strides, const bool force = false) {
        if(column.get() == nullptr) return(-1);
 
        std::cerr << "in dictionary encode WITH STRIDES" << std::endl;
@@ -157,7 +155,7 @@ public:
        std::vector< uint64_t > hash_list; // list of lists of type T
        std::vector< std::vector<T> > list;
        int64_t sz_list = 0;
-       T* in = reinterpret_cast<T*>(column->mutable_data());
+       const T* in = reinterpret_cast<const T*>(column->mutable_data());
        const uint32_t* s = reinterpret_cast<const uint32_t*>(strides->mutable_data());
        const uint32_t n_s = strides->n_records - 1;
 
@@ -165,6 +163,8 @@ public:
        int64_t n_valid = 0;
        //int64_t cum_offset = 0;
        //T* local_buffer = new T[8196];
+
+       assert(strides->nullity.get() != nullptr);
 
       // bool die = false;
        uint64_t hash = 0;
@@ -180,16 +180,15 @@ public:
            const int64_t l = s[i + 1] - s[i];
            //if(l < 0) exit(1);
            //die += (l < 0);
-           //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
+           //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << " lim=" << column->n_elements << std::endl;
            //memcpy(local_buffer, &in[s[i]], l);
            hash = XXH64(&in[s[i]], l, 123718);
 
            if(map.find(hash) == map.end()) {
                map[hash] = hash_list.size();
-               //buffer_->Append(list.size());
                hash_list.push_back(hash);
                sz_list += l * sizeof(T);
-               list.push_back(std::vector<T>(&in[s[i]], &in[s[i] + l]));
+               list.push_back(std::vector<T>(&in[s[i]], &in[s[i+1]]));
            }
 
            ++n_valid;
@@ -197,7 +196,7 @@ public:
        std::cerr << "Valid records=" << n_valid << "/" << column->n_records << " unique=" << hash_list.size() << std::endl;
        const double ratio_cardinality = (double)hash_list.size() / n_valid;
 
-       if(ratio_cardinality < 0.3) { // 30% or less and we store a dictionary for the data
+       if(ratio_cardinality < 0.3 || force) { // 30% or less and we store a dictionary for the data
           std::cerr << "DICT ENCODE unique=" << hash_list.size() << "/" << n_valid << " (" << ratio_cardinality << ")" << std::endl;
 
           column->have_dictionary = true;
@@ -238,14 +237,21 @@ public:
           T* dict = reinterpret_cast<T*>(buffer->mutable_data());
           uint32_t* ls = reinterpret_cast<uint32_t*>(lengths->mutable_data());
 
+          // Todo: fix performance
           // Store as {length1,length2,...,lengthN}Z + {data}
           size_t dict_offset = 0;
           for(int i = 0; i < list.size(); ++i) {
               ls[i] = list[i].size();
-              memcpy(&dict[dict_offset], list[i].data(), list[i].size()*sizeof(T));
-              dict_offset += list[i].size()*sizeof(T);
+              for(int k = 0; k < list[i].size(); ++k, ++dict_offset) {
+                 //std::cerr << "," << list[i][k];
+                  dict[dict_offset] = list[i][k];
+              }
+             //std::cerr << std::endl;
+
+              //memcpy(&dict[dict_offset], &list[i][0], list[i].size()*sizeof(T));
+              //dict_offset += list[i].size()*sizeof(T);
           }
-          std::cerr << "done insert" << std::endl;
+          //std::cerr << "done insert" << std::endl;
 
           //for(int i = 0; i < n_records; ++i)
           //    std::cerr << ", " << (int)dict[i];
@@ -254,7 +260,12 @@ public:
 
           int64_t dict_o = 0;
           for(int i = 0; i < n_records; ++i) {
-              std::cerr << ls[i] << ": " << std::string(reinterpret_cast<char*>(&dict[dict_o]), ls[i]) << std::endl;
+              //std::cerr << ls[i] << ": ";
+              //for(int j = 0; j < ls[i]; ++j) {
+              //    std::cerr << "," << dict[dict_o + j];
+              //}
+              //std::cerr << std::endl;
+              //std::cerr << ls[i] << ": " << std::string(reinterpret_cast<char*>(&dict[dict_o]), ls[i]) << std::endl;
               dict_o += ls[i];
           }
           std::cerr << std::endl;
@@ -297,9 +308,6 @@ public:
           delete[] d;
           return(1);
       }
-
-       //delete[] local_buffer;
-       //if(die) exit(1);
 
        return(0);
    }

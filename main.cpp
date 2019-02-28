@@ -13,6 +13,7 @@
 #include "buffer_builder_test.h"
 #include "transform/transformer_test.h"
 #include "record_builder_test.h"
+#include "transform/dictionary_builder_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {

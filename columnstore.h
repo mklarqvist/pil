@@ -14,7 +14,7 @@
 
 // Todo: fix -> this is for encoder meta
 #include "transform/transform_meta.h"
-#include "transform/column_dictionary.h"
+#include "column_dictionary.h"
 //#include "bit_utils.h"
 
 namespace pil {
@@ -26,7 +26,7 @@ namespace pil {
 // downcast to one of its concrete types.
 struct ColumnStore {
 public:
-    ColumnStore(MemoryPool* pool) :
+    explicit ColumnStore(MemoryPool* pool = default_memory_pool()) :
         have_dictionary(false),
         n_records(0), n_elements(0), n_null(0), uncompressed_size(0), compressed_size(0),
         m_nullity(0), nullity_u(0), nullity_c(0),
@@ -77,7 +77,7 @@ public:
 template <class T>
 struct ColumnStoreBuilder : public ColumnStore {
 public:
-    ColumnStoreBuilder(MemoryPool* pool) : ColumnStore(pool){}
+    explicit ColumnStoreBuilder(MemoryPool* pool = default_memory_pool()) : ColumnStore(pool){}
 
     /**<
      * Set the validity of the current object in the Nullity/Validity bitmap.
@@ -86,7 +86,7 @@ public:
      * @param yes Logical flag set to TRUE if the data is VALID or FALSE otherwise.
      * @return
      */
-    int AppendValidity(const bool yes) {
+    int AppendValidity(const bool yes, const int32_t adjust = 0) {
         if(nullity.get() == nullptr) {
             assert(AllocateResizableBuffer(pool_, 16384*sizeof(uint32_t), &nullity) == 1);
             //nullity->ZeroPadding();
@@ -106,7 +106,7 @@ public:
         }
 
         n_null += (yes == false);
-        reinterpret_cast<uint32_t*>(nullity->mutable_data())[n_records / 32] |= (yes << (n_records % 32));
+        reinterpret_cast<uint32_t*>(nullity->mutable_data())[(n_records - adjust) / 32] |= (yes << ((n_records - adjust) % 32));
         return 1;
     }
 
@@ -142,7 +142,7 @@ public:
 // processed and flushed.
 struct ColumnSet {
 public:
-    ColumnSet() :
+    explicit ColumnSet(MemoryPool* pool = default_memory_pool()) :
         n(0), m(0)
     {
     }
@@ -172,9 +172,9 @@ public:
 template <class T>
 struct ColumnSetBuilder : public ColumnSet {
 public:
-    ColumnSetBuilder(MemoryPool* pool) : ColumnSet(){}
+    explicit ColumnSetBuilder(MemoryPool* pool = default_memory_pool()) : ColumnSet(pool){}
 
-    int Append(const T& value) {
+    int Append(const T value) {
         // Check if columns[0] is set
         //std::cerr << "appending single value: " << value << std::endl;
         if(columns.size() == 0) {
@@ -238,7 +238,7 @@ public:
         return(1);
     }
 
-    int Append(T* value, int n_values) {
+    int Append(const T* value, int n_values) {
         //std::cerr << "in append" << std::endl;
         //std::cerr << "adding=" << n_values << " values @ " << columns.size() << std::endl;
         // Add values up until N
@@ -317,9 +317,9 @@ public:
 template <class T>
 struct ColumnSetBuilderTensor : public ColumnSet {
 public:
-    ColumnSetBuilderTensor(MemoryPool* pool) : ColumnSet(){}
+    explicit ColumnSetBuilderTensor(MemoryPool* pool = default_memory_pool()) : ColumnSet(pool){}
 
-    int Append(const T& value) {
+    int Append(const T value) {
         // Check if columns[0] is set
         //std::cerr << "appending single value: " << value << std::endl;
         if(columns.size() == 0) {
@@ -344,7 +344,7 @@ public:
             const uint32_t n_recs = columns[0]->n_records;
             assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
-            std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
+            std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true, 1);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + 1);
             assert(ret == 1);
         }
@@ -374,7 +374,7 @@ public:
             const uint32_t n_recs = columns[0]->n_records;
             assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
-            std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
+            std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true, 1);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + values.size());
             assert(ret == 1);
         }
@@ -385,7 +385,7 @@ public:
         return(1);
     }
 
-    int Append(T* value, int n_values) {
+    int Append(const T* value, int n_values) {
         if(columns.size() == 0) {
             //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
@@ -398,13 +398,15 @@ public:
             std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(0);
             assert(ret == 1);
+            std::cerr << "appending null valid at " << columns[0]->n_records << std::endl;
             ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(n_values);
             assert(ret == 1);
         } else {
             const uint32_t n_recs = columns[0]->n_records;
             assert(n_recs != 0);
             const uint32_t cum = reinterpret_cast<uint32_t*>(columns[0]->mutable_data())[n_recs - 1];
-            std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true);
+            std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->AppendValidity(true, 1);
+            std::cerr << "appending null valid at " << n_recs-1 << std::endl;
             //std::cerr << "appending: " << n_recs << " for " << cum + n_values << " as " << cum << "+" << n_values << std::endl;
             int ret = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(columns[0])->Append(cum + n_values);
             assert(ret == 1);
