@@ -258,7 +258,7 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
        }
        ++n_valid;
    }
-   std::cerr << "Valid records=" << n_valid << "/" << column->n_records << " unique=" << hash_list.size() << std::endl;
+   //std::cerr << "Valid records=" << n_valid << "/" << column->n_records << " unique=" << hash_list.size() << std::endl;
    const double ratio_cardinality = (double)hash_list.size() / n_valid;
 
    if(ratio_cardinality < 0.3 || force) { // 30% or less and we store a dictionary for the data
@@ -368,8 +368,8 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
       column->uncompressed_size = n_s*sizeof(uint32_t);
       column->buffer.UnsafeSetLength(n_s*sizeof(uint32_t));
       column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, n_in, column->buffer.length()));
-      std::cerr << "DICT for string: shrink " << n_in << "->" << column->buffer.length() << std::endl;
-      std::cerr << "DICT meta=" << sz_list << "b" << std::endl;
+      //std::cerr << "DICT for string: shrink " << n_in << "->" << column->buffer.length() << std::endl;
+      //std::cerr << "DICT meta=" << sz_list << "b" << std::endl;
       delete[] d;
       return(1);
   }

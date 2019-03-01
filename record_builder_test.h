@@ -22,14 +22,6 @@ TEST(RecordBuilderTests, AddArraySingleSlot) {
     ASSERT_EQ(-1, rbuild.Add("FIELD-1", PIL_TYPE_BYTE_ARRAY, (uint8_t)3));
 }
 
-TEST(RecordBuilderTests, AddFixedArraySingleSlot) {
-    //Encoder encoder;
-    std::vector<PIL_COMPRESSION_TYPE> ctypes;
-
-    RecordBuilder rbuild;
-    ASSERT_EQ(-1, rbuild.Add("FIELD-1", PIL_TYPE_FIXED_LEN_BYTE_ARRAY, (uint8_t)3));
-}
-
 TEST(RecordBuilderTests, AddUINT8) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes;

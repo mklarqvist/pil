@@ -19,17 +19,16 @@ typedef enum {
     PIL_TYPE_FLOAT,
     PIL_TYPE_DOUBLE,
     PIL_TYPE_BOOLEAN,
-    PIL_TYPE_BYTE_ARRAY, // these must be followed by a second PIL_PRIMITIVE_TYPE in their implementation
-    PIL_TYPE_FIXED_LEN_BYTE_ARRAY
+    PIL_TYPE_BYTE_ARRAY // these must be followed by a second PIL_PRIMITIVE_TYPE in their implementation
 } PIL_PRIMITIVE_TYPE;
 
-static int32_t  PIL_PRIMITIVE_TYPE_WIDTHS[14] = {-1,1,1,2,2,4,4,8,8,4,4,1,0,0};
+static int32_t  PIL_PRIMITIVE_TYPE_WIDTHS[] = {-1,1,1,2,2,4,4,8,8,4,8,1,0};
 
-const std::string PIL_PRIMITIVE_TYPE_STRING[14] = {
+const std::string PIL_PRIMITIVE_TYPE_STRING[] = {
         "UNKNOWN",
         "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64",
         "FLOAT", "DOUBLE",
-        "BYTE_ARRAY", "FIXED_LEN_BYTE_ARRAY"
+        "BYTE_ARRAY"
 };
 
 typedef enum {
@@ -38,7 +37,7 @@ typedef enum {
     PIL_CSTORE_COLUMN
 } PIL_CSTORE_TYPE;
 
-const std::string PIL_CSTORE_TYPE_STRING[3] = {"UNKNOWN", "TENSOR", "COLUMN-SPLIT"};
+const std::string PIL_CSTORE_TYPE_STRING[] = {"UNKNOWN", "TENSOR", "COLUMN-SPLIT"};
 
 typedef enum {
     PIL_COMPRESS_AUTO, /** Automatic compression **/
@@ -53,6 +52,8 @@ typedef enum {
     PIL_ENCODE_BASES_2BIT, /** 2-bit encoding of sequence bases with additional mask **/
     PIL_ENCODE_CIGAR_NIBBLE /** Nibble-encoding of CIGAR strings **/
 } PIL_COMPRESSION_TYPE;
+
+const std::string PIL_TRANSFORM_TYPE_STRING[] = {"AUTO","ZSTD","NONE","RC_QUAL","RC_BASES","RC_ILLUMINA_NAME","DICT","DELTA","DELTA_DELTA","BASES_2BIT","CIGAR_NIBBLE"};
 
 }
 

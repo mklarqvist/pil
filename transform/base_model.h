@@ -114,8 +114,8 @@ template <typename st_t>
 inline void BaseModel<st_t>::EncodeSymbol(RangeCoder *rc, uint32_t sym) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     if ( SummFreq>=WSIZ ) {
-    rescaleRare();
-    SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
+        rescaleRare();
+        SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     }
 
     switch(sym) {
@@ -154,7 +154,7 @@ template <typename st_t>
 inline void BaseModel<st_t>::UpdateSymbol(uint32_t sym) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     if ( SummFreq>=WSIZ ) {
-    rescaleRare();
+        rescaleRare();
     }
 
     /* known symbol */
@@ -181,8 +181,8 @@ template <typename st_t>
 inline uint32_t BaseModel<st_t>::DecodeSymbol(RangeCoder *rc) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     if ( SummFreq>=WSIZ) {
-    rescaleRare();
-    SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
+        rescaleRare();
+        SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     }
 
     uint32_t count=rc->GetFreq256(SummFreq);
@@ -190,21 +190,21 @@ inline uint32_t BaseModel<st_t>::DecodeSymbol(RangeCoder *rc) {
 
     st_t* p=Stats;
     if ((HiCount += *p) > count) {
-    rc->Decode(0, *p, SummFreq);
-    Stats[0] += STEP;
-    return 0;
+        rc->Decode(0, *p, SummFreq);
+        Stats[0] += STEP;
+        return 0;
     }
 
     if ((HiCount += *++p) > count) {
-    rc->Decode(HiCount-*p, *p, SummFreq);
-    Stats[1] += STEP;
-    return 1;
+        rc->Decode(HiCount-*p, *p, SummFreq);
+        Stats[1] += STEP;
+        return 1;
     }
 
     if ((HiCount += *++p) > count) {
-    rc->Decode(HiCount-*p, *p, SummFreq);
-    Stats[2] += STEP;
-    return 2;
+        rc->Decode(HiCount-*p, *p, SummFreq);
+        Stats[2] += STEP;
+        return 2;
     }
 
     rc->Decode(HiCount, Stats[3], SummFreq);

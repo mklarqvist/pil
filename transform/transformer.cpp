@@ -43,6 +43,29 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
     return(ret);
 }
 
+int Transformer::AutoTransform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+    if(cset.get() == nullptr) return(-1);
+
+    if(field.cstore == PIL_CSTORE_COLUMN) return(AutoTransformColumns(cset, field));
+    else if(field.cstore == PIL_CSTORE_TENSOR) return(AutoTransformTensor(cset, field));
+    else return(-2);
+}
+
+int Transformer::AutoTransformColumns(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+    if(cset.get() == nullptr) return(-1);
+    if(cset->size() == 0) return(1);
+
+    int ret = -1;
+    for(int i = 0; i < cset->size(); ++i) {
+        if(cset->columns[i].get() == nullptr) return(-4);
+        int ret_i = AutoTransformColumn(cset->columns[i], field);
+        if(ret_i < 0) return(-3);
+        ret += ret_i;
+    }
+
+    return(ret);
+}
+
 int Transformer::DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
     if(cset.get() == nullptr) return(-1);
 
@@ -167,6 +190,8 @@ int Transformer::DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFi
 }
 
 int Transformer::DeltaEncode(std::shared_ptr<ColumnStore> cstore) {
+    if(cstore.get() == nullptr) return(-4);
+
     // todo: tests
     compute_deltas_inplace(reinterpret_cast<uint32_t*>(cstore->mutable_data()), cstore->n_records, 0);
     cstore->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cstore->buffer.length(),cstore->buffer.length()));

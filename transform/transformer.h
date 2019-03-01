@@ -3,9 +3,7 @@
 
 #include "../pil.h"
 #include "../buffer.h"
-
 #include "../table_dict.h"
-
 #include "../columnstore.h"
 
 namespace pil {
@@ -15,7 +13,13 @@ public:
     Transformer() : pool_(default_memory_pool()){}
     Transformer(std::shared_ptr<ResizableBuffer> data) : pool_(default_memory_pool()), buffer(data){}
 
-
+    /**<
+     * Primary entry-point for applying a Transformation series to a ColumnSet.
+     * Sequentially apply the Transformation series in-order, if valid.
+     * @param cset  Source/destination ColumnSet.
+     * @param field DictionaryFieldType describing the column store type and primitive type used.
+     * @return      Positive values are a success and negative values are failures.
+     */
     int Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
 
     /**<
@@ -69,33 +73,10 @@ public:
         return true;
     }
 
-    int AutoTransform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
-        if(cset.get() == nullptr) return(-1);
-
-        if(field.cstore == PIL_CSTORE_COLUMN) return(AutoTransformColumns(cset, field));
-        else if(field.cstore == PIL_CSTORE_TENSOR) return(AutoTransformTensor(cset, field));
-        else return(-2);
-    }
-
-    int AutoTransformColumns(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
-        if(cset.get() == nullptr) return(-1);
-        if(cset->size() == 0) return(1);
-
-        int ret = -1;
-        for(int i = 0; i < cset->size(); ++i) {
-            if(cset->columns[i].get() == nullptr) return(-4);
-            int ret_i = AutoTransformColumn(cset->columns[i], field);
-            if(ret_i < 0) return(-3);
-            ret += ret_i;
-        }
-
-        return(ret);
-    }
-
+    int AutoTransform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int AutoTransformColumns(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int AutoTransformColumn(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
-
     int AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
-
     int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
     int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field);
@@ -109,9 +90,6 @@ protected:
 };
 
 
-
 }
-
-
 
 #endif /* TRANSFORMER_H_ */

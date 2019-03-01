@@ -388,11 +388,11 @@ void TableConstructor::Describe(std::ostream& stream) {
     for(size_t i = 0; i < field_dict.dict.size(); ++i) {
         stream << field_dict.dict[i].field_name << "\t" << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[i].ptype] << "\t" << PIL_CSTORE_TYPE_STRING[field_dict.dict[i].cstore] << "\tn=" << meta_data.field_meta[i]->TotalOccurences() << " compmode: ";
         if(field_dict.dict[i].transforms.size()) {
-            stream << field_dict.dict[i].transforms[0];
+            stream << PIL_TRANSFORM_TYPE_STRING[field_dict.dict[i].transforms[0]];
             for(size_t j = 1; j < field_dict.dict[i].transforms.size(); ++j) {
-                stream << "," << field_dict.dict[i].transforms[j];
+                stream << "," << PIL_TRANSFORM_TYPE_STRING[field_dict.dict[i].transforms[j]];
             }
-        } else stream << "auto";
+        } else stream << PIL_TRANSFORM_TYPE_STRING[PIL_COMPRESS_AUTO];
         stream << " Average cols=" << meta_data.field_meta[i]->AverageColumns() << ", batches_n=" << meta_data.field_meta[i]->TotalCount() << " mean-comp: " << meta_data.field_meta[i]->AverageCompressionFold() << "-fold";
         stream << " U=" << meta_data.field_meta[i]->TotalUncompressed() << " C=" << meta_data.field_meta[i]->TotalCompressed();
         stream << std::endl;

@@ -27,6 +27,7 @@ public:
         const T* values = reinterpret_cast<const T*>(cstore->buffer.mutable_data());
         T min = std::numeric_limits<T>::max();
         T max = std::numeric_limits<T>::min();
+        have_segmental_stats = true;
 
         if(cstore->nullity.get() == nullptr) { // if nullity is available
             for(uint32_t i = 0; i < n_elements; ++i) {
@@ -45,6 +46,7 @@ public:
             // If there is no valid values then set both to 0.
             // Todo: this should be smarter
             if(n_valid == 0) {
+                have_segmental_stats = false;
                 min = 0;
                 max = 0;
             }
@@ -60,7 +62,11 @@ public:
         //*reinterpret_cast<T*>(&stats_surrogate_min) = min;
         //*reinterpret_cast<T*>(&stats_surrogate_max) = max;
 
-        std::cerr << "Segmental statistics (as ints): min-max: " << (int)min << "-" << (int)max << std::endl;
+        // temp
+        if(sizeof(T) == 1)
+            std::cerr << "Segmental statistics (as ints): min-max: " << (int)min << "-" << (int)max << std::endl;
+        else
+            std::cerr << "Segmental statistics: min-max: " << min << "-" << max << std::endl;
         return(1);
     }
 
@@ -93,6 +99,7 @@ public:
     inline void operator=(std::shared_ptr<ColumnStore> cstore) { this->Set(cstore); }
 
     int Serialize(std::ostream& stream) {
+        stream.write(reinterpret_cast<char*>(&have_segmental_stats), sizeof(bool));
         stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&last_modified), sizeof(uint64_t));
         stream.write(reinterpret_cast<char*>(&n_records), sizeof(uint32_t));
@@ -109,6 +116,7 @@ public:
     int Deserialize(std::ostream& stream);
 
 public:
+    bool have_segmental_stats;
     uint64_t file_offset; // file offset on disk to seek to the start of this ColumnStore
     uint64_t last_modified; // unix timestamp when last modified
     uint32_t n_records, n_elements, n_null, uncompressed_size, compressed_size; // number of elements
@@ -328,7 +336,8 @@ public:
         return(n);
     }
 
-    std::string RandomString(std::string::size_type length) {
+    // Todo: move out
+    static std::string RandomString(std::string::size_type length) {
         static auto& chrs = "0123456789"
             "abcdefghijklmnopqrstuvwxyz"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -340,8 +349,7 @@ public:
 
         s.reserve(length);
 
-        while(length--)
-            s += chrs[pick(rg)];
+        while(length--) s += chrs[pick(rg)];
 
         return s;
     }
@@ -349,7 +357,7 @@ public:
     int OpenWriter(const std::string& prefix) {
         if(writer.get() != nullptr) return(0);
 
-        std::string random = RandomString(46);
+        std::string random = FieldMetaData::RandomString(46);
         std::string out = prefix + "_" + random + ".pil";
         file_name = out;
         writer = std::unique_ptr<std::ofstream>(new std::ofstream());

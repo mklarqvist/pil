@@ -93,11 +93,11 @@ public:
         for(int i = 0; i < n_records; ++i) {
             //std::cerr << "comparing"
             if(cumsum + length > n_elements) {
-                std::cerr << "breaking" << std::endl;
+                //std::cerr << "breaking" << std::endl;
                 break;
             }
             matches += (memcmp(in, &data[cumsum], length*sizeof(T)) == 0);
-            std::cerr << "striding=" << l[i] << std::endl;
+            //std::cerr << "striding=" << l[i] << std::endl;
             cumsum += l[i];
         }
         return(matches);

@@ -7,9 +7,6 @@
 #include "zstd_errors.h"
 
 #include "transformer.h"
-
-// todo
-
 #include "base_model.h"
 #include "frequency_model.h"
 
@@ -21,15 +18,11 @@ class Compressor : public Transformer {
 public:
     Compressor(){}
     Compressor(std::shared_ptr<ResizableBuffer> data) : Transformer(data){}
-    virtual ~Compressor(){}
+    ~Compressor(){}
 
     //int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     //int CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int CompressCigar(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
-
-    virtual int Decompress(){ return 1; }
-
-    // TOdo: fix
 
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
 };
@@ -98,7 +91,7 @@ public:
 
     //int Compress(std::shared_ptr<ResizableBuffer> in_buffer, const int compression_level = 1) { return 1; }
     //int Compress(std::shared_ptr<ColumnStore> cstore, const int compression_level = 1) { return 1; }
-    int Decompress() override{ return 1; }
+    int Decompress(){ return 1; }
 };
 
 

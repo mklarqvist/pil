@@ -50,7 +50,7 @@ public:
 
     template <class T>
     int AddArray(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T* value, uint32_t n_values) {
-        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
+        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
 
         if(n_used == slots.size()) {
             slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
@@ -75,7 +75,7 @@ public:
 
     template <class T>
     int AddArray(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::vector<T>& values) {
-        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
+        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
         if(n_used == slots.size()) {
             slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
         }
@@ -99,7 +99,7 @@ public:
 
     template <class T>
     int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T value) {
-        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
+        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
         if(n_used == slots.size()) {
             slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
         }
@@ -116,7 +116,7 @@ public:
 
     template <class T>
     int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const T* value, uint32_t n_values) {
-        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
+        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
         if(n_used == slots.size()) {
             slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
         }
@@ -139,7 +139,7 @@ public:
 
     template <class T>
     int Add(const std::string& id, PIL_PRIMITIVE_TYPE ptype, const std::vector<T>& values) {
-        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_FIXED_LEN_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
+        if(ptype == PIL_TYPE_BYTE_ARRAY || ptype == PIL_TYPE_UNKNOWN) return -1;
         if(n_used == slots.size()) {
             slots.push_back( std::unique_ptr<RecordBuilderFields>(new RecordBuilderFields()) );
         }
