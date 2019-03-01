@@ -6,9 +6,22 @@
 
 namespace pil {
 
+typedef enum {
+    PIL_DICT_SET_NULLPTR = -1,
+    PIL_DICT_STORE_NULLPTR = -2,
+    PIL_DICT_ILLEGAL_CSTORE = -3,
+    PIL_DICT_MISSING_NULLITY = -4,
+    PIL_DICT_MALFORMED = -5,
+    PIL_DICT_NO_DATA = -6
+} PIL_DICTIONARY_ERRORS;
+
 class ColumnDictionary {
 public:
-    explicit ColumnDictionary(MemoryPool* mpool = default_memory_pool()) : have_lengths(false), n_records(0), n_elements(0), sz_u(0), sz_c(0), sz_lu(0), sz_lc(0), pool(mpool){}
+    explicit ColumnDictionary(MemoryPool* mpool = default_memory_pool()) :
+        have_lengths(false), n_records(0), n_elements(0), sz_u(0),
+        sz_c(0), sz_lu(0), sz_lc(0), pool(mpool)
+    {}
+
     virtual ~ColumnDictionary(){}
 
     template <class T>

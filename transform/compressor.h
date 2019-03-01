@@ -7,21 +7,15 @@
 #include "zstd_errors.h"
 
 #include "transformer.h"
-#include "../table_dict.h"
-#include "../columnstore.h"
-#include "dictionary_builder.h"
 
 // todo
-#include "encoder.h"
+
 #include "base_model.h"
-#include "fastdelta.h"
 #include "frequency_model.h"
 
 #define PIL_ZSTD_DEFAULT_LEVEL 1
 
 namespace pil {
-
-// std::vector< CompressorMeta > transformer_args;
 
 class Compressor : public Transformer {
 public:
@@ -36,128 +30,6 @@ public:
     virtual int Decompress(){ return 1; }
 
     // TOdo: fix
-    int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
-        if(cset.get() == nullptr) return(-1);
-
-        DictionaryBuilder dict;
-
-        std::cerr << "in dictionaary encode for set" << std::endl;
-
-        int ret_status = -1;
-        switch(field.ptype) {
-        case(PIL_TYPE_INT8):   ret_status = static_cast<NumericDictionaryBuilder<int8_t>*>(&dict)->Encode(cset, field);  break;
-        case(PIL_TYPE_INT16):  ret_status = static_cast<NumericDictionaryBuilder<int16_t>*>(&dict)->Encode(cset, field); break;
-        case(PIL_TYPE_INT32):  ret_status = static_cast<NumericDictionaryBuilder<int32_t>*>(&dict)->Encode(cset, field);break;
-        case(PIL_TYPE_INT64):  ret_status = static_cast<NumericDictionaryBuilder<int64_t>*>(&dict)->Encode(cset, field); break;
-        case(PIL_TYPE_UINT8):  ret_status = static_cast<NumericDictionaryBuilder<uint8_t>*>(&dict)->Encode(cset, field);   break;
-        case(PIL_TYPE_UINT16): ret_status = static_cast<NumericDictionaryBuilder<uint16_t>*>(&dict)->Encode(cset, field);  break;
-        case(PIL_TYPE_UINT32): ret_status = static_cast<NumericDictionaryBuilder<uint32_t>*>(&dict)->Encode(cset, field);  break;
-        case(PIL_TYPE_UINT64): ret_status = static_cast<NumericDictionaryBuilder<uint64_t>*>(&dict)->Encode(cset, field);  break;
-        case(PIL_TYPE_FLOAT):  ret_status = static_cast<NumericDictionaryBuilder<float>*>(&dict)->Encode(cset, field);    break;
-        case(PIL_TYPE_DOUBLE): ret_status = static_cast<NumericDictionaryBuilder<double>*>(&dict)->Encode(cset, field);   break;
-        }
-        std::cerr << "ret_status=" << ret_status << std::endl;
-
-
-        return(1);
-    }
-
-    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field) {
-        if(cstore.get() == nullptr) return(-1);
-
-        if(cstore->dictionary.get() == nullptr)
-            cstore->dictionary = std::make_shared<ColumnDictionary>();
-
-        std::shared_ptr<DictionaryBuilder> dict = std::static_pointer_cast<DictionaryBuilder>(cstore->dictionary);
-
-        std::cerr << "in dictionaary encode for store" << std::endl;
-
-        int ret_status = -1;
-        switch(field.ptype) {
-        case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int8_t> >(dict)->Encode(cstore);  break;
-        case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int16_t> >(dict)->Encode(cstore); break;
-        case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int32_t> >(dict)->Encode(cstore);break;
-        case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int64_t> >(dict)->Encode(cstore); break;
-        case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint8_t> >(dict)->Encode(cstore);   break;
-        case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint16_t> >(dict)->Encode(cstore);  break;
-        case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint32_t> >(dict)->Encode(cstore);  break;
-        case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint64_t> >(dict)->Encode(cstore);  break;
-        case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<float> >(dict)->Encode(cstore);    break;
-        case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<double> >(dict)->Encode(cstore);   break;
-        }
-        std::cerr << "ret_status=" << ret_status << std::endl;
-
-        if(ret_status < 1) cstore->dictionary = nullptr;
-
-
-        return(ret_status);
-    }
-
-    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field) {
-        if(cstore.get() == nullptr) return(-1);
-
-        if(cstore->dictionary.get() == nullptr)
-            cstore->dictionary = std::make_shared<ColumnDictionary>();
-
-        std::shared_ptr<DictionaryBuilder> dict = std::static_pointer_cast<DictionaryBuilder>(cstore->dictionary);
-
-        std::cerr << "in dictionaary encode for store" << std::endl;
-
-        int ret_status = -1;
-        switch(field.ptype) {
-        case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int8_t> >(dict)->Encode(cstore, strides);  break;
-        case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int16_t> >(dict)->Encode(cstore, strides); break;
-        case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int32_t> >(dict)->Encode(cstore, strides);break;
-        case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int64_t> >(dict)->Encode(cstore, strides); break;
-        case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint8_t> >(dict)->Encode(cstore, strides);   break;
-        case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint16_t> >(dict)->Encode(cstore, strides);  break;
-        case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint32_t> >(dict)->Encode(cstore, strides);  break;
-        case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint64_t> >(dict)->Encode(cstore, strides);  break;
-        case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<float> >(dict)->Encode(cstore, strides);    break;
-        case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<double> >(dict)->Encode(cstore, strides);   break;
-        }
-        std::cerr << "ret_status=" << ret_status << std::endl;
-
-        if(ret_status < 1) cstore->dictionary = nullptr;
-
-        return(ret_status);
-    }
-
-    // todo: fix
-    int DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
-        if(cset.get() == nullptr) return(-1);
-
-        //std::cerr << "IN DELTA ENCODER" << std::endl;
-
-        if(field.cstore == PIL_CSTORE_COLUMN) {
-            std::shared_ptr<ColumnStore> tgt = cset->columns[0];
-
-            int ret_status = -1;
-            switch(field.ptype) {
-            case(PIL_TYPE_INT8):
-            case(PIL_TYPE_INT16):
-            case(PIL_TYPE_INT32):
-            case(PIL_TYPE_INT64):
-            case(PIL_TYPE_UINT8):
-            case(PIL_TYPE_UINT16):
-            case(PIL_TYPE_UINT64):
-            case(PIL_TYPE_FLOAT):
-            case(PIL_TYPE_DOUBLE): return(-1);
-            case(PIL_TYPE_UINT32): compute_deltas_inplace(reinterpret_cast<uint32_t*>(tgt->mutable_data()), tgt->n_records, 0); break;
-            }
-            tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,tgt->buffer.length(),tgt->buffer.length()));
-
-        } else if(field.cstore == PIL_CSTORE_TENSOR) {
-            std::cerr << "not allowed yet" << std::endl;
-            exit(1);
-
-        } else {
-            std::cerr << "delta encode in tensor is not allowed" << std::endl;
-            exit(1);
-        }
-
-        return(1);
-    }
 
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
 };
@@ -272,11 +144,7 @@ public:
             //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->buffer.length() << std::endl;
             //std::cerr << "computing deltas in place" << std::endl;
 
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(), cset->columns[0]->buffer.length()));
-            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
-                                   cset->columns[0]->n_records,
-                                   0);
-
+            DeltaEncode(cset->columns[0]);
 
             // Compress QUALs from Column 1 with the SEQ lengths from Column 0
             int64_t n_in = cset->columns[1]->buffer.length();
@@ -433,11 +301,7 @@ public:
             //std::cerr << "in cstore tensor: COMPUTING BASES" << std::endl;
             //std::cerr << "buffer believe=" << cset->columns[1]->buffer.size() << " and " << cset->columns[1]->buffer.length() << " and n=" << cset->columns[0]->buffer.length() << std::endl;
             //std::cerr << "computing deltas in place" << std::endl;
-            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));
-
-            compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
-                                   cset->columns[0]->n_records,
-                                   0);
+            DeltaEncode(cset->columns[0]);
 
             int64_t n_in = cset->columns[0]->buffer.length();
             int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),

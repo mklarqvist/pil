@@ -24,7 +24,7 @@ namespace pil {
 // A ColumnStore is **MUTABLE** and should be used during importing/constructing
 // procedures **ONLY**. Retrieving data should take place through Array structs and
 // downcast to one of its concrete types.
-struct ColumnStore {
+class ColumnStore {
 public:
     explicit ColumnStore(MemoryPool* pool = default_memory_pool()) :
         have_dictionary(false),
@@ -75,7 +75,7 @@ public:
 };
 
 template <class T>
-struct ColumnStoreBuilder : public ColumnStore {
+class ColumnStoreBuilder : public ColumnStore {
 public:
     explicit ColumnStoreBuilder(MemoryPool* pool = default_memory_pool()) : ColumnStore(pool){}
 
@@ -127,8 +127,6 @@ public:
     }
 
     const T* data() const { return reinterpret_cast<const T*>(buffer.data()); }
-    T front() const { return data()[0]; }
-    T back() const { return data()[n_records - 1]; }
 };
 
 
@@ -140,7 +138,7 @@ public:
 // When ANY of the ColumnStore objects reach the upper limit (batch size) they
 // will ALL be processed en-mass and the encapsulaing Segment will be
 // processed and flushed.
-struct ColumnSet {
+class ColumnSet {
 public:
     explicit ColumnSet(MemoryPool* pool = default_memory_pool()) :
         n(0), m(0)
@@ -170,7 +168,7 @@ public:
 };
 
 template <class T>
-struct ColumnSetBuilder : public ColumnSet {
+class ColumnSetBuilder : public ColumnSet {
 public:
     explicit ColumnSetBuilder(MemoryPool* pool = default_memory_pool()) : ColumnSet(pool){}
 
@@ -315,7 +313,7 @@ public:
 };
 
 template <class T>
-struct ColumnSetBuilderTensor : public ColumnSet {
+class ColumnSetBuilderTensor : public ColumnSet {
 public:
     explicit ColumnSetBuilderTensor(MemoryPool* pool = default_memory_pool()) : ColumnSet(pool){}
 
@@ -455,9 +453,6 @@ public:
 
         return(lengths);
     }
-
-public:
-
 };
 
 }

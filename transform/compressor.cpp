@@ -113,10 +113,7 @@ int Compressor::CompressAuto(std::shared_ptr<ColumnSet> cset, const DictionaryFi
        }
 
        //std::cerr << "computing deltas in place" << std::endl;
-       cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cset->columns[0]->buffer.length(),cset->columns[0]->buffer.length()));
-       compute_deltas_inplace(reinterpret_cast<uint32_t*>(cset->columns[0]->buffer.mutable_data()),
-                              cset->columns[0]->n_records,
-                              0);
+        DeltaEncode(cset->columns[0]);
 
        int64_t n_in = cset->columns[0]->buffer.length();
        int ret1 = static_cast<ZstdCompressor*>(this)->Compress(

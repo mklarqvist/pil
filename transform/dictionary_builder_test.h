@@ -7,6 +7,22 @@
 namespace pil {
 
 // core
+TEST(DictionaryBuilderTests, IllegalBuildNullptr) {
+    std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
+    NumericDictionaryBuilder<uint32_t> dict;
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_COLUMN;
+    ASSERT_EQ(PIL_DICT_NO_DATA, dict.Encode(cbuild, field, false));
+}
+
+TEST(DictionaryBuilderTests, IllegalBuildNullptrTensor) {
+    std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
+    NumericDictionaryBuilder<uint32_t> dict;
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR;
+    ASSERT_EQ(PIL_DICT_NO_DATA, dict.Encode(cbuild, field, true));
+}
+
 TEST(DictionaryBuilderTests, ContainsUninitialized) {
     std::shared_ptr< ColumnSetBuilder<uint32_t> > cbuild = std::make_shared< ColumnSetBuilder<uint32_t> >();
     NumericDictionaryBuilder<uint32_t> dict;
@@ -296,6 +312,17 @@ TEST(DictionaryBuilderTests, FindSingleIntTensorGetIllegal) {
     ASSERT_EQ(-5, dict.Get<uint32_t>(0, ret));
 }
 
+TEST(DictionaryBuilderTests, TensorIllegalNoNullity) {
+    std::shared_ptr< ColumnSetBuilderTensor<uint32_t> > cbuild = std::make_shared< ColumnSetBuilderTensor<uint32_t> >();
+
+    std::vector<uint32_t> vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+    cbuild->columns[0]->nullity = nullptr;
+
+    NumericDictionaryBuilder<uint32_t> dict;
+    ASSERT_EQ(PIL_DICT_MISSING_NULLITY, dict.Encode(cbuild->columns[1], cbuild->columns[0], true));
+}
+
 TEST(DictionaryBuilderTests, FindSingleIntTensorGetIllegalOutofBounds) {
     std::shared_ptr< ColumnSetBuilderTensor<uint32_t> > cbuild = std::make_shared< ColumnSetBuilderTensor<uint32_t> >();
 
@@ -377,6 +404,22 @@ TEST(DictionaryBuilderTests, FindSingleIntTensorExactLargeNone) {
     ASSERT_EQ(9, dict.NumberElements());
     vals = {1451,12,15,1,7,85,21,12};
     ASSERT_EQ(0, dict.Contains<uint32_t>(&vals[0], vals.size()));
+}
+
+TEST(DictionaryBuilderTests, TensorMalformed) {
+    std::shared_ptr< ColumnSetBuilderTensor<uint32_t> > cbuild = std::make_shared< ColumnSetBuilderTensor<uint32_t> >();
+
+    std::vector<uint32_t> vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {12,14,16};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {21,49};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+
+    NumericDictionaryBuilder<uint64_t> dict; // malformed typing
+    ASSERT_EQ(PIL_DICT_MALFORMED, dict.Encode(cbuild->columns[1], cbuild->columns[0], true));
 }
 
 // doubles

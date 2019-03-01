@@ -4,6 +4,10 @@
 #include "../pil.h"
 #include "../buffer.h"
 
+#include "../table_dict.h"
+
+#include "../columnstore.h"
+
 namespace pil {
 
 class Transformer {
@@ -16,6 +20,9 @@ public:
      * It is disallowed to call Dictionary encoding as a non-final step
      * excluding compression. It is also disallowed to call Dictionary
      * encoding more than once (1).
+     *
+     * Note that invoking Dictionary encoding in a chain will result in predicate
+     * pushdowns can only be performed at that level and NOT on the actual data!
      *
      * Allowed: transform 1, transform 2, dictionary encoding, compression
      * Allowed: transform, dictionary encoding, compression1, compression2
@@ -35,7 +42,6 @@ public:
 
         // Check for the presence of dictionary encoder.
         // If NOT present then return TRUE
-
         uint32_t n_found = 0, n_pos_last = 0, n_found_auto = 0;
         for(size_t i = 0; i < transforms.size(); ++i) {
             n_found += (transforms[i] == PIL_ENCODE_DICT);
@@ -59,6 +65,12 @@ public:
 
         return true;
     }
+
+    int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
+    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field);
+    int DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int DeltaEncode(std::shared_ptr<ColumnStore> cstore);
 
 protected:
     // Any memory is owned by the respective Buffer instance (or its parents).
