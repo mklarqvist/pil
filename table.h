@@ -131,6 +131,7 @@ public:
     //std::shared_ptr<RecordBatch> record_batch; // temporary instance of a RecordBatch
     std::vector< std::shared_ptr<ColumnSet> > build_csets; // temporary ColumnSets used during construction.
     std::ofstream out_stream;
+    Transformer transformer;
 };
 
 

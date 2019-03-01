@@ -70,6 +70,24 @@ public:
         return(1);
     }
 
+    bool HaveSegmentStatistics() const { return have_segmental_stats; }
+    template <class T> T GetSegmentMin() const { return(*reinterpret_cast<const T*>(&stats_surrogate_min)); }
+    template <class T> T GetSegmentMax() const { return(*reinterpret_cast<const T*>(&stats_surrogate_max)); }
+
+    /**<
+     * Predicate evaluation for segment S(from, to) overlap the stored segment statistics
+     * S(min, max).
+     * @param from Left-end value of query segment.
+     * @param to   Right-end value of query segment.
+     * @return     Returns TRUE if the segments overlap or FALSE otherwise.
+     */
+    template <class T> bool OverlapSegment(T from, T to) const {
+        if(have_segmental_stats == false) return false;
+        // Assumes x1 <= x2 and y1 <= y2
+        if(to < from) std::swap(from, to);
+        return(to >= GetSegmentMin<T>() && GetSegmentMax<T>() >= from);
+    }
+
     /**<
      * Compute the MD5 checksum of the given ColumnStore.
      * @param cstore Source ColumnStore.

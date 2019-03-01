@@ -141,9 +141,11 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, con
        // Step 1: Set dict buffer size to columndata size
        if(buffer.get() == nullptr) {
            //column->dictionary = std::make_shared<ColumnDictionary>(this);
-           AllocateResizableBuffer(pool, list.size() * sizeof(T), &buffer);
+           int ret = AllocateResizableBuffer(pool, list.size() * sizeof(T), &buffer);
+           if(ret == -1) return(-1);
        } else {
            int ret = buffer->Resize(list.size() * sizeof(T));
+           if(ret == -1) return(-1);
        }
 
        // 1) insert values into dictionary buffer of columnstore
@@ -232,7 +234,7 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
 
    assert(strides->nullity.get() != nullptr);
 
-  // bool die = false;
+   // Todo: fix hash
    uint64_t hash = 0;
    for(uint32_t i = 0; i < n_s; ++i) {
        // If value is not in the map we add it to the hash-map and
@@ -279,16 +281,20 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
       // Step 1: Set dict buffer size to columndata size
       if(buffer.get() == nullptr) {
           //column->dictionary = std::make_shared<ColumnDictionary>(this);
-          AllocateResizableBuffer(pool, sz_list, &buffer);
+          int ret = AllocateResizableBuffer(pool, sz_list, &buffer);
+          if(ret == -1) return(-1);
       } else {
          int ret = buffer->Resize(sz_list, false);
+         if(ret == -1) return(-1);
       }
 
       if(lengths.get() == nullptr) {
         //column->dictionary = std::make_shared<ColumnDictionary>(this);
-        AllocateResizableBuffer(pool, list.size()*sizeof(uint32_t), &lengths);
+        int ret = AllocateResizableBuffer(pool, list.size()*sizeof(uint32_t), &lengths);
+        if(ret == -1) return(-1);
     } else {
        int ret = lengths->Resize(list.size()*sizeof(uint32_t));
+       if(ret == -1) return(-1);
     }
 
       // 1) insert values into dictionary buffer of columnstore
@@ -302,7 +308,6 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
       T* dict = reinterpret_cast<T*>(buffer->mutable_data());
       uint32_t* ls = reinterpret_cast<uint32_t*>(lengths->mutable_data());
 
-      // Todo: fix performance
       // Store as {length1,length2,...,lengthN}Z + {data}
       size_t dict_offset = 0;
       for(int i = 0; i < list.size(); ++i) {
@@ -333,46 +338,44 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
           //std::cerr << ls[i] << ": " << std::string(reinterpret_cast<char*>(&dict[dict_o]), ls[i]) << std::endl;
           dict_o += ls[i];
       }
-      std::cerr << std::endl;
-
-
+      //std::cerr << std::endl;
 
       uint32_t* d = new uint32_t[n_s];
 
       uint64_t hash = 0;
-     for(uint32_t i = 0; i < n_s; ++i) {
-         // If value is not in the map we add it to the hash-map and
-         // the list of values.
-         // If the position is invalid (using nullity map) then don't use it.
-         if(strides->IsValid(i) == false) {
-             //std::cerr << "skipping: " << i << " l=" << s[i] << std::endl;
-             d[i] = 0;
-             continue;
-         }
+    for(uint32_t i = 0; i < n_s; ++i) {
+        // If value is not in the map we add it to the hash-map and
+        // the list of values.
+        // If the position is invalid (using nullity map) then don't use it.
+        if(strides->IsValid(i) == false) {
+            //std::cerr << "skipping: " << i << " l=" << s[i] << std::endl;
+            d[i] = 0;
+            continue;
+        }
 
-         const int64_t l = s[i + 1] - s[i];
-         //if(l < 0) exit(1);
-         //die += (l < 0);
-         //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
-         //memcpy(local_buffer, &in[s[i]], l);
-         hash = XXH64(&in[s[i]], l, 123718);
+        const int64_t l = s[i + 1] - s[i];
+        //if(l < 0) exit(1);
+        //die += (l < 0);
+        //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
+        //memcpy(local_buffer, &in[s[i]], l);
+        hash = XXH64(&in[s[i]], l, 123718);
 
-         d[i] = map[hash];
-     }
+        d[i] = map[hash];
+    }
 
-      int64_t n_in = column->uncompressed_size;
-      if(column->buffer.capacity() < n_s*sizeof(uint32_t)) {
-          column->buffer.Resize(n_s*sizeof(uint32_t), false);
-      }
-      memcpy(column->buffer.mutable_data(), d, n_s*sizeof(uint32_t));
-      column->uncompressed_size = n_s*sizeof(uint32_t);
-      column->buffer.UnsafeSetLength(n_s*sizeof(uint32_t));
-      column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, n_in, column->buffer.length()));
-      //std::cerr << "DICT for string: shrink " << n_in << "->" << column->buffer.length() << std::endl;
-      //std::cerr << "DICT meta=" << sz_list << "b" << std::endl;
-      delete[] d;
-      return(1);
-  }
+    int64_t n_in = column->uncompressed_size;
+    if(column->buffer.capacity() < n_s*sizeof(uint32_t)) {
+        column->buffer.Resize(n_s*sizeof(uint32_t), false);
+    }
+    memcpy(column->buffer.mutable_data(), d, n_s*sizeof(uint32_t));
+    column->uncompressed_size = n_s*sizeof(uint32_t);
+    column->buffer.UnsafeSetLength(n_s*sizeof(uint32_t));
+    column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, n_in, column->buffer.length()));
+    //std::cerr << "DICT for string: shrink " << n_in << "->" << column->buffer.length() << std::endl;
+    //std::cerr << "DICT meta=" << sz_list << "b" << std::endl;
+    delete[] d;
+    return(1);
+   }
 
    return(0);
 }

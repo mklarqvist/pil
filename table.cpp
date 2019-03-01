@@ -176,8 +176,8 @@ int TableConstructor::Append(RecordBuilder& builder) {
 
 // private
 int TableConstructor::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
-                          PIL_PRIMITIVE_TYPE ptype_arr,
-                          uint32_t global_id)
+                                     PIL_PRIMITIVE_TYPE ptype_arr,
+                                     uint32_t global_id)
 {
     //std::cerr << "target column does NOT Exist in local stack: insert -> " << global_id << std::endl;
     if(meta_data.batches.size() == 0) {
@@ -241,8 +241,8 @@ int TableConstructor::BatchAddColumn(PIL_PRIMITIVE_TYPE ptype,
 
 // private
 int TableConstructor::AppendData(const RecordBuilder& builder,
-                      const uint32_t slot_offset,
-                      std::shared_ptr<ColumnSet> dst_column)
+                                 const uint32_t slot_offset,
+                                 std::shared_ptr<ColumnSet> dst_column)
 {
     PIL_PRIMITIVE_TYPE ptype = builder.slots[slot_offset]->primitive_type;
     PIL_PRIMITIVE_TYPE ptype_arr = builder.slots[slot_offset]->array_primitive_type;
@@ -284,9 +284,7 @@ int TableConstructor::AppendData(const RecordBuilder& builder,
 
 int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, const uint32_t batch_id) {
     if(cset.get() == nullptr) return(-1);
-
-    // Todo: this might be expensive
-    Transformer transformer;
+    if(out_stream.good() == false) return(-2);
 
     // Core updates: schemas
     // Append a new FieldMetaData to the Core FieldMetaData list and use that offset.
@@ -309,12 +307,10 @@ int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, con
     // This is bad!!!!!!!!!!!!!
     // Write output data.
     meta_data.core_meta[0]->cset_meta[core_batch_id]->SerializeColumnSet(meta_data.batches[batch_id]->schemas, out_stream);
-
     return(core_batch_id);
 }
 
 int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
-    Transformer transformer;
     uint32_t mem_in = 0, mem_out = 0;
 
     // Add the Schemas for the RecordBatch to the meta data indices.
@@ -322,7 +318,7 @@ int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
     // is used again later to update statistics following compression / encoding.
     int core_batch_id = AddRecordBatchSchemas(meta_data.batches[batch_id]->schemas, batch_id);
     if(core_batch_id < 0) {
-        std::cerr << "add batch corruption" << std::endl;
+        std::cerr << "add batch corruption: " << core_batch_id << std::endl;
         exit(1);
     }
 

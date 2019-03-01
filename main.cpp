@@ -14,6 +14,7 @@
 #include "transform/transformer_test.h"
 #include "record_builder_test.h"
 #include "transform/dictionary_builder_test.h"
+#include "table_meta_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {
@@ -346,8 +347,8 @@ int main(int argc, char **argv) {
                }
 
                 if(l == 7) {
-                   uint32_t pnext = std::atoi(s.data());
-                   rbuild.Add<uint32_t>("PNEXT", pil::PIL_TYPE_UINT32, pnext);
+                   int32_t pnext = std::atoi(s.data());
+                   rbuild.Add<int32_t>("PNEXT", pil::PIL_TYPE_INT32, pnext);
                }
 
                 if(l == 8) {
