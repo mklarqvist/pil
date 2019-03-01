@@ -1,7 +1,9 @@
 #ifndef TABLE_META_H_
 #define TABLE_META_H_
 
+#include <random>
 #include <ctime>
+#include <fstream>
 
 #include "transform/compressor.h"
 #include "transform/variant_digest_manager.h"
@@ -13,6 +15,8 @@ namespace pil {
 // Segmental Elimination for predicate pushdown in selection queries.
 struct ColumnStoreMetaData {
 public:
+    ColumnStoreMetaData();
+
     /**<
      * Compute Segmental statistics for use in predicate pushdown. Currently,
      * we store minimum and maximum values for a ColumnStore. These statistics
@@ -93,44 +97,17 @@ public:
      * @param cstore Source ColumnStore.
      * @return
      */
-    int ComputeChecksum(std::shared_ptr<ColumnStore> cstore) {
-        if(cstore.get() == nullptr) return(-1);
-        Digest::GenerateMd5(cstore->mutable_data(), cstore->uncompressed_size, md5_checksum);
-        return(1);
-    }
+    int ComputeChecksum(std::shared_ptr<ColumnStore> cstore);
 
     /**<
      * Store the meta-data from a ColumnStore in this ColumnStoreMetaData object.
      * @param cstore Source ColumnStore.
      */
-    void Set(std::shared_ptr<ColumnStore> cstore) {
-        if(cstore.get() == nullptr) return;
-
-        n_records = cstore->n_records;
-        n_elements = cstore->n_elements;
-        n_null = cstore->n_null;
-        uncompressed_size = cstore->uncompressed_size;
-        compressed_size   = cstore->compressed_size;
-    }
-
+    void Set(std::shared_ptr<ColumnStore> cstore);
     // Synonym
     inline void operator=(std::shared_ptr<ColumnStore> cstore) { this->Set(cstore); }
 
-    int Serialize(std::ostream& stream) {
-        stream.write(reinterpret_cast<char*>(&have_segmental_stats), sizeof(bool));
-        stream.write(reinterpret_cast<char*>(&file_offset), sizeof(uint64_t));
-        stream.write(reinterpret_cast<char*>(&last_modified), sizeof(uint64_t));
-        stream.write(reinterpret_cast<char*>(&n_records), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&n_elements), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&n_null), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&uncompressed_size), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&compressed_size), sizeof(uint32_t));
-        stream.write(reinterpret_cast<char*>(&stats_surrogate_min), sizeof(uint64_t));
-        stream.write(reinterpret_cast<char*>(&stats_surrogate_max), sizeof(uint64_t));
-        stream.write(reinterpret_cast<char*>(md5_checksum), 16);
-        return(stream.good());
-    }
-
+    int Serialize(std::ostream& stream);
     int Deserialize(std::ostream& stream);
 
 public:
@@ -175,7 +152,7 @@ public:
 
         for(size_t i = 0; i < cset->size(); ++i) {
             int ret = column_meta_data[i]->ComputeSegmentStats<T>(cset->columns[i]);
-            assert(ret != -1);
+            if(ret < 0) return(ret);
         }
         return(1);
     }
@@ -199,7 +176,8 @@ public:
         if(cset.get() == nullptr) return(-1);
 
         for(size_t i = 0; i < cset->size(); ++i) {
-            AddColumnStore(cset->columns[i]);
+            int ret = AddColumnStore(cset->columns[i]);
+            if(ret < 0) return(ret);
         }
 
         return 1;

@@ -16,6 +16,7 @@ TEST(SegmentalStatisticsTests, MatchRangeInt8) {
     builder->Append(25);
     builder->Append(1);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<int8_t>(builder->columns[0]));
     ASSERT_EQ(-100, meta.GetSegmentMin<int8_t>());
     ASSERT_EQ(25, meta.GetSegmentMax<int8_t>());
@@ -30,6 +31,7 @@ TEST(SegmentalStatisticsTests, MatchSegmentInt8) {
     builder->Append(25);
     builder->Append(1);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<int8_t>(builder->columns[0]));
     ASSERT_EQ(true, meta.OverlapSegment<int8_t>(-25, 10)); // fully contained
     ASSERT_EQ(true, meta.OverlapSegment<int8_t>(-120, -90)); // left contained
@@ -48,6 +50,7 @@ TEST(SegmentalStatisticsTests, MatchRangeInt32) {
     builder->Append(25);
     builder->Append(1);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<int32_t>(builder->columns[0]));
     ASSERT_EQ(-100, meta.GetSegmentMin<int32_t>());
     ASSERT_EQ(25, meta.GetSegmentMax<int32_t>());
@@ -62,6 +65,7 @@ TEST(SegmentalStatisticsTests, MatchSegmentInt32) {
     builder->Append(25);
     builder->Append(1);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<int32_t>(builder->columns[0]));
     ASSERT_EQ(true, meta.OverlapSegment<int32_t>(-90, 10)); // fully contained
     ASSERT_EQ(true, meta.OverlapSegment<int32_t>(-120, -90)); // left contained
@@ -80,6 +84,7 @@ TEST(SegmentalStatisticsTests, MatchRangeUInt32) {
     builder->Append(249181);
     builder->Append(1312);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<int32_t>(builder->columns[0]));
     ASSERT_EQ(1312, meta.GetSegmentMin<uint32_t>());
     ASSERT_EQ(249181, meta.GetSegmentMax<uint32_t>());
@@ -94,6 +99,7 @@ TEST(SegmentalStatisticsTests, MatchRangeFloat) {
     builder->Append(-249181.812);
     builder->Append(1312.12);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<float>(builder->columns[0]));
     ASSERT_FLOAT_EQ(-249181.812, meta.GetSegmentMin<float>());
     ASSERT_FLOAT_EQ(2501.121, meta.GetSegmentMax<float>());
@@ -108,6 +114,7 @@ TEST(SegmentalStatisticsTests, MatchSegmentFloat) {
     builder->Append(-249181.812);
     builder->Append(1312.12);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<float>(builder->columns[0]));
     ASSERT_EQ(true, meta.OverlapSegment<float>(-24000.5, 1200.51)); // fully contained
     ASSERT_EQ(true, meta.OverlapSegment<float>(-401231.2, 0)); // left contained
@@ -126,6 +133,7 @@ TEST(SegmentalStatisticsTests, MatchRangeDouble) {
     builder->Append(-24918112.812);
     builder->Append(1312.12);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<double>(builder->columns[0]));
     ASSERT_DOUBLE_EQ(-24918112.812, meta.GetSegmentMin<double>());
     ASSERT_DOUBLE_EQ(2501.121, meta.GetSegmentMax<double>());
@@ -140,6 +148,7 @@ TEST(SegmentalStatisticsTests, MatchSegmentDouble) {
     builder->Append(-24918112.812);
     builder->Append(1312.12);
 
+    meta.Set(builder->columns[0]);
     ASSERT_EQ(1, meta.ComputeSegmentStats<double>(builder->columns[0]));
     ASSERT_EQ(true, meta.OverlapSegment<double>(-20918112.5, 1200.51)); // fully contained
     ASSERT_EQ(true, meta.OverlapSegment<double>(-500000000.2148, 0)); // left contained

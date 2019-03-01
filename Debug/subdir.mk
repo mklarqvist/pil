@@ -9,7 +9,8 @@ CPP_SRCS += \
 ../columnstore.cpp \
 ../main.cpp \
 ../memory_pool.cpp \
-../table.cpp 
+../table.cpp \
+../table_meta.cpp 
 
 OBJS += \
 ./buffer.o \
@@ -17,7 +18,8 @@ OBJS += \
 ./columnstore.o \
 ./main.o \
 ./memory_pool.o \
-./table.o 
+./table.o \
+./table_meta.o 
 
 CPP_DEPS += \
 ./buffer.d \
@@ -25,7 +27,8 @@ CPP_DEPS += \
 ./columnstore.d \
 ./main.d \
 ./memory_pool.d \
-./table.d 
+./table.d \
+./table_meta.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
