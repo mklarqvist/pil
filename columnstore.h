@@ -11,11 +11,8 @@
 
 #include "pil.h"
 #include "buffer_builder.h"
-
-// Todo: fix -> this is for encoder meta
 #include "transform/transform_meta.h"
 #include "column_dictionary.h"
-//#include "bit_utils.h"
 
 namespace pil {
 
@@ -95,12 +92,8 @@ public:
         }
 
         if(n_records == m_nullity) {
-            //std::cerr << "should never happen" << std::endl;
-            //exit(1);
             assert(nullity->Reserve(n_records*(uint32_t) + 16384*sizeof(uint32_t)) == 1);
-            //nullity->ZeroPadding();
             m_nullity = n_records*32 + 16384 * 32;
-            //memset(&nullity->mutable_data()[n*sizeof(uint32_t)], 0, );
             std::cerr << "TODO" << std::endl;
             exit(1);
         }
@@ -174,9 +167,7 @@ public:
 
     int Append(const T value) {
         // Check if columns[0] is set
-        //std::cerr << "appending single value: " << value << std::endl;
         if(columns.size() == 0) {
-            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             ++n;
         }
@@ -197,18 +188,15 @@ public:
     int Append(const std::vector<T>& values) {
         // Add values up until N
         if(n < values.size()) {
-            //std::cerr << "adding more columns: " << columns.size() << "->" << values.size() << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < values.size(); ++i, ++n)
                 columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
 
             assert(n >= values.size());
 
-            // todo: insert padding from 0 to current offset in record batch
             const uint32_t padding_to = columns[0]->n_records;
             // Pad every column added this way.
             for(int i = start_size; i < values.size(); ++i) {
-                //std::cerr << i << "/" << values.size() << " -> (WIDTH) padding up to: " << padding_to << std::endl;
                 for(int j = 0; j < padding_to; ++j){
                    std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
                    int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
@@ -216,7 +204,6 @@ public:
                 }
             }
         }
-        //std::cerr << columns.size() << "/" << values.size() << "/" << n << std::endl;
 
         for(int i = 0; i < values.size(); ++i){
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(true);
@@ -224,35 +211,27 @@ public:
             assert(ret == 1);
         }
 
-        //std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
         for(int i = values.size(); i < columns.size(); ++i){
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
             assert(ret == 1);
         }
 
-        //std::cerr << "addition done" << std::endl;
-
         return(1);
     }
 
     int Append(const T* value, int n_values) {
-        //std::cerr << "in append" << std::endl;
-        //std::cerr << "adding=" << n_values << " values @ " << columns.size() << std::endl;
         // Add values up until N
         if((int)n < n_values){
-            //std::cerr << "adding more columns: " << columns.size() << "->" << n_values << std::endl;
             const int start_size = columns.size();
             for(int i = start_size; i < n_values; ++i, ++n)
                 columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
 
             assert((int)n >= n_values);
 
-            // todo: insert padding from 0 to current offset in record batch
             const uint32_t padding_to = columns[0]->n_records;
             // Pad every column added this way.
             for(int i = start_size; i < n_values; ++i) {
-                //std::cerr << i << "/" << n_values << " -> (WIDTH) padding up to: " << padding_to << std::endl;
                 for(uint32_t j = 0; j < padding_to; ++j) {
                    std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
                    int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
@@ -260,7 +239,6 @@ public:
                 }
             }
         }
-        //std::cerr << columns.size() << "/" << n_values << "/" << n << std::endl;
 
         for(int i = 0; i < n_values; ++i) {
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(true);
@@ -268,14 +246,11 @@ public:
             assert(ret == 1);
         }
 
-        //std::cerr << "add null from: " << n_values << "-" << columns.size() << std::endl;
         for(uint32_t i = n_values; i < columns.size(); ++i){
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
             assert(ret == 1);
         }
-
-        //std::cerr << "addition done" << std::endl;
 
         return(1);
     }
@@ -286,12 +261,10 @@ public:
      */
     int PadNull() {
         if(columns.size() == 0) {
-            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             ++n;
         }
 
-        //std::cerr << "in padnull: csize = " << columns.size() << std::endl;
         for(uint32_t i = 0; i < columns.size(); ++i) {
             std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->AppendValidity(false);
             int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[i])->Append(0);
@@ -319,9 +292,7 @@ public:
 
     int Append(const T value) {
         // Check if columns[0] is set
-        //std::cerr << "appending single value: " << value << std::endl;
         if(columns.size() == 0) {
-            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             n += 2;
@@ -355,7 +326,6 @@ public:
 
     int Append(const std::vector<T>& values) {
         if(columns.size() == 0) {
-            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             n += 2;
@@ -385,7 +355,6 @@ public:
 
     int Append(const T* value, int n_values) {
         if(columns.size() == 0) {
-            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             n += 2;
@@ -407,7 +376,6 @@ public:
             assert(ret == 1);
         }
 
-        //std::cerr << "appending=" << n_values << std::endl;
         assert(n_values > 0);
         int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(value, n_values);
         assert(ret == 1);
@@ -422,7 +390,6 @@ public:
      */
     int PadNull() {
         if(columns.size() == 0) {
-            //std::cerr << "pushing back first column" << std::endl;
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             columns.push_back( std::make_shared<ColumnStore>(pil::default_memory_pool()) );
             n += 2;
@@ -456,7 +423,5 @@ public:
 };
 
 }
-
-
 
 #endif /* COLUMNSTORE_H_ */

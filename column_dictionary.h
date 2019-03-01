@@ -40,10 +40,6 @@ public:
 
        // retrieve data at pos p
        const T* data = reinterpret_cast<T*>(buffer->mutable_data());
-
-       // data[p] -> dict encoded value
-       //
-
        dst = data[p];
        return(1);
     }

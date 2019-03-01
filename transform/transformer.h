@@ -15,6 +15,9 @@ public:
     Transformer() : pool_(default_memory_pool()){}
     Transformer(std::shared_ptr<ResizableBuffer> data) : pool_(default_memory_pool()), buffer(data){}
 
+
+    int Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+
     /**<
      * Ascertain that the provided set of transformation parameters are legal.
      * It is disallowed to call Dictionary encoding as a non-final step
@@ -65,6 +68,33 @@ public:
 
         return true;
     }
+
+    int AutoTransform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+        if(cset.get() == nullptr) return(-1);
+
+        if(field.cstore == PIL_CSTORE_COLUMN) return(AutoTransformColumns(cset, field));
+        else if(field.cstore == PIL_CSTORE_TENSOR) return(AutoTransformTensor(cset, field));
+        else return(-2);
+    }
+
+    int AutoTransformColumns(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
+        if(cset.get() == nullptr) return(-1);
+        if(cset->size() == 0) return(1);
+
+        int ret = -1;
+        for(int i = 0; i < cset->size(); ++i) {
+            if(cset->columns[i].get() == nullptr) return(-4);
+            int ret_i = AutoTransformColumn(cset->columns[i], field);
+            if(ret_i < 0) return(-3);
+            ret += ret_i;
+        }
+
+        return(ret);
+    }
+
+    int AutoTransformColumn(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
+
+    int AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
 
     int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);

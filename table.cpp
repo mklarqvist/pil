@@ -314,7 +314,7 @@ int TableConstructor::AddRecordBatchSchemas(std::shared_ptr<ColumnSet> cset, con
 }
 
 int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
-    Compressor compressor;
+    Transformer transformer;
     uint32_t mem_in = 0, mem_out = 0;
 
     // Add the Schemas for the RecordBatch to the meta data indices.
@@ -338,7 +338,7 @@ int TableConstructor::FinalizeBatch(const uint32_t batch_id) {
 
         // Compress ColumnSet according as described in the paired FieldMeta
         // record or automatically.
-        const int64_t sz_compressed = compressor.Compress(build_csets[i], field_dict.dict[global_id]);
+        const int64_t sz_compressed = transformer.Transform(build_csets[i], field_dict.dict[global_id]);
         // Debug
         std::cerr << field_dict.dict[global_id].field_name << ": " << PIL_PRIMITIVE_TYPE_STRING[field_dict.dict[global_id].ptype] << "\t"
                 << "compressed: n=" << build_csets[i]->size() << " size=" << sz_untransformed  << "->" << build_csets[i]->GetMemoryUsage()
