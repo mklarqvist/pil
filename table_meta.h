@@ -38,7 +38,7 @@ public:
                 min = std::min(min, values[i]);
                 max = std::max(max, values[i]);
             }
-        } else { // if not available
+        } else { // if nullity is not available
             uint32_t n_valid = 0;
             for(uint32_t i = 0; i < n_elements; ++i) {
                 if(cstore->IsValid(i) == false) continue;
@@ -47,8 +47,8 @@ public:
                 ++n_valid;
             }
 
-            // If there is no valid values then set both to 0.
-            // Todo: this should be smarter
+            // If there is no valid values then set both to 0 and set
+            // have_segmental_stats to FALSE.
             if(n_valid == 0) {
                 have_segmental_stats = false;
                 min = 0;
@@ -60,11 +60,9 @@ public:
         // the minimum and maximum values to it.
         stats_surrogate_min = 0;
         stats_surrogate_max = 0;
-        // use memcpy to properly handle punning
+        // use memcpy to properly handle type punning
         std::memcpy(&stats_surrogate_min, &min, sizeof(T));
         std::memcpy(&stats_surrogate_max, &max, sizeof(T));
-        //*reinterpret_cast<T*>(&stats_surrogate_min) = min;
-        //*reinterpret_cast<T*>(&stats_surrogate_max) = max;
 
         // temp
         if(sizeof(T) == 1)

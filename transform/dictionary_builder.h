@@ -70,6 +70,15 @@ public:
 
 };
 
+template <class T>
+struct VectorHasher {
+    uint64_t operator()(const std::vector<T>& v) const {
+        uint64_t hash = 0;
+        hash = XXH64(&v[0], v.size(), 123718);
+        return hash;
+    }
+};
+
 // impl
 
 template <class T>
@@ -100,14 +109,13 @@ template <class T>
 int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, const bool force) {
    if(column.get() == nullptr) return(-1);
 
-   //std::cerr << "in dictionary encode" << std::endl;
-   //std::cerr << "dict input length=" << column->buffer.length() << std::endl;
    if(column->nullity.get() == nullptr) {
-       //std::cerr << "no nullity" << std::endl;
        return(PIL_DICT_MISSING_NULLITY);
    }
 
-   assert(column->n_elements * sizeof(T) == column->buffer.length());
+   if(column->n_elements * sizeof(T) != column->buffer.length()) {
+       return(PIL_DICT_MALFORMED);
+   }
 
    typedef std::unordered_map<T, uint32_t> map_type;
    map_type map;
@@ -124,7 +132,6 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, con
 
        if(map.find(in[i]) == map.end()) {
            map[in[i]] = list.size();
-           //buffer_->Append(list.size());
            list.push_back(in[i]);
        }
        ++n_valid;
@@ -186,12 +193,6 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, con
        return(1);
    }
 
-   //std::cerr << "b buffer=" << b->buffer.length() << " and src=" << column->buffer.length() << std::endl;
-   //memcpy(dst->mutable_data(), dat, b->buffer.length());
-   //column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, b->buffer.length(), b->buffer.length()));
-   //std::cerr << "map=" << list.size() << " out of " << src->n << std::endl;
-   //std::cerr << "dst=" << dst->n << " sz=" << dst->uncompressed_size << std::endl;
-
    return(0);
 }
 
@@ -200,27 +201,18 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
    if(column.get() == nullptr) return(PIL_DICT_STORE_NULLPTR);
    if(strides.get() == nullptr) return(PIL_DICT_STORE_NULLPTR);
 
-   //std::cerr << "in dictionary encode WITH STRIDES" << std::endl;
-   //std::cerr << "dict input length=" << column->buffer.length() << std::endl;
    if(strides->nullity.get() == nullptr) {
-       //std::cerr << "no nullity!!!!" << std::endl;
        return(PIL_DICT_MISSING_NULLITY);
    }
-
-   /*
-   if(column->n_records + 1 != strides->n_records) {
-       std::cerr << "malformed columns! data=" << column->n_records << " and strides=" << strides->n_records << std::endl;
-       return(PIL_DICT_MALFORMED);
-   }
-   */
 
    if(column->n_elements * sizeof(T) != column->buffer.length()) {
        return(PIL_DICT_MALFORMED);
    }
 
-   typedef std::unordered_map<uint64_t, uint32_t> map_type;
+   if(strides->nullity.get() == nullptr) { return(PIL_DICT_MALFORMED); }
+
+   typedef std::unordered_map<std::vector<T>, bool, VectorHasher<T>> map_type;
    map_type map;
-   std::vector< uint64_t > hash_list; // list of lists of type T
    std::vector< std::vector<T> > list;
    int64_t sz_list = 0;
    const T* in = reinterpret_cast<const T*>(column->mutable_data());
@@ -229,13 +221,7 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
 
    // Iterate over values in N
    int64_t n_valid = 0;
-   //int64_t cum_offset = 0;
-   //T* local_buffer = new T[8196];
 
-   assert(strides->nullity.get() != nullptr);
-
-   // Todo: fix hash
-   uint64_t hash = 0;
    for(uint32_t i = 0; i < n_s; ++i) {
        // If value is not in the map we add it to the hash-map and
        // the list of values.
@@ -246,25 +232,20 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
        }
 
        const int64_t l = s[i + 1] - s[i];
-       //if(l < 0) exit(1);
-       //die += (l < 0);
-       //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << " lim=" << column->n_elements << std::endl;
-       //memcpy(local_buffer, &in[s[i]], l);
-       hash = XXH64(&in[s[i]], l, 123718);
+       std::vector<T> vec(&in[s[i]], &in[s[i+1]]);
 
-       if(map.find(hash) == map.end()) {
-           map[hash] = hash_list.size();
-           hash_list.push_back(hash);
+       if(map.find(vec) == map.end()) {
+           map[vec] = list.size();
            sz_list += l * sizeof(T);
-           list.push_back(std::vector<T>(&in[s[i]], &in[s[i+1]]));
+           list.push_back(vec);
        }
        ++n_valid;
    }
    //std::cerr << "Valid records=" << n_valid << "/" << column->n_records << " unique=" << hash_list.size() << std::endl;
-   const double ratio_cardinality = (double)hash_list.size() / n_valid;
+   const double ratio_cardinality = (double)list.size() / n_valid;
 
    if(ratio_cardinality < 0.3 || force) { // 30% or less and we store a dictionary for the data
-      std::cerr << "DICT ENCODE unique=" << hash_list.size() << "/" << n_valid << " (" << ratio_cardinality << ")" << std::endl;
+      std::cerr << "DICT ENCODE unique=" << list.size() << "/" << n_valid << " (" << ratio_cardinality << ")" << std::endl;
 
       column->have_dictionary = true;
 
@@ -276,11 +257,10 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
           }
       }
       std::cerr << std::endl;
-        */
+      */
 
       // Step 1: Set dict buffer size to columndata size
       if(buffer.get() == nullptr) {
-          //column->dictionary = std::make_shared<ColumnDictionary>(this);
           int ret = AllocateResizableBuffer(pool, sz_list, &buffer);
           if(ret == -1) return(-1);
       } else {
@@ -289,7 +269,6 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
       }
 
       if(lengths.get() == nullptr) {
-        //column->dictionary = std::make_shared<ColumnDictionary>(this);
         int ret = AllocateResizableBuffer(pool, list.size()*sizeof(uint32_t), &lengths);
         if(ret == -1) return(-1);
     } else {
@@ -317,16 +296,12 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
               dict[dict_offset] = list[i][k];
           }
          //std::cerr << std::endl;
-
-          //memcpy(&dict[dict_offset], &list[i][0], list[i].size()*sizeof(T));
-          //dict_offset += list[i].size()*sizeof(T);
       }
       //std::cerr << "done insert" << std::endl;
 
       //for(int i = 0; i < n_records; ++i)
       //    std::cerr << ", " << (int)dict[i];
       //std::cerr << std::endl;
-
 
       int64_t dict_o = 0;
       for(int i = 0; i < n_records; ++i) {
@@ -342,7 +317,7 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
 
       uint32_t* d = new uint32_t[n_s];
 
-      uint64_t hash = 0;
+      //uint64_t hash = 0;
     for(uint32_t i = 0; i < n_s; ++i) {
         // If value is not in the map we add it to the hash-map and
         // the list of values.
@@ -352,15 +327,9 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
             d[i] = 0;
             continue;
         }
+        std::vector<T> vec(&in[s[i]], &in[s[i+1]]);
 
-        const int64_t l = s[i + 1] - s[i];
-        //if(l < 0) exit(1);
-        //die += (l < 0);
-        //std::cerr << i << "/" << n_s << " with " << s[i] << "->" << s[i+1] << " length is = " << l << " go from " << s[i] << "->" << s[i]+l << std::endl;
-        //memcpy(local_buffer, &in[s[i]], l);
-        hash = XXH64(&in[s[i]], l, 123718);
-
-        d[i] = map[hash];
+        d[i] = map[vec];
     }
 
     int64_t n_in = column->uncompressed_size;
