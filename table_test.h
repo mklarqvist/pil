@@ -762,7 +762,6 @@ TEST(TableInsertion, MixedSchemasPartialOverlapThreeway) {
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
 
-/*
 TEST(TableInsertion, MixedSchemasExtreme) {
     TableConstructor table;
     RecordBuilder rbuild;
@@ -791,7 +790,6 @@ TEST(TableInsertion, MixedSchemasExtreme) {
 
     ASSERT_EQ(1, table.FinalizeBatch(0));
 }
-*/
 
 }
 

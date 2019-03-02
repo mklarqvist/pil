@@ -14,6 +14,13 @@ struct TransformMetaTuple {
     TransformMetaTuple() : ptype(PIL_TYPE_UNKNOWN), n_data(0), data(nullptr){}
     ~TransformMetaTuple(){ delete[] data; }
 
+    int Serialize(std::ostream& stream) {
+        stream.write(reinterpret_cast<char*>(&ptype),  sizeof(PIL_PRIMITIVE_TYPE));
+        stream.write(reinterpret_cast<char*>(&n_data), sizeof(int32_t));
+        if(n_data) stream.write(reinterpret_cast<char*>(data), n_data);
+        return(1);
+    }
+
     PIL_PRIMITIVE_TYPE ptype; // ptype of the following data
     int32_t n_data; // number of primitives of ptype in data
     uint8_t* data;
@@ -24,6 +31,19 @@ struct TransformMeta {
     TransformMeta(PIL_COMPRESSION_TYPE p) : ctype(p), u_sz(0), c_sz(0), n_tuples(0){}
     TransformMeta(PIL_COMPRESSION_TYPE p, int64_t un_sz) : ctype(p), u_sz(un_sz), c_sz(0), n_tuples(0){}
     TransformMeta(PIL_COMPRESSION_TYPE p, int64_t un_sz, int64_t co_sz) : ctype(p), u_sz(un_sz), c_sz(co_sz), n_tuples(0){}
+
+    int Serialize(std::ostream& stream) {
+        stream.write(reinterpret_cast<char*>(&ctype), sizeof(PIL_COMPRESSION_TYPE));
+        stream.write(reinterpret_cast<char*>(&u_sz),  sizeof(int64_t));
+        stream.write(reinterpret_cast<char*>(&c_sz),  sizeof(int64_t));
+        n_tuples = tuples.size();
+        stream.write(reinterpret_cast<char*>(&n_tuples), sizeof(int64_t));
+        for(int i = 0; i < n_tuples; ++i) tuples[i]->Serialize(stream);
+        return(1);
+    }
+
+    // Todo:
+    // int Append()
 
     PIL_COMPRESSION_TYPE ctype;
     int64_t u_sz, c_sz; // uncompressed/compressed size of the referred columnstore

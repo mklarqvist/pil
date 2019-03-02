@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
 
     pil::TableConstructor table;
     pil::RecordBuilder rbuild;
+    uint64_t file_size = 0;
 
     // Set to 1 for FASTQ test
     if(0) {
@@ -67,7 +68,7 @@ int main(int argc, char **argv) {
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
         }
-        uint64_t file_size = ss.tellg();
+        file_size = ss.tellg();
         ss.seekg(0);
 
         //table.single_archive = true;
@@ -209,10 +210,10 @@ int main(int argc, char **argv) {
     if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
-        ss.open("/Users/Mivagallery/Downloads/NA12877_S1_10m.sam", std::ios::ate | std::ios::in);
+        //ss.open("/Users/Mivagallery/Downloads/NA12877_S1_10m.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
-        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
 
@@ -221,13 +222,13 @@ int main(int argc, char **argv) {
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
         }
-        uint64_t file_size = ss.tellg();
+        file_size = ss.tellg();
         ss.seekg(0);
 
         //table.single_archive = true;
         //table.batch_size = 65536;
-        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
-        table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
 
         if(table.out_stream.good() == false) {
@@ -431,7 +432,7 @@ int main(int argc, char **argv) {
             std::cerr << "not good: " << ss.badbit << std::endl;
             return 1;
         }
-        uint64_t file_size = ss.tellg();
+        file_size = ss.tellg();
         ss.seekg(0);
 
         //table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
@@ -547,75 +548,7 @@ int main(int argc, char **argv) {
         table.Describe(std::cerr);
     }
 
-    // Set to 1 for general debug
-    if(0){
-        std::vector<float> vecvals2 = {1};
-        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-        table.Append(rbuild);
-
-        vecvals2 = {1,2};
-        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-        table.Append(rbuild);
-
-        vecvals2 = {1,2,3};
-        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-        table.Append(rbuild);
-
-        vecvals2 = {1,2};
-        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-        table.Append(rbuild);
-
-        vecvals2 = {1};
-        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-        table.Append(rbuild);
-
-        std::vector<uint32_t> vecvals3 = {1};
-        rbuild.Add<uint32_t>("FIELD2", pil::PIL_TYPE_UINT32, vecvals3);
-        table.Append(rbuild);
-
-        vecvals2 = {1};
-        rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-        table.Append(rbuild);
-
-        std::vector<uint32_t> vecvals4 = {1};
-        rbuild.Add<uint32_t>("FIELD3", pil::PIL_TYPE_UINT32, vecvals4);
-        table.Append(rbuild);
-
-        std::vector<uint32_t> vecvals2504;
-        for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
-        rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
-        table.Append(rbuild);
-
-        for(int j = 0; j < 10000; ++j) {
-            vecvals2504.clear();
-            vecvals2 = {1,2};
-            rbuild.Add<float>("FIELD1", pil::PIL_TYPE_FLOAT, vecvals2);
-            for(int i = 0; i < 5008; ++i) vecvals2504.push_back(i);
-            rbuild.Add<uint32_t>("FIELD21", pil::PIL_TYPE_UINT32, vecvals2504);
-            table.Append(rbuild);
-        }
-
-        std::cerr << "cset n=" << table.build_csets.size() << std::endl;
-        for(int i = 0; i < table.build_csets.size(); ++i){
-            std::cerr << i << ": " << table.build_csets[i]->columns.size() << " cols. first n= " << table.build_csets[i]->columns.front()->n_records << std::endl;
-        }
-
-        std::cerr << "stacks:" << std::endl;
-        for(int i = 0; i < table.build_csets.size(); ++i){
-            std::cerr << table.build_csets[i]->size() << "->" << table.build_csets[i]->GetMemoryUsage() << std::endl;
-        }
-
-
-        /*
-        uint32_t* vals = reinterpret_cast<uint32_t*>(table.record_batch->patterns.columns[0]->buffer->mutable_data());
-        for(int j = 0; j < table.record_batch->n_rec; ++j){
-            std::cerr << vals[j] << ",";
-        }
-        std::cerr << std::endl;
-        */
-    }
-
-    std::cerr << "memory in: " << table.c_in << " memory out: " << table.c_out << " -> " << (float)table.c_in / table.c_out << std::endl;
+    std::cerr << "memory in: " << table.c_in << "(actual=" << file_size << ")" << " memory out: " << table.c_out << " -> " << (float)table.c_in / table.c_out << std::endl;
 
     return(0);
 }

@@ -14,6 +14,8 @@
 #include "transform/transform_meta.h"
 #include "column_dictionary.h"
 
+#include <bitset>
+
 namespace pil {
 
 // ColumnStore can store ANY primitive type: e.g. CHROM, POS
@@ -39,10 +41,7 @@ public:
         return(ret);
     }
 
-    // Pointer to data.
-    //std::shared_ptr<ResizableBuffer> data() { return buffer; }
     uint8_t* mutable_data() { return buffer.mutable_data(); }
-    //std::shared_ptr<ResizableBuffer> transforms() { return transformation_args; }
 
     // PrettyPrint representation of array suitable for debugging.
     std::string ToString() const;
@@ -60,14 +59,14 @@ public:
 public:
     bool have_dictionary;
     uint32_t n_records, n_elements, n_null;
-    uint32_t uncompressed_size, compressed_size; // number of elements -> check validity such that n*sizeof(primitive_type)==buffer.size()
+    uint32_t uncompressed_size, compressed_size;
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
 
     // Any memory is owned by the respective Buffer instance (or its parents).
     MemoryPool* pool_;
     BufferBuilder buffer;
-    std::shared_ptr<ResizableBuffer> nullity; // NULLity vector Todo: make into structure
-    std::shared_ptr<ColumnDictionary> dictionary; // Dictionary used for predicate pushdown Todo: make into structure
+    std::shared_ptr<ResizableBuffer> nullity; // NULLity vector
+    std::shared_ptr<ColumnDictionary> dictionary; // Dictionary used for predicate pushdown
     std::vector< std::shared_ptr<TransformMeta> > transformation_args; // Every transform MUST store a value.
 };
 
@@ -80,8 +79,9 @@ public:
      * Set the validity of the current object in the Nullity/Validity bitmap.
      * This function MUST be called BEFORE the appending data to make sure that
      * the correct position is set.
-     * @param yes Logical flag set to TRUE if the data is VALID or FALSE otherwise.
-     * @return
+     * @param yes    Logical flag set to TRUE if the data is VALID or FALSE otherwise.
+     * @param adjust Adjust the record count downward by this value.
+     * @return       Return 1.
      */
     int AppendValidity(const bool yes, const int32_t adjust = 0) {
         if(nullity.get() == nullptr) {
@@ -92,10 +92,9 @@ public:
         }
 
         if(n_records == m_nullity) {
-            assert(nullity->Reserve(n_records*(uint32_t) + 16384*sizeof(uint32_t)) == 1);
-            m_nullity = n_records*32 + 16384 * 32;
-            std::cerr << "TODO" << std::endl;
-            exit(1);
+            assert(nullity->Resize(m_nullity + 16384*sizeof(uint32_t)) == 1);
+            nullity->ZeroPadding();
+            m_nullity += 16384 * 32;
         }
 
         n_null += (yes == false);
@@ -119,11 +118,27 @@ public:
         return(1);
     }
 
+    int Append(const std::vector<T>& values) {
+        buffer.Append(reinterpret_cast<const uint8_t*>(&values[0]), sizeof(T)*values.size());
+        n_records += values.size();
+        n_elements += values.size();
+        uncompressed_size += values.size() * sizeof(T);
+        return(1);
+    }
+
     int AppendArray(const T* value, uint32_t n_values) {
         buffer.Append(reinterpret_cast<const uint8_t*>(value), sizeof(T)*n_values);
         ++n_records;
         n_elements += n_values;
         uncompressed_size += n_values * sizeof(T);
+        return(1);
+    }
+
+    int AppendArray(const std::vector<T>& values) {
+        buffer.Append(reinterpret_cast<const uint8_t*>(&values[0]), sizeof(T)*values.size());
+        ++n_records;
+        n_elements += values.size();
+        uncompressed_size += values.size() * sizeof(T);
         return(1);
     }
 
@@ -288,9 +303,6 @@ public:
 
         return(lengths);
     }
-
-public:
-
 };
 
 template <class T>
