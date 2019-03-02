@@ -291,8 +291,9 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
       size_t dict_offset = 0;
       for(int i = 0; i < list.size(); ++i) {
           ls[i] = list[i].size();
+          //std::cerr << "len=" << list[i].size() << std::endl;
           for(int k = 0; k < list[i].size(); ++k, ++dict_offset) {
-             //std::cerr << "," << list[i][k];
+              //std::cerr << "," << list[i][k];
               dict[dict_offset] = list[i][k];
           }
          //std::cerr << std::endl;

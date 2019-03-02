@@ -113,6 +113,14 @@ public:
 
     int Append(const T* value, uint32_t n_values) {
         buffer.Append(reinterpret_cast<const uint8_t*>(value), sizeof(T)*n_values);
+        n_records += n_values;
+        n_elements += n_values;
+        uncompressed_size += n_values * sizeof(T);
+        return(1);
+    }
+
+    int AppendArray(const T* value, uint32_t n_values) {
+        buffer.Append(reinterpret_cast<const uint8_t*>(value), sizeof(T)*n_values);
         ++n_records;
         n_elements += n_values;
         uncompressed_size += n_values * sizeof(T);
@@ -347,7 +355,7 @@ public:
             assert(ret == 1);
         }
 
-        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(values.data(), values.size());
+        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->AppendArray(values.data(), values.size());
         assert(ret == 1);
 
         return(1);
@@ -377,7 +385,7 @@ public:
         }
 
         assert(n_values > 0);
-        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->Append(value, n_values);
+        int ret = std::static_pointer_cast< ColumnStoreBuilder<T> >(columns[1])->AppendArray(value, n_values);
         assert(ret == 1);
 
         return(1);

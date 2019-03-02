@@ -30,23 +30,47 @@ public:
         if(sz_u % sizeof(T) != 0) {
            std::cerr << sz_u << "%" << sizeof(T) << "=" << (sz_u%sizeof(T)) << std::endl;
            return(-2);
-       }
+        }
 
         if(p >= n_records) return(-4);
+        if(have_lengths) return(-5);
 
-       if(have_lengths) {
-           return(-5);
-       }
-
-       // retrieve data at pos p
-       const T* data = reinterpret_cast<T*>(buffer->mutable_data());
-       dst = data[p];
-       return(1);
+        // retrieve data at pos p
+        const T* data = reinterpret_cast<T*>(buffer->mutable_data());
+        dst = data[p];
+        return(1);
     }
 
     template <class T>
-    int Get(const int64_t p, const T* dst, int64_t& dst_len) const {
+    int Get(const int64_t p, const T*& dst, int64_t& dst_len) const {
+        if(buffer.get() == nullptr) return(-1);
+        if(sz_u % sizeof(T) != 0) {
+           std::cerr << sz_u << "%" << sizeof(T) << "=" << (sz_u%sizeof(T)) << std::endl;
+           return(-2);
+        }
 
+        if(p >= n_records) return(-4);
+        if(have_lengths == false) return(-5);
+
+        const uint32_t* l = reinterpret_cast<const uint32_t*>(lengths->mutable_data());
+        if(p > sz_lu / sizeof(uint32_t)) {
+            return(-4);
+        }
+
+        // retrieve data at pos p
+        const T* data = reinterpret_cast<const T*>(buffer->mutable_data());
+        // todo: data is delta OR cum
+        uint64_t cumpos = 0;
+        for(int i = 0; i < p; ++i) {
+            //std::cerr << "add " << l[i] << std::endl;
+            cumpos += l[i];
+        }
+
+        dst = &data[cumpos];
+        //std::cerr << "cumpos=" << cumpos << " l=" << l[p] << std::endl;
+        dst_len = l[p];
+
+        return(1);
     }
 
     //int64_t Find(const int64_t p) const;
@@ -83,7 +107,7 @@ public:
             std::cerr << sz_u << "%" << sizeof(T) << "=" << (sz_u%sizeof(T)) << std::endl;
             return(-2);
         }
-        if(have_lengths == false) return(-3);
+        if(have_lengths == false || lengths.get() == nullptr) return(-3);
 
         const T* data = reinterpret_cast<T*>(buffer->mutable_data());
         const uint32_t* l = reinterpret_cast<uint32_t*>(lengths->mutable_data());
@@ -125,7 +149,5 @@ protected:
 };
 
 }
-
-
 
 #endif /* COLUMN_DICTIONARY_H_ */

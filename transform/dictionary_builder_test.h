@@ -543,6 +543,33 @@ TEST(DictionaryBuilderTests, FindSingleDoubleTensorExactLargeNone) {
     ASSERT_EQ(0, dict.Contains<double>(&vals[0], vals.size()));
 }
 
+TEST(DictionaryBuilderTests, GetUIntTensorArray) {
+    std::shared_ptr< ColumnSetBuilderTensor<uint32_t> > cbuild = std::make_shared< ColumnSetBuilderTensor<uint32_t> >();
+
+    std::vector<uint32_t> vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {12,14,16};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {21,49};
+    cbuild->Append(vals.data(), vals.size());
+    vals = {10,12,14,21};
+    cbuild->Append(vals.data(), vals.size());
+
+    NumericDictionaryBuilder<uint32_t> dict;
+    ASSERT_EQ(1, dict.Encode(cbuild->columns[1], cbuild->columns[0], true));
+    ASSERT_EQ(3, dict.NumberRecords());
+    ASSERT_EQ(9, dict.NumberElements());
+    vals = {1451,12,15,1,7,85,21,12};
+    ASSERT_EQ(0, dict.Contains<uint32_t>(&vals[0], vals.size()));
+
+    const uint32_t* ret = nullptr;
+    int64_t l = 0;
+    ASSERT_EQ(1, dict.Get(1, ret, l)); // second position
+    ASSERT_EQ(3, l);
+    vals = {12,14,16};
+    ASSERT_EQ(0, memcmp(ret, &vals[0], sizeof(uint32_t)*vals.size()));
+}
+
 }
 
 
