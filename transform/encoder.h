@@ -37,6 +37,14 @@ public:
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
 };
 
+class DeltaEncoder : public Encoder {
+public:
+    int Encode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int UnsafeEncode(std::shared_ptr<ColumnStore> cstore);
+    int PrefixSum(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int UnsafePrefixSum(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+};
+
 class BaseBitEncoder : public Encoder {
 public:
     int Encode(const uint8_t* in, const uint32_t n_in) {

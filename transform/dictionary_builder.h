@@ -141,7 +141,6 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, con
        ++n_valid;
    }
 
-
    const double ratio_cardinality = (double)list.size() / n_valid;
 
    if(ratio_cardinality < 0.2 || force) { // 20% or less and we store a dictionary for the data

@@ -22,7 +22,7 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
         return(AutoTransform(cset, field));
 
     // Todo: fix with wrapper
-    ColumnDictionary dict;
+    ColumnDictionary dict(buffer);
 
     // Apply transformations
     int ret = -1;
@@ -34,9 +34,7 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
         case(PIL_COMPRESS_RC_QUAL): ret = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_BASES): ret = static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_ILLUMINA_NAME): break;
-        case(PIL_ENCODE_DICT):
-                ret = static_cast<DictionaryBuilder*>(&dict)->Encode(cset, field);
-                break;
+        case(PIL_ENCODE_DICT): ret = static_cast<DictionaryBuilder*>(&dict)->Encode(cset, field); break;
         case(PIL_ENCODE_DELTA): ret = DeltaEncode(cset, field); break;
         case(PIL_ENCODE_DELTA_DELTA): break;
         case(PIL_ENCODE_BASES_2BIT): break;

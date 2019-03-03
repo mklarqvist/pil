@@ -22,6 +22,20 @@ public:
         sz_c(0), sz_lu(0), sz_lc(0), pool(mpool)
     {}
 
+    // External buffer but not lengths
+    ColumnDictionary(std::shared_ptr<ResizableBuffer> ext_buffer, MemoryPool* mpool = default_memory_pool()) :
+        have_lengths(false), n_records(0), n_elements(0), sz_u(0),
+        sz_c(0), sz_lu(0), sz_lc(0), pool(mpool),
+        buffer(ext_buffer)
+    {}
+
+    // Two external buffers
+    ColumnDictionary(std::shared_ptr<ResizableBuffer> ext_buffer, std::shared_ptr<ResizableBuffer> ext_buffer2, MemoryPool* mpool = default_memory_pool()) :
+        have_lengths(false), n_records(0), n_elements(0), sz_u(0),
+        sz_c(0), sz_lu(0), sz_lc(0), pool(mpool),
+        buffer(ext_buffer), lengths(ext_buffer2)
+    {}
+
     virtual ~ColumnDictionary(){}
 
     template <class T>
