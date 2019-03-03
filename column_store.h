@@ -199,7 +199,7 @@ public:
 class ColumnSet {
 public:
     explicit ColumnSet(MemoryPool* pool = default_memory_pool()) :
-        n(0), m(0)
+        n(0)
     {
     }
 
@@ -214,14 +214,26 @@ public:
     }
 
     void clear() {
-        n = 0, m = 0;
+        n = 0;
         memset(md5_checksum, 0, 16);
         columns.clear();
     }
 
+    int Append(std::shared_ptr<ColumnStore> cstore) {
+        columns.push_back(cstore);
+        ++n;
+        return(1);
+    }
+
+    template <class T>
+    int Append(std::shared_ptr< ColumnStoreBuilder<T> > builder) {
+        Append( std::static_pointer_cast<ColumnStore>(builder) );
+        return(1);
+    }
+
 public:
-    uint32_t n, m;
-    uint8_t md5_checksum[16]; // checksum of the checksum vector -> md5(&checksums, n); this check is to guarantee there is no accidental reordering of the set
+    uint32_t n;
+    uint8_t md5_checksum[16]; // checksum of the checksum vector -> md5(&checksums, n); this check is to guarantee there is no reordering of the set
     std::vector< std::shared_ptr<ColumnStore> > columns;
 };
 
