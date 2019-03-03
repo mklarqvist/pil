@@ -4,7 +4,7 @@
 #include "../pil.h"
 #include "../buffer.h"
 #include "../column_store.h"
-#include "../table_dict.h"
+#include "../table_schemas.h"
 
 namespace pil {
 

@@ -8,9 +8,9 @@
 
 #include "column_store.h"
 #include "table_meta.h"
-#include "table_dict.h"
 #include "memory_pool.h"
 #include "record_builder.h"
+#include "table_schemas.h"
 #include "transform/transformer.h"
 
 namespace pil {

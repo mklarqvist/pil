@@ -1,5 +1,5 @@
-#ifndef TABLE_DICT_H_
-#define TABLE_DICT_H_
+#ifndef TABLE_SCHEMAS_H_
+#define TABLE_SCHEMAS_H_
 
 #include <cstdlib>
 #include <vector>
@@ -142,4 +142,4 @@ struct SchemaDictionary {
 
 
 
-#endif /* TABLE_DICT_H_ */
+#endif /* TABLE_SCHEMAS_H_ */
