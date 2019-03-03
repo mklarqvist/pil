@@ -174,7 +174,7 @@ TEST(ZstdTests, CompressDecompressColumnRandomSafeIncorrectTyping) {
     ASSERT_EQ(-1, zstd2.Decompress(cstore, cstore->transformation_args.back(), true));
 }
 
-TEST(DeltaTests, EncodeDecode) {
+TEST(DeltaTests, EncodeDecodeColumn) {
     DeltaEncoder transformer;
 
     DictionaryFieldType field;
@@ -199,6 +199,97 @@ TEST(DeltaTests, EncodeDecode) {
     uint8_t md5[16]; memset(md5, 0, 16);
     Digest::GenerateMd5(cset->columns[0]->mutable_data(), cset->columns[0]->buffer.length(), md5);
     ASSERT_EQ(0, memcmp(cset->columns[0]->md5_checksum, md5, 16));
+}
+
+TEST(DeltaTests, EncodeDecodeColumnSetTensor) {
+    DeltaEncoder transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilderTensor<uint32_t> > builder = std::static_pointer_cast< ColumnSetBuilderTensor<uint32_t> >(cset);
+
+    std::vector<uint32_t> x = {1, 2, 3, 4, 5};
+    for(int i = 0; i < 10000; ++i){
+        builder->Append(x);
+    }
+    ASSERT_EQ(2, cset->size());
+    ASSERT_EQ(10001, cset->columns[0]->size());
+    ASSERT_EQ(10000 * x.size(), cset->columns[1]->n_elements);
+
+    cset->columns[0]->ComputeChecksum();
+    cset->columns[1]->ComputeChecksum();
+    ASSERT_EQ(1, transformer.Encode(cset, field));
+
+    // Make sure the MD5 checksum is not the same
+    ASSERT_NE(0, memcmp(cset->columns[0]->md5_checksum, cset->columns[0]->transformation_args.back()->md5_checksum, 16));
+
+    ASSERT_EQ(1, transformer.PrefixSum(cset, field));
+    uint8_t md5[16]; memset(md5, 0, 16);
+    Digest::GenerateMd5(cset->columns[0]->mutable_data(), cset->columns[0]->buffer.length(), md5);
+    ASSERT_EQ(0, memcmp(cset->columns[0]->md5_checksum, md5, 16));
+}
+
+TEST(DeltaTests, EncodeDecodeColumnSetColumnSplit) {
+    DeltaEncoder transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_COLUMN;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilder<uint32_t> > builder = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(cset);
+
+    std::vector<uint32_t> x = {1, 2, 3, 4, 5};
+    for(int i = 0; i < 10000; ++i){
+        builder->Append(x);
+    }
+    ASSERT_EQ(x.size(), cset->size());
+    for(int i = 0; i < x.size(); ++i) {
+        ASSERT_EQ(10000, cset->columns[i]->size());
+        cset->columns[i]->ComputeChecksum();
+    }
+
+    // Encode the set
+    ASSERT_EQ(1, transformer.Encode(cset, field));
+
+    // Make sure the MD5 checksum is not the same
+    for(int i = 0; i < x.size(); ++i) {
+        ASSERT_NE(0, memcmp(cset->columns[i]->md5_checksum, cset->columns[i]->transformation_args.back()->md5_checksum, 16));
+    }
+
+    ASSERT_EQ(1, transformer.PrefixSum(cset, field));
+    uint8_t md5[16]; memset(md5, 0, 16);
+    for(int i = 0; i < x.size(); ++i) {
+        Digest::GenerateMd5(cset->columns[i]->mutable_data(), cset->columns[i]->buffer.length(), md5);
+        ASSERT_EQ(0, memcmp(cset->columns[i]->md5_checksum, md5, 16));
+    }
+}
+
+TEST(DeltaTests, EncodeDecodeColumnSetColumnSplitFail) {
+    DeltaEncoder transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR; // set to incorrect storage type
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilder<uint32_t> > builder = std::static_pointer_cast< ColumnSetBuilder<uint32_t> >(cset);
+
+    std::vector<uint32_t> x = {1, 2, 3, 4, 5};
+    for(int i = 0; i < 10000; ++i){
+        builder->Append(x);
+    }
+    ASSERT_EQ(x.size(), cset->size());
+    for(int i = 0; i < x.size(); ++i) {
+        ASSERT_EQ(10000, cset->columns[i]->size());
+        cset->columns[i]->ComputeChecksum();
+    }
+
+    // Attempt to encode the set and fail
+    ASSERT_EQ(-4, transformer.Encode(cset, field));
 }
 
 }
