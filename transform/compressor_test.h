@@ -173,6 +173,29 @@ TEST(ZstdTests, CompressDecompressColumnRandomSafeIncorrectTyping) {
     ASSERT_EQ(-1, zstd2.Decompress(cstore, cstore->transformation_args.back(), true));
 }
 
+TEST(DeltaTests, EncodeDecode) {
+    Transformer transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_COLUMN;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnStore > cstore = std::make_shared<ColumnStore>();
+    std::shared_ptr<ColumnStoreBuilder<uint32_t> > builder = std::static_pointer_cast< ColumnStoreBuilder<uint32_t> >(cstore);
+    for(int i = 0; i < 10000; ++i) builder->Append(101*(i+1));
+    ASSERT_EQ(10000, cstore->size());
+    std::shared_ptr<ColumnSet> cset = std::make_shared<ColumnSet>();
+    ASSERT_EQ(1, cset->Append(builder));
+
+    cstore->ComputeChecksum();
+    ASSERT_EQ(1, transformer.DeltaEncode(cset, field));
+    ASSERT_EQ(1, cstore->transformation_args.size());
+
+    // Make sure the MD5 checksum is not the same
+    ASSERT_NE(0, memcmp(cset->columns[0]->md5_checksum, cstore->transformation_args.back()->md5_checksum, 16));
+
+}
+
 }
 
 

@@ -77,11 +77,13 @@ public:
     int AutoTransformColumns(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int AutoTransformColumn(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
     int AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+
     int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
     int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field);
+
     int DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
-    int DeltaEncode(std::shared_ptr<ColumnStore> cstore);
+    int UnsafeDeltaEncode(std::shared_ptr<ColumnStore> cstore);
 
 protected:
     // Any memory is owned by the respective Buffer instance (or its parents).

@@ -118,7 +118,7 @@ int QualityCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE
     } else if(cstore == PIL_CSTORE_TENSOR) {
         if(cset->size() != 2) return(-3);
         if(cset->columns[0].get() == nullptr || cset->columns[1].get() == nullptr) return(-2);
-        DeltaEncode(cset->columns[0]);
+        UnsafeDeltaEncode(cset->columns[0]);
 
         // Compress QUALs from Column 1 with the SEQ lengths from Column 0
         int64_t n_in = cset->columns[1]->buffer.length();
@@ -280,7 +280,7 @@ int SequenceCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYP
         if(cset->size() != 2) return(-3);
         if(cset->columns[0].get() == nullptr || cset->columns[1].get() == nullptr) return(-2);
 
-        DeltaEncode(cset->columns[0]);
+        UnsafeDeltaEncode(cset->columns[0]);
 
         int64_t n_in = cset->columns[0]->buffer.length();
         int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
