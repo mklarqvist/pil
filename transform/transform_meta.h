@@ -56,7 +56,7 @@ struct TransformMeta {
 
     PIL_COMPRESSION_TYPE ctype;
     int64_t u_sz, c_sz; // uncompressed/compressed size of the referred columnstore
-    uint8_t md5_checksum[16]; // checksum for buffer
+    uint8_t md5_checksum[16]; // checksum for **COMPRESSED** data
     int64_t n_tuples; // for serialization only
     std::vector< std::unique_ptr<TransformMetaTuple> > tuples;
 };

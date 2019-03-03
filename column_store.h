@@ -31,6 +31,7 @@ public:
         m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
     {
+        memset(md5_checksum, 0, 16);
     }
 
     uint32_t size() const { return n_records; }
@@ -42,6 +43,8 @@ public:
     }
 
     uint8_t* mutable_data() { return buffer.mutable_data(); }
+
+    void ComputeChecksum() { Digest::GenerateMd5(mutable_data(), uncompressed_size, md5_checksum); }
 
     // PrettyPrint representation of array suitable for debugging.
     std::string ToString() const {
@@ -110,6 +113,7 @@ public:
     std::shared_ptr<ResizableBuffer> nullity; // NULLity vector
     std::shared_ptr<ColumnDictionary> dictionary; // Dictionary used for predicate pushdown
     std::vector< std::shared_ptr<TransformMeta> > transformation_args; // Every transform MUST store a value.
+    uint8_t md5_checksum[16]; // **uncompressed** checksum
 };
 
 template <class T>

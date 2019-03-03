@@ -60,7 +60,7 @@ int ZstdCompressor::Compress(const uint8_t* src, const uint32_t n_src, const int
 }
 
 
-int ZstdCompressor::Decompress(std::shared_ptr<ColumnStore> cstore, const bool back_copy) {
+int ZstdCompressor::UnsafeDecompress(std::shared_ptr<ColumnStore> cstore, const bool back_copy) {
 	const size_t ret = ZSTD_decompress(
 							   buffer->mutable_data(),
 							   buffer->capacity(),
@@ -77,6 +77,20 @@ int ZstdCompressor::Decompress(std::shared_ptr<ColumnStore> cstore, const bool b
 	    cstore->uncompressed_size = ret;
 	}
 	return(ret);
+}
+
+int ZstdCompressor::Decompress(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<TransformMeta> meta, const bool back_copy) {
+    if(meta->ctype != PIL_COMPRESS_ZSTD) return(-1);
+
+    if(buffer.get() == nullptr) {
+        assert(AllocateResizableBuffer(pool_, meta->u_sz + 16384, &buffer) == 1);
+    }
+
+    if(buffer->capacity() < meta->u_sz + 8196) {
+        buffer->Reserve(meta->u_sz + 8196);
+    }
+
+    return(UnsafeDecompress(cstore, back_copy));
 }
 
 

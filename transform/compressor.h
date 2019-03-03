@@ -35,12 +35,22 @@ public:
     int Compress(const uint8_t* src, const uint32_t n_src, const int compression_level = 1);
     /**<
      * Decompression requires that `compressed_size` is properly set to the
-     * correct value.
+     * correct value. Unsafe method as we do not know the uncompressed size
+     * or the correctness of decompressor.
      * @param cstore
      * @param back_copy
      * @return
      */
-    int Decompress(std::shared_ptr<ColumnStore> cstore, const bool back_copy = true);
+    int UnsafeDecompress(std::shared_ptr<ColumnStore> cstore, const bool back_copy = true);
+
+    /**<
+     * Safe decompression of the target ColumnStore.
+     * @param cstore
+     * @param meta
+     * @param back_copy
+     * @return
+     */
+    int Decompress(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<TransformMeta> meta, const bool back_copy = true);
 };
 
 

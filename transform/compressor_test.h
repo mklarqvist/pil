@@ -23,7 +23,7 @@ namespace pil {
 
 using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, CHAR_BIT, unsigned char>;
 
-TEST(ZstdTests, CompressRandom) {
+TEST(ZstdTests, CompressColumnRandom) {
     ZstdCompressor zstd;
 
     std::shared_ptr<ColumnStore > cstore = std::make_shared<ColumnStore>();
@@ -42,9 +42,14 @@ TEST(ZstdTests, CompressRandom) {
     field.ptype  = PIL_TYPE_UINT8;
 
     ASSERT_GT(zstd.Compress(cset, field), 0);
+    ASSERT_EQ(1, cstore->transformation_args.size());
+
+    // Make sure the MD5 checksum is not 0
+    uint8_t bad_md5[16]; memset(bad_md5, 0, 16);
+    ASSERT_NE(0, memcmp(cset->columns[0]->mutable_data(), bad_md5, 16));
 }
 
-TEST(ZstdTests, CompressUniformSingle) {
+TEST(ZstdTests, CompressColumnUniformSingle) {
     ZstdCompressor zstd;
 
     std::shared_ptr<ColumnStore > cstore = std::make_shared<ColumnStore>();
@@ -61,6 +66,111 @@ TEST(ZstdTests, CompressUniformSingle) {
     field.ptype  = PIL_TYPE_UINT8;
 
     ASSERT_GT(zstd.Compress(cset, field), 0);
+    ASSERT_EQ(1, cstore->transformation_args.size());
+
+    // Make sure the MD5 checksum is not 0
+    uint8_t bad_md5[16]; memset(bad_md5, 0, 16);
+    ASSERT_NE(0, memcmp(cset->columns[0]->mutable_data(), bad_md5, 16));
+}
+
+TEST(ZstdTests, CompressDecompressColumnRandomUnsafe) {
+    ZstdCompressor zstd;
+
+    std::shared_ptr<ColumnStore > cstore = std::make_shared<ColumnStore>();
+    std::shared_ptr<ColumnStoreBuilder<uint8_t> > builder = std::static_pointer_cast< ColumnStoreBuilder<uint8_t> >(cstore);
+    random_bytes_engine rbe;
+    std::vector<uint8_t> data(10000);
+    std::generate(begin(data), end(data), std::ref(rbe));
+    ASSERT_EQ(1, builder->Append(data));
+    ASSERT_EQ(data.size(), cstore->size());
+
+    std::shared_ptr<ColumnSet> cset = std::make_shared<ColumnSet>();
+    ASSERT_EQ(1, cset->Append(builder));
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_COLUMN;
+    field.ptype  = PIL_TYPE_UINT8;
+
+    cstore->ComputeChecksum();
+    ASSERT_GT(zstd.Compress(cset, field), 0);
+    ASSERT_EQ(1, cstore->transformation_args.size());
+
+    // Make sure the MD5 checksum is not 0
+    uint8_t md5[16]; memset(md5, 0, 16);
+    ASSERT_NE(0, memcmp(cset->columns[0]->mutable_data(), md5, 16));
+
+    ASSERT_GT(zstd.UnsafeDecompress(cstore, true), 0);
+    Digest::GenerateMd5(cstore->mutable_data(), cstore->uncompressed_size, md5);
+    ASSERT_EQ(0, memcmp(md5, cstore->md5_checksum, 16));
+}
+
+TEST(ZstdTests, CompressDecompressColumnRandomSafe) {
+    ZstdCompressor zstd;
+
+    std::shared_ptr<ColumnStore > cstore = std::make_shared<ColumnStore>();
+    std::shared_ptr<ColumnStoreBuilder<uint8_t> > builder = std::static_pointer_cast< ColumnStoreBuilder<uint8_t> >(cstore);
+    random_bytes_engine rbe;
+    std::vector<uint8_t> data(10000);
+    std::generate(begin(data), end(data), std::ref(rbe));
+    ASSERT_EQ(1, builder->Append(data));
+    ASSERT_EQ(data.size(), cstore->size());
+
+    std::shared_ptr<ColumnSet> cset = std::make_shared<ColumnSet>();
+    ASSERT_EQ(1, cset->Append(builder));
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_COLUMN;
+    field.ptype  = PIL_TYPE_UINT8;
+
+    cstore->ComputeChecksum();
+    ASSERT_GT(zstd.Compress(cset, field), 0);
+    ASSERT_EQ(1, cstore->transformation_args.size());
+
+    // Make sure the MD5 checksum is not 0
+    uint8_t md5[16]; memset(md5, 0, 16);
+    ASSERT_NE(0, memcmp(cset->columns[0]->mutable_data(), md5, 16));
+
+    // Different compressor with empty buffer.
+    ZstdCompressor zstd2;
+
+    ASSERT_GT(zstd2.Decompress(cstore, cstore->transformation_args.back(), true), 0);
+    Digest::GenerateMd5(cstore->mutable_data(), cstore->uncompressed_size, md5);
+    ASSERT_EQ(0, memcmp(md5, cstore->md5_checksum, 16));
+}
+
+TEST(ZstdTests, CompressDecompressColumnRandomSafeIncorrectTyping) {
+    ZstdCompressor zstd;
+
+    std::shared_ptr<ColumnStore > cstore = std::make_shared<ColumnStore>();
+    std::shared_ptr<ColumnStoreBuilder<uint8_t> > builder = std::static_pointer_cast< ColumnStoreBuilder<uint8_t> >(cstore);
+    random_bytes_engine rbe;
+    std::vector<uint8_t> data(10000);
+    std::generate(begin(data), end(data), std::ref(rbe));
+    ASSERT_EQ(1, builder->Append(data));
+    ASSERT_EQ(data.size(), cstore->size());
+
+    std::shared_ptr<ColumnSet> cset = std::make_shared<ColumnSet>();
+    ASSERT_EQ(1, cset->Append(builder));
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_COLUMN;
+    field.ptype  = PIL_TYPE_UINT8;
+
+    cstore->ComputeChecksum();
+    ASSERT_GT(zstd.Compress(cset, field), 0);
+    ASSERT_EQ(1, cstore->transformation_args.size());
+
+    // Make sure the MD5 checksum is not 0
+    uint8_t md5[16]; memset(md5, 0, 16);
+    ASSERT_NE(0, memcmp(cset->columns[0]->mutable_data(), md5, 16));
+
+    // Different compressor with empty buffer.
+    ZstdCompressor zstd2;
+    // Corrupt typing
+    cstore->transformation_args.back()->ctype = PIL_COMPRESS_NONE;
+
+    // Throw error because ctype is not PIL_COMPRESS_ZSTD
+    ASSERT_EQ(-1, zstd2.Decompress(cstore, cstore->transformation_args.back(), true));
 }
 
 }
