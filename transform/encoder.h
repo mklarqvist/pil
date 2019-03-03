@@ -9,6 +9,8 @@
 #include "transformer.h"
 #include "../buffer.h"
 
+#include "fastdelta.h"
+
 namespace pil {
 
 // A: 65, a: 97 -> 0
@@ -42,7 +44,7 @@ public:
     int Encode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int UnsafeEncode(std::shared_ptr<ColumnStore> cstore);
     int PrefixSum(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
-    int UnsafePrefixSum(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
+    int UnsafePrefixSum(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
 };
 
 class BaseBitEncoder : public Encoder {

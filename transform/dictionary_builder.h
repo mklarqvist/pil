@@ -14,10 +14,6 @@ class DictionaryBuilder : public ColumnDictionary {
 public:
    virtual ~DictionaryBuilder(){}
 
-   int Encode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const bool force = false);
-   int Encode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field, const bool force = false);
-   int Encode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field, const bool force = false);
-
    /**<
     * Serialize the Dictionary to a destination output stream.
     * @param stream Destination output stream inheriting from std::ostream.

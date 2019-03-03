@@ -9,6 +9,7 @@
 #include <memory> // static_ptr_cast
 
 #include "compressor.h"
+#include "encoder.h"
 #include <gtest/gtest.h>
 
 namespace pil {
@@ -174,7 +175,7 @@ TEST(ZstdTests, CompressDecompressColumnRandomSafeIncorrectTyping) {
 }
 
 TEST(DeltaTests, EncodeDecode) {
-    Transformer transformer;
+    DeltaEncoder transformer;
 
     DictionaryFieldType field;
     field.cstore = PIL_CSTORE_COLUMN;
@@ -188,12 +189,16 @@ TEST(DeltaTests, EncodeDecode) {
     ASSERT_EQ(1, cset->Append(builder));
 
     cstore->ComputeChecksum();
-    ASSERT_EQ(1, transformer.DeltaEncode(cset, field));
+    ASSERT_EQ(1, transformer.Encode(cset, field));
     ASSERT_EQ(1, cstore->transformation_args.size());
 
     // Make sure the MD5 checksum is not the same
     ASSERT_NE(0, memcmp(cset->columns[0]->md5_checksum, cstore->transformation_args.back()->md5_checksum, 16));
 
+    ASSERT_EQ(1, transformer.UnsafePrefixSum(cstore, field));
+    uint8_t md5[16]; memset(md5, 0, 16);
+    Digest::GenerateMd5(cset->columns[0]->mutable_data(), cset->columns[0]->buffer.length(), md5);
+    ASSERT_EQ(0, memcmp(cset->columns[0]->md5_checksum, md5, 16));
 }
 
 }
