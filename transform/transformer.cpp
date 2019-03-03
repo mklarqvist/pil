@@ -195,6 +195,7 @@ int Transformer::DeltaEncode(std::shared_ptr<ColumnStore> cstore) {
     // todo: tests
     compute_deltas_inplace(reinterpret_cast<uint32_t*>(cstore->mutable_data()), cstore->n_records, 0);
     cstore->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DELTA,cstore->buffer.length(),cstore->buffer.length()));
+    cstore->transformation_args.back()->ComputeChecksum(cstore->buffer.mutable_data(), cstore->buffer.length());
     return(1);
 }
 
@@ -250,6 +251,7 @@ int Transformer::AutoTransformColumn(std::shared_ptr<ColumnStore> cstore, const 
     cstore->buffer.UnsafeSetLength(ret2);
     memcpy(cstore->buffer.mutable_data(), buffer->mutable_data(), ret2);
     cstore->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in, ret2));
+    cstore->transformation_args.back()->ComputeChecksum(cstore->buffer.mutable_data(), ret2);
     ret += ret2;
 
     return(ret);
@@ -309,6 +311,7 @@ int Transformer::AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const Dict
     cset->columns[0]->compressed_size = ret1;
     cset->columns[0]->buffer.UnsafeSetLength(ret1);
     cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD,n_in,ret1));
+    cset->columns[0]->transformation_args.back()->ComputeChecksum(cset->columns[0]->buffer.mutable_data(), ret1);
 
     // Compress the Nullity bitmap
     if(cset->columns[0]->nullity.get() == nullptr) return(-5); // malformed data
@@ -342,6 +345,7 @@ int Transformer::AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const Dict
     cset->columns[1]->compressed_size = ret2;
     cset->columns[1]->buffer.UnsafeSetLength(ret2);
     cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD,n_in1,ret2));
+    cset->columns[1]->transformation_args.back()->ComputeChecksum(cset->columns[1]->buffer.mutable_data(), ret2);
 
     ret += ret1 + ret2 + retNull;
     return(ret);

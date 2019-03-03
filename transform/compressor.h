@@ -56,6 +56,7 @@ public:
                memcpy(tgt->buffer.mutable_data(), buffer->mutable_data(), ret2);
                tgt->buffer.UnsafeSetLength(ret2);
                tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, in_size, ret2));
+               tgt->transformation_args.back()->ComputeChecksum(tgt->buffer.mutable_data(), ret2);
                ret += ret2;
            }
            return(ret);
@@ -130,6 +131,7 @@ public:
                 memcpy(tgt->buffer.mutable_data(), buffer->mutable_data(), ret2);
                 tgt->buffer.UnsafeSetLength(ret2);
                 tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL, n_in, ret2));
+                tgt->transformation_args.back()->ComputeChecksum(tgt->buffer.mutable_data(), ret2);
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
@@ -150,6 +152,8 @@ public:
             cset->columns[1]->compressed_size = ret2;
             cset->columns[1]->buffer.UnsafeSetLength(ret2);
             cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL, n_in, ret2));
+            cset->columns[1]->transformation_args.back()->ComputeChecksum(cset->columns[1]->buffer.mutable_data(), ret2);
+
             ret += ret2;
 
             int64_t n_in0 = cset->columns[0]->buffer.length();
@@ -162,6 +166,7 @@ public:
             cset->columns[0]->compressed_size = ret1;
             cset->columns[0]->buffer.UnsafeSetLength(ret1);
             cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in0, ret1));
+            cset->columns[0]->transformation_args.back()->ComputeChecksum(cset->columns[0]->buffer.mutable_data(), ret1);
 
         } else {
             //std::cerr << "unknown cstore type" << std::endl;
@@ -288,6 +293,7 @@ public:
                 memcpy(tgt->buffer.mutable_data(), buffer->mutable_data(), ret2);
                 tgt->buffer.UnsafeSetLength(ret2);
                 tgt->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_BASES, n_in, ret2));
+                tgt->transformation_args.back()->ComputeChecksum(tgt->buffer.mutable_data(), ret2);
                 ret += ret2;
             }
         } else if(cstore == PIL_CSTORE_TENSOR) {
@@ -306,6 +312,7 @@ public:
             cset->columns[1]->buffer.UnsafeSetLength(ret2);
             cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_BASES,n_in,ret2));
             memcpy(cset->columns[1]->buffer.mutable_data(), buffer->mutable_data(), ret2);
+            cset->columns[1]->transformation_args.back()->ComputeChecksum(cset->columns[1]->buffer.mutable_data(), ret2);
 
             int64_t n_in0 = cset->columns[0]->buffer.length();
             int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
@@ -317,6 +324,7 @@ public:
             cset->columns[0]->compressed_size = ret1;
             cset->columns[0]->buffer.UnsafeSetLength(ret1);
             cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in0, ret1));
+            cset->columns[0]->transformation_args.back()->ComputeChecksum(cset->columns[0]->buffer.mutable_data(), ret2);
 
             ret += ret2;
             //std::cerr << "done: " << ret << std::endl;

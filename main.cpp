@@ -214,6 +214,7 @@ int main(int argc, char **argv) {
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
         ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/08dcb478-5359-41f4-97c8-469190c8a034/NA12878/nanopore/rel5-guppy-0.3.0-chunk10k.sorted.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
 
@@ -281,11 +282,16 @@ int main(int argc, char **argv) {
 
                     std::stringstream ss2(s);
                     std::string s2;
+
                     std::vector<std::string> tk2;
+#define nanopore 0
+#if nanopore != 1
                     while (std::getline(ss2, s2, ':')) {
                         //std::cerr << s2 << ", ";
                         tk2.push_back(s2);
                     }
+
+
                    // std::cerr << std::endl;
                     //std::cerr << "tk2: " << tk2.size() << std::endl;
                     rbuild.AddArray<uint8_t>("NAME-1", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[0][0]), tk2[0].size());
@@ -302,7 +308,15 @@ int main(int argc, char **argv) {
                     rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name7);
 
                     //rbuild.AddArray<uint8_t>("NAME", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&line[0]), line.size());
-
+#else
+                    while (std::getline(ss2, s2, '-')) {
+                        //std::cerr << s2 << ", ";
+                        tk2.push_back(s2);
+                    }
+                    for(int k = 0; k < tk2.size(); ++k) {
+                        rbuild.AddArray<uint8_t>("NAME-" + std::to_string(k), pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&tk2[k][0]), tk2[k].size());
+                    }
+#endif
                 }
 
                 if(l == 1) {

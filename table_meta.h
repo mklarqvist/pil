@@ -6,7 +6,6 @@
 #include <fstream>
 
 #include "transform/compressor.h"
-#include "transform/variant_digest_manager.h"
 
 namespace pil {
 
@@ -91,13 +90,6 @@ public:
     }
 
     /**<
-     * Compute the MD5 checksum of the given ColumnStore.
-     * @param cstore Source ColumnStore.
-     * @return
-     */
-    int ComputeChecksum(std::shared_ptr<ColumnStore> cstore);
-
-    /**<
      * Store the meta-data from a ColumnStore in this ColumnStoreMetaData object.
      * @param cstore Source ColumnStore.
      */
@@ -114,8 +106,6 @@ public:
     uint64_t last_modified; // unix timestamp when last modified
     uint32_t n_records, n_elements, n_null, uncompressed_size, compressed_size; // number of elements
     uint64_t stats_surrogate_min, stats_surrogate_max; // cast to actual ptype, any possible remainder is 0
-    // Todo: move out. too expensive to keep in primary index
-    uint8_t md5_checksum[16]; // checksum for buffer
 };
 
 // MetaData for a ColumnSet
@@ -129,7 +119,6 @@ public:
         for(int i = 0; i < cset->size(); ++i) {
             column_meta_data.push_back(std::make_shared<ColumnStoreMetaData>());
             column_meta_data.back()->Set(cset->columns[i]);
-            column_meta_data.back()->ComputeChecksum(cset->columns[i]);
 
             //std::cerr << "MD5: ";
             //for(int j = 0; j < 12; ++j)
@@ -185,7 +174,6 @@ public:
         if(cstore.get() == nullptr) return(-1);
 
         column_meta_data[offset]->Set(cstore);
-        column_meta_data[offset]->ComputeChecksum(cstore);
 
         return 1;
     }
@@ -220,6 +208,8 @@ public:
         for(size_t i = 0; i < cset->size(); ++i) {
             column_meta_data[i]->file_offset = stream.tellp();
             // Todo: this is incorrect. Should not be used like this.
+            std::string debug = cset->columns[i]->ToString();
+            std::cerr << debug << std::endl;
             int ret = cset->columns[i]->Serialize(stream);
             column_meta_data[i]->last_modified = static_cast<uint64_t>(std::time(0));
         }

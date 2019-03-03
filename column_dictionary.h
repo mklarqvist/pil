@@ -139,6 +139,8 @@ public:
     int64_t NumberRecords() const { return n_records; }
     int64_t NumberElements() const { return n_elements; }
 
+    bool IsTensorBased() const { return(have_lengths); }
+
 protected:
     bool have_lengths;
     int64_t n_records, n_elements;

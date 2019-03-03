@@ -188,7 +188,8 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, con
        memcpy(column->buffer.mutable_data(), d, column->n_records*sizeof(uint32_t));
        column->buffer.UnsafeSetLength(column->n_records*sizeof(uint32_t));
        column->uncompressed_size = column->n_records*sizeof(uint32_t);
-       column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, n_in, column->buffer.length()));
+       column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, n_in, column->n_records*sizeof(uint32_t)));
+       column->transformation_args.back()->ComputeChecksum(column->mutable_data(), column->uncompressed_size);
        delete[] d;
        return(1);
    }
@@ -341,6 +342,7 @@ int NumericDictionaryBuilder<T>::Encode(std::shared_ptr<ColumnStore> column, std
     column->uncompressed_size = n_s*sizeof(uint32_t);
     column->buffer.UnsafeSetLength(n_s*sizeof(uint32_t));
     column->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_ENCODE_DICT, n_in, column->buffer.length()));
+    column->transformation_args.back()->ComputeChecksum(column->mutable_data(), column->buffer.length());
     //std::cerr << "DICT for string: shrink " << n_in << "->" << column->buffer.length() << std::endl;
     //std::cerr << "DICT meta=" << sz_list << "b" << std::endl;
     delete[] d;

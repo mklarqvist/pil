@@ -44,7 +44,49 @@ public:
     uint8_t* mutable_data() { return buffer.mutable_data(); }
 
     // PrettyPrint representation of array suitable for debugging.
-    std::string ToString() const;
+    std::string ToString() const {
+        std::string ret = "Records: " + std::to_string(n_records) + ", elements: " + std::to_string(n_elements) + ", nulls: " + std::to_string(n_null) + '\n';
+        ret += "Compressed: " + std::to_string(compressed_size) + " b, Uncompressed: " + std::to_string(uncompressed_size) + " b\n";
+
+        if(nullity.get() == nullptr) {
+            ret += "Nullity: no\n";
+        } else {
+            ret += "Nullity: yes\n";
+            ret += "\tCompressed: " + std::to_string(nullity_c) + " b, Uncompressed: " + std::to_string(nullity_u) + " b\n";
+        }
+
+        if(have_dictionary) {
+            ret += "Dictionary: yes\n";
+
+            if(dictionary->IsTensorBased()) {
+                ret += "\Type: Tensor\n";
+                ret += "\tRecords: " + std::to_string(dictionary->NumberRecords()) + ", elements: " + std::to_string(dictionary->NumberElements()) + "\n";
+                ret += "\tCompressed (data): " + std::to_string(dictionary->GetCompressedSize()) + " b, uncompressed (data): " + std::to_string(dictionary->GetUncompressedSize()) + " b\n";
+                ret += "\tCompressed (strides): " + std::to_string(dictionary->GetCompressedLengthSize()) + " b, uncompressed (strides): " + std::to_string(dictionary->GetUncompressedLengthSize()) + " b\n";
+            } else{
+                ret += "\Type: Column\n";
+                ret += "\tRecords: " + std::to_string(dictionary->NumberRecords()) + ", elements: " + std::to_string(dictionary->NumberElements()) + "\n";
+                ret += "\tCompressed: " + std::to_string(dictionary->GetCompressedSize()) + " b, uncompressed: " + std::to_string(dictionary->GetUncompressedSize()) + " b\n";
+            }
+        } else {
+            ret += "Dictionary: no\n";
+        }
+
+        if(transformation_args.size()) {
+            ret += "Transformations: " + std::to_string(transformation_args.size()) + "\n";
+            for(int i = 0; i < transformation_args.size(); ++i) {
+                ret += "\t" + PIL_TRANSFORM_TYPE_STRING[transformation_args[i]->ctype] + ": " + std::to_string(transformation_args[i]->u_sz) + "->" + std::to_string(transformation_args[i]->c_sz) + " MD5: ";
+                for(int j = 0; j < 16; ++j) {
+                    ret += std::to_string(transformation_args[i]->md5_checksum[j]);
+                }
+                ret += '\n';
+            }
+        } else {
+            ret += "Transformations: 0\n";
+        }
+
+        return(ret);
+    }
 
     // Serialize/deserialize to/from disk
     int Serialize(std::ostream& stream);
