@@ -21,6 +21,9 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
     if(field.transforms.size() == 0)
         return(AutoTransform(cset, field));
 
+    // Todo: fix with wrapper
+    ColumnDictionary dict;
+
     // Apply transformations
     int ret = -1;
     for(size_t i = 0; i < field.transforms.size(); ++i) {
@@ -31,7 +34,9 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
         case(PIL_COMPRESS_RC_QUAL): ret = static_cast<QualityCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_BASES): ret = static_cast<SequenceCompressor*>(this)->Compress(cset, field.cstore); break;
         case(PIL_COMPRESS_RC_ILLUMINA_NAME): break;
-        case(PIL_ENCODE_DICT): ret = DictionaryEncode(cset, field); break;
+        case(PIL_ENCODE_DICT):
+                ret = static_cast<DictionaryBuilder*>(&dict)->Encode(cset, field);
+                break;
         case(PIL_ENCODE_DELTA): ret = DeltaEncode(cset, field); break;
         case(PIL_ENCODE_DELTA_DELTA): break;
         case(PIL_ENCODE_BASES_2BIT): break;
@@ -64,93 +69,6 @@ int Transformer::AutoTransformColumns(std::shared_ptr<ColumnSet> cset, const Dic
     }
 
     return(ret);
-}
-
-int Transformer::DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {
-    if(cset.get() == nullptr) return(-1);
-
-    DictionaryBuilder dict;
-
-    std::cerr << "in dictionaary encode for set" << std::endl;
-
-    int ret_status = -1;
-    switch(field.ptype) {
-    case(PIL_TYPE_INT8):   ret_status = static_cast<NumericDictionaryBuilder<int8_t>*>(&dict)->Encode(cset, field);  break;
-    case(PIL_TYPE_INT16):  ret_status = static_cast<NumericDictionaryBuilder<int16_t>*>(&dict)->Encode(cset, field); break;
-    case(PIL_TYPE_INT32):  ret_status = static_cast<NumericDictionaryBuilder<int32_t>*>(&dict)->Encode(cset, field);break;
-    case(PIL_TYPE_INT64):  ret_status = static_cast<NumericDictionaryBuilder<int64_t>*>(&dict)->Encode(cset, field); break;
-    case(PIL_TYPE_UINT8):  ret_status = static_cast<NumericDictionaryBuilder<uint8_t>*>(&dict)->Encode(cset, field);   break;
-    case(PIL_TYPE_UINT16): ret_status = static_cast<NumericDictionaryBuilder<uint16_t>*>(&dict)->Encode(cset, field);  break;
-    case(PIL_TYPE_UINT32): ret_status = static_cast<NumericDictionaryBuilder<uint32_t>*>(&dict)->Encode(cset, field);  break;
-    case(PIL_TYPE_UINT64): ret_status = static_cast<NumericDictionaryBuilder<uint64_t>*>(&dict)->Encode(cset, field);  break;
-    case(PIL_TYPE_FLOAT):  ret_status = static_cast<NumericDictionaryBuilder<float>*>(&dict)->Encode(cset, field);    break;
-    case(PIL_TYPE_DOUBLE): ret_status = static_cast<NumericDictionaryBuilder<double>*>(&dict)->Encode(cset, field);   break;
-    }
-    std::cerr << "ret_status=" << ret_status << std::endl;
-
-
-    return(1);
-}
-
-int Transformer::DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field) {
-    if(cstore.get() == nullptr) return(-1);
-
-    if(cstore->dictionary.get() == nullptr)
-        cstore->dictionary = std::make_shared<ColumnDictionary>();
-
-    std::shared_ptr<DictionaryBuilder> dict = std::static_pointer_cast<DictionaryBuilder>(cstore->dictionary);
-
-    std::cerr << "in dictionaary encode for store" << std::endl;
-
-    int ret_status = -1;
-    switch(field.ptype) {
-    case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int8_t> >(dict)->Encode(cstore);  break;
-    case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int16_t> >(dict)->Encode(cstore); break;
-    case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int32_t> >(dict)->Encode(cstore);break;
-    case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int64_t> >(dict)->Encode(cstore); break;
-    case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint8_t> >(dict)->Encode(cstore);   break;
-    case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint16_t> >(dict)->Encode(cstore);  break;
-    case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint32_t> >(dict)->Encode(cstore);  break;
-    case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint64_t> >(dict)->Encode(cstore);  break;
-    case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<float> >(dict)->Encode(cstore);    break;
-    case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<double> >(dict)->Encode(cstore);   break;
-    }
-    std::cerr << "ret_status=" << ret_status << std::endl;
-
-    if(ret_status < 1) cstore->dictionary = nullptr;
-
-
-    return(ret_status);
-}
-
-int Transformer::DictionaryEncode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field) {
-    if(cstore.get() == nullptr) return(-1);
-
-    if(cstore->dictionary.get() == nullptr)
-        cstore->dictionary = std::make_shared<ColumnDictionary>();
-
-    std::shared_ptr<DictionaryBuilder> dict = std::static_pointer_cast<DictionaryBuilder>(cstore->dictionary);
-
-    std::cerr << "in dictionaary encode for store" << std::endl;
-
-    int ret_status = -1;
-    switch(field.ptype) {
-    case(PIL_TYPE_INT8):   ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int8_t> >(dict)->Encode(cstore, strides);  break;
-    case(PIL_TYPE_INT16):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int16_t> >(dict)->Encode(cstore, strides); break;
-    case(PIL_TYPE_INT32):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int32_t> >(dict)->Encode(cstore, strides);break;
-    case(PIL_TYPE_INT64):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<int64_t> >(dict)->Encode(cstore, strides); break;
-    case(PIL_TYPE_UINT8):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint8_t> >(dict)->Encode(cstore, strides);   break;
-    case(PIL_TYPE_UINT16): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint16_t> >(dict)->Encode(cstore, strides);  break;
-    case(PIL_TYPE_UINT32): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint32_t> >(dict)->Encode(cstore, strides);  break;
-    case(PIL_TYPE_UINT64): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<uint64_t> >(dict)->Encode(cstore, strides);  break;
-    case(PIL_TYPE_FLOAT):  ret_status = std::static_pointer_cast< NumericDictionaryBuilder<float> >(dict)->Encode(cstore, strides);    break;
-    case(PIL_TYPE_DOUBLE): ret_status = std::static_pointer_cast< NumericDictionaryBuilder<double> >(dict)->Encode(cstore, strides);   break;
-    }
-    std::cerr << "ret_status=" << ret_status << std::endl;
-
-    if(ret_status < 1) cstore->dictionary = nullptr;
-
-    return(ret_status);
 }
 
 // todo: fix
@@ -234,7 +152,8 @@ int Transformer::AutoTransformColumn(std::shared_ptr<ColumnStore> cstore, const 
 
     // Attempt to Dictionary encode data. If successful then compress the
     // dictionary with ZSTD.
-    int has_dict = DictionaryEncode(cstore, field);
+    ColumnDictionary dict;
+    int has_dict = static_cast<DictionaryBuilder*>(&dict)->Encode(cstore, field);
     if(has_dict) {
         int ret_dict = static_cast<ZstdCompressor*>(this)->Compress(
                         cstore->dictionary->mutable_data(),
@@ -294,7 +213,8 @@ int Transformer::AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const Dict
 
     // Attempt to dictionary encode the data given the strides.
     // If set then compress the dictionary and strides with ZSTD.
-    int has_dict = DictionaryEncode(cset->columns[1], cset->columns[0], field);
+    ColumnDictionary dict;
+    int has_dict = static_cast<DictionaryBuilder*>(&dict)->Encode(cset->columns[0], field);
     if(has_dict) {
         int ret_dict = static_cast<ZstdCompressor*>(this)->Compress(
                           cset->columns[1]->dictionary->mutable_data(),

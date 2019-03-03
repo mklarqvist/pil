@@ -78,10 +78,6 @@ public:
     int AutoTransformColumn(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
     int AutoTransformTensor(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
 
-    int DictionaryEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
-    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, const DictionaryFieldType& field);
-    int DictionaryEncode(std::shared_ptr<ColumnStore> cstore, std::shared_ptr<ColumnStore> strides, const DictionaryFieldType& field);
-
     int DeltaEncode(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
     int UnsafeDeltaEncode(std::shared_ptr<ColumnStore> cstore);
 
