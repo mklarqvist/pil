@@ -1,8 +1,8 @@
-#ifndef COLUMNSTORE_TEST_H_
-#define COLUMNSTORE_TEST_H_
+#ifndef COLUMN_STORE_TEST_H_
+#define COLUMN_STORE_TEST_H_
 
-#include "columnstore.h"
 #include <gtest/gtest.h>
+#include "column_store.h"
 
 namespace pil {
 
@@ -91,4 +91,4 @@ TEST(ColumnStoreTests, RangeInsertVectorArray) {
 
 
 
-#endif /* COLUMNSTORE_TEST_H_ */
+#endif /* COLUMN_STORE_TEST_H_ */

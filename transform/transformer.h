@@ -3,8 +3,8 @@
 
 #include "../pil.h"
 #include "../buffer.h"
+#include "../column_store.h"
 #include "../table_dict.h"
-#include "../columnstore.h"
 
 namespace pil {
 

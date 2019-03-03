@@ -59,26 +59,26 @@ int ZstdCompressor::Compress(const uint8_t* src, const uint32_t n_src, const int
     return(ret);
 }
 
-/*
-bool ZstdCompressor::Decompress(const yon_buffer_t& src, yon_buffer_t& dst){
-	const size_t ret = ZSTD_decompress(
-							   dst.data(),
-							   dst.capacity(),
-							   src.data(),
-							   src.size());
 
-	//std::cerr << utility::timestamp("LOG","COMPRESSION") << "Input: " << src.size() << " and output: " << ret << " -> " << (float)ret/src.size() << "-fold"  << std::endl;
+int ZstdCompressor::Decompress(std::shared_ptr<ColumnStore> cstore, const bool back_copy) {
+	const size_t ret = ZSTD_decompress(
+							   buffer->mutable_data(),
+							   buffer->capacity(),
+							   cstore->mutable_data(),
+							   cstore->compressed_size);
 
 	if(ZSTD_isError(ret)){
-		std::cerr << utility::timestamp("ERROR","ZSTD") << ZSTD_getErrorString(ZSTD_getErrorCode(ret)) << std::endl;
+		std::cerr << ZSTD_getErrorString(ZSTD_getErrorCode(ret)) << std::endl;
 		return(false);
 	}
 
-	dst.n_chars_ = ret;
-
-	return true;
+	if(back_copy) {
+	    memcpy(cstore->mutable_data(), buffer->mutable_data(), ret);
+	    cstore->uncompressed_size = ret;
+	}
+	return(ret);
 }
-*/
+
 
 // quality
 

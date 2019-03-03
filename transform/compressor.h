@@ -25,15 +25,22 @@ public:
 
 class ZstdCompressor : public Compressor {
 private:
-	typedef        ZstdCompressor self_type;
-	typedef struct ZSTD_CCtx_s    ZSTD_CCtx;
-	typedef struct ZSTD_DCtx_s    ZSTD_DCtx;
+    typedef        ZstdCompressor self_type;
+    typedef struct ZSTD_CCtx_s    ZSTD_CCtx;
+    typedef struct ZSTD_DCtx_s    ZSTD_DCtx;
 
 public:
-	int Compress(std::shared_ptr<ColumnSet> cset, const PIL_CSTORE_TYPE& field_type, const int compression_level = 1);
-	int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const int compression_level = 1);
-	int Compress(const uint8_t* src, const uint32_t n_src, const int compression_level = 1);
-    int Decompress(){ return 1; }
+    int Compress(std::shared_ptr<ColumnSet> cset, const PIL_CSTORE_TYPE& field_type, const int compression_level = 1);
+    int Compress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field, const int compression_level = 1);
+    int Compress(const uint8_t* src, const uint32_t n_src, const int compression_level = 1);
+    /**<
+     * Decompression requires that `compressed_size` is properly set to the
+     * correct value.
+     * @param cstore
+     * @param back_copy
+     * @return
+     */
+    int Decompress(std::shared_ptr<ColumnStore> cstore, const bool back_copy = true);
 };
 
 
@@ -64,12 +71,14 @@ public:
                  FrequencyModel<QMAX>* model_qual);
 
     int Compress(uint8_t* qual, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths);
+    int Decompress(){ return -1; }
 };
 
 class SequenceCompressor : public Compressor {
 public:
     int Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
     int Compress(const uint8_t* bases, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths);
+    int Decompress(){ return -1; }
 };
 
 

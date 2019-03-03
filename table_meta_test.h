@@ -1,9 +1,9 @@
 #ifndef TABLE_META_TEST_H_
 #define TABLE_META_TEST_H_
 
-#include "columnstore.h"
 #include "table_meta.h"
 #include <gtest/gtest.h>
+#include "column_store.h"
 
 namespace pil {
 

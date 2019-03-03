@@ -1,4 +1,4 @@
-#include "columnstore.h"
+#include "column_store.h"
 #include "transform/dictionary_builder.h"
 
 namespace pil {

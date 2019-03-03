@@ -6,10 +6,10 @@
 #include <unordered_map>
 #include <fstream>
 
+#include "column_store.h"
 #include "table_meta.h"
 #include "table_dict.h"
 #include "memory_pool.h"
-#include "columnstore.h"
 #include "record_builder.h"
 #include "transform/transformer.h"
 

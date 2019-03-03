@@ -1,5 +1,5 @@
-#ifndef COLUMNSTORE_H_
-#define COLUMNSTORE_H_
+#ifndef COLUMN_STORE_H_
+#define COLUMN_STORE_H_
 
 #include <cstdint>
 #include <memory>
@@ -486,4 +486,4 @@ public:
 
 }
 
-#endif /* COLUMNSTORE_H_ */
+#endif /* COLUMN_STORE_H_ */

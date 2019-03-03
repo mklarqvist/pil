@@ -1,7 +1,5 @@
 #include "pil.h"
 #include "memory_pool.h"
-#include "allocator.h"
-#include "columnstore.h"
 #include "table.h"
 
 #include <fstream>
@@ -11,11 +9,12 @@
 // test
 #include "table_test.h"
 #include "buffer_builder_test.h"
+#include "column_store.h"
+#include "column_store_test.h"
 #include "transform/transformer_test.h"
 #include "record_builder_test.h"
 #include "transform/dictionary_builder_test.h"
 #include "table_meta_test.h"
-#include "columnstore_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {

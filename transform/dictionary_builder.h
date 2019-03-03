@@ -4,7 +4,7 @@
 #include "../column_dictionary.h"
 #include "../buffer_builder.h"
 #include "../table_dict.h"
-#include "../columnstore.h"
+#include "../column_store.h"
 
 namespace pil {
 

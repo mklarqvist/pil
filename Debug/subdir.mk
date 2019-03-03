@@ -6,7 +6,7 @@
 CPP_SRCS += \
 ../buffer.cpp \
 ../column_dictionary.cpp \
-../columnstore.cpp \
+../column_store.cpp \
 ../main.cpp \
 ../memory_pool.cpp \
 ../table.cpp \
@@ -15,7 +15,7 @@ CPP_SRCS += \
 OBJS += \
 ./buffer.o \
 ./column_dictionary.o \
-./columnstore.o \
+./column_store.o \
 ./main.o \
 ./memory_pool.o \
 ./table.o \
@@ -24,7 +24,7 @@ OBJS += \
 CPP_DEPS += \
 ./buffer.d \
 ./column_dictionary.d \
-./columnstore.d \
+./column_store.d \
 ./main.d \
 ./memory_pool.d \
 ./table.d \
