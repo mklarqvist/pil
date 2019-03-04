@@ -23,6 +23,7 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
 
     // Apply transformations
     int ret = -1;
+    int ret_total = 0;
     for(size_t i = 0; i < field.transforms.size(); ++i) {
         switch(field.transforms[i]) {
         case(PIL_COMPRESS_AUTO): ret = AutoTransform(cset, field); break;
@@ -35,12 +36,55 @@ int Transformer::Transform(std::shared_ptr<ColumnSet> cset, const DictionaryFiel
         case(PIL_ENCODE_DELTA): ret = static_cast<DeltaEncoder*>(this)->Encode(cset, field); break;
         case(PIL_ENCODE_DELTA_DELTA): break;
         case(PIL_ENCODE_BASES_2BIT): break;
-        case(PIL_ENCODE_CIGAR_NIBBLE): break;
         default: return(-2);
         }
+        if(ret < 1) return(ret);
+        ret_total += ret;
     }
 
-    return(ret);
+    // Check if tensor compression is ok
+    if(field.cstore == PIL_CSTORE_TENSOR) {
+        if(cset->columns[0]->transformation_args.size() == 0) {
+            std::cerr << ">>>>>>>>>>>>RESIDUAL COMPRESSION" << std::endl;
+
+            // Compute the delta of the cumulative sums of strides (default storage).
+            static_cast<DeltaEncoder*>(this)->UnsafeEncode(cset->columns[0]);
+
+            // Compress the strides with ZSTD.
+            int64_t n_in = cset->columns[0]->buffer.length();
+            int ret1 = static_cast<ZstdCompressor*>(this)->Compress(
+                                   cset->columns[0]->buffer.mutable_data(),
+                                   cset->columns[0]->buffer.length(),
+                                   PIL_ZSTD_DEFAULT_LEVEL);
+
+            if(ret1 < 0) return(-6); // compression failure
+
+            memcpy(cset->columns[0]->buffer.mutable_data(), buffer->mutable_data(), ret1);
+            cset->columns[0]->compressed_size = ret1;
+            cset->columns[0]->buffer.UnsafeSetLength(ret1);
+            cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD,n_in,ret1));
+            cset->columns[0]->transformation_args.back()->ComputeChecksum(cset->columns[0]->buffer.mutable_data(), ret1);
+            ret_total += ret1;
+
+            // Compress the Nullity bitmap
+            if(cset->columns[0]->nullity.get() == nullptr) return(-5); // malformed data
+
+            const uint32_t n_nullity = std::ceil((float)cset->columns[0]->n_records / 32);
+            int retNull = static_cast<ZstdCompressor*>(this)->Compress(
+                                         cset->columns[0]->nullity->mutable_data(),
+                                         n_nullity,
+                                         PIL_ZSTD_DEFAULT_LEVEL);
+
+            if(retNull < 0) return(-6); // compression failure
+            cset->columns[0]->nullity_u = n_nullity;
+            cset->columns[0]->nullity_c = retNull;
+            memcpy(cset->columns[0]->nullity->mutable_data(), buffer->mutable_data(), retNull);
+            ret_total += retNull;
+        }
+
+    }
+
+    return(ret_total);
 }
 
 int Transformer::AutoTransform(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field) {

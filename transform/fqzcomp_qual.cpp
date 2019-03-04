@@ -132,9 +132,8 @@ static int strat_opts[][10] = {
     {0, 0, 0, 0, 0,  0, 0, 0, 0, 0},    // custom
 };
 
-uint8_t* FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> quals, size_t& out_size)
+int FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size)
 {
-    std::cerr << "in compress2 internal" << std::endl;
     //approx sqrt(delta), must be sequential
     int dsqr[] = {
         0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3,
@@ -162,9 +161,7 @@ uint8_t* FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> q
     const uint32_t in_size = quals->columns[1]->uncompressed_size;
     const uint8_t* in = quals->columns[1]->mutable_data();
     const uint32_t* q_len = &reinterpret_cast<const uint32_t*>(quals->columns[0]->mutable_data())[1]; // first value is always 0
-
-    uint8_t* comp = (uint8_t *)malloc(in_size*1.1+1000);
-    if (!comp) return nullptr;
+    uint8_t* comp = out->mutable_data();
 
 #define NP 128
     uint32_t qhist[256] = {0}, nsym, max_sym;
@@ -465,13 +462,13 @@ uint8_t* FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> q
         last  = (qlast & ((1 << q_qctxbits) - 1)) << q_qloc;
         last += ptab[UNSAFE_MIN(j,1024)]; //limits max pos
         last += stab[read2];
-        last += dtab[UNSAFE_MIN(delta,256)]; // limits delta (not in original code)
+        last += dtab[delta];
         last &= 0xffff;
         assert(last < n_qmodels);
 
         _mm_prefetch((const char *)&model_qual[last], _MM_HINT_T0);
 
-        delta += (q1 != q);
+        delta += (q1 != q) * (delta<255);  // limits delta (not in original code)
         q1 = q;
     }
 
@@ -527,26 +524,30 @@ uint8_t* FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> q
 //      (int)in_size, (int)out_size);
 
     delete[] model_qual;
-    return comp;
+    //return comp;
+    return(out_size);
 }
 
-uint8_t* FqzCompQual::Decompress(uint8_t *in, size_t in_size, size_t& out_size)
+int FqzCompQual::Decompress(std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size)
 {
     uint32_t qtab[256]  = {0};
     uint32_t ptab[1024] = {0};
     uint32_t dtab[256]  = {0};
     uint32_t stab[256]  = {0};
 
-    uint8_t *uncomp = nullptr;
+    uint8_t* uncomp = out->mutable_data();
     RangeCoder rc;
     size_t i, j, rec = 0, len = out_size, in_idx = 0;
     uint8_t q1 = 1;
     uint32_t last = 0, qlast = 0;
 
+    uint8_t* in = quals->columns[1]->mutable_data();
+
+
     int vers = in[in_idx++];
     if (vers != 5) {
         fprintf(stderr, "This version of fqzcomp only supports format 5\n");
-        return nullptr;
+        return -1;
     }
 
     int flags      = in[in_idx++];
@@ -600,12 +601,13 @@ uint8_t* FqzCompQual::Decompress(uint8_t *in, size_t in_size, size_t& out_size)
     if (do_strand)
         stab[1] = 1<<q_sloc;
 
-    FrequencyModel<QMAX> model_qual[(1<<16)];
+    const uint32_t n_qmodels = (1 << 16);
+    FrequencyModel<QMAX>* model_qual = new FrequencyModel<QMAX>[n_qmodels];
+    // Not default constructor
+    for (i = 0; i < n_qmodels; i++) model_qual[i].Initiate(max_sym + 1);
 
     if (!model_qual)
-        return nullptr;
-
-    for (i = 0; i < (1<<16); i++) model_qual[i].Initiate(max_sym+1);
+        return -2;
 
     FrequencyModel<256> model_len[4];
     FrequencyModel<2> model_revcomp(2);
@@ -615,18 +617,13 @@ uint8_t* FqzCompQual::Decompress(uint8_t *in, size_t in_size, size_t& out_size)
 
     FrequencyModel<2> model_dup(2);
 
-    uncomp = (uint8_t *)malloc(out_size);
-    if (!uncomp)
-        return nullptr;
-
     rc.SetInput((char *)in+in_idx);
     rc.StartDecode();
 
     int nrec = 1000;
     char *rev_a = (char*)malloc(nrec);
     int *len_a = (int*)malloc(nrec * sizeof(int));
-    if (!rev_a || !len_a)
-        return nullptr;
+    if (!rev_a || !len_a) return -3;
 
     int last_len = 0, read2 = 0;
     for (rec = i = j = 0; i < len; i++, j--) {
@@ -634,14 +631,13 @@ uint8_t* FqzCompQual::Decompress(uint8_t *in, size_t in_size, size_t& out_size)
             nrec *= 2;
             rev_a = (char*)realloc(rev_a, nrec);
             len_a = (int*)realloc(len_a, nrec*sizeof(int));
-            if (!rev_a || !len_a)
-                return nullptr;
+            if (!rev_a || !len_a) return -4;
         }
 
         if (j == 0) {
             int len = last_len;
             if (!fixed_len || rec == 0) {
-                len  = model_len[0].DecodeSymbol(&rc);
+                len   = model_len[0].DecodeSymbol(&rc);
                 len  |= model_len[1].DecodeSymbol(&rc) << 8;
                 len  |= model_len[2].DecodeSymbol(&rc) << 16;
                 len  |= model_len[3].DecodeSymbol(&rc) << 24;
@@ -674,7 +670,6 @@ uint8_t* FqzCompQual::Decompress(uint8_t *in, size_t in_size, size_t& out_size)
         }
 
         uint8_t q, Q;
-
 
         Q = model_qual[last].DecodeSymbol(&rc);
         q = qmap[Q];
@@ -714,7 +709,7 @@ uint8_t* FqzCompQual::Decompress(uint8_t *in, size_t in_size, size_t& out_size)
     free(rev_a);
     free(len_a);
 
-    return uncomp;
+    return out_size;
 }
 
 } // end namespace pil

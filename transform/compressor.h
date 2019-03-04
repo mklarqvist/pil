@@ -82,13 +82,14 @@ public:
     int Decompress(){ return -1; }
 
     int Compress2(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
+    int Decompress2(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
 };
 
 class SequenceCompressor : public Compressor {
 public:
     int Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
     int Compress(const uint8_t* bases, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths);
-    int Decompress(){ return -1; }
+    int Decompress(std::shared_ptr<ColumnSet> cset, const DictionaryFieldType& field);
 };
 
 

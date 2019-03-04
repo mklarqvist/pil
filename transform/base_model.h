@@ -26,10 +26,10 @@ namespace pil {
 
 #define M4(a) ((a)[0]>(a)[1]?((a)[0]>(a)[2]?((a)[0]>(a)[3]?(a)[0]:(a)[3]):((a)[2]>(a)[3]?(a)[2]:(a)[3])):((a)[1]>(a)[2]?((a)[1]>(a)[3]?(a)[1]:(a)[3]):((a)[2]>(a)[3]?(a)[2]:(a)[3])))
 
-template <typename st_t>
+template <typename T>
 struct BaseModel {
-    enum { STEP = sizeof(st_t) == 1 ? 1 : 8 };
-    enum { WSIZ = (1<<8*sizeof(st_t))-2*STEP };
+    enum { STEP = sizeof(T) == 1 ? 1 : 8 };
+    enum { WSIZ = (1<<8*sizeof(T))-2*STEP };
 
     BaseModel();
     BaseModel(int *start);
@@ -41,40 +41,40 @@ struct BaseModel {
     inline uint32_t GetTopSym(void);
     inline uint32_t GetSummFreq(void);
 
-protected:
+public:
     void   rescaleRare();
 
-    st_t Stats[4];
+    T Stats[4];
 };
 
-template <typename st_t>
-BaseModel<st_t>::BaseModel()
+template <typename T>
+BaseModel<T>::BaseModel()
 {
     reset();
 }
 
-template <typename st_t>
-BaseModel<st_t>::BaseModel(int *start) {
+template <typename T>
+BaseModel<T>::BaseModel(int* start) {
     for (int i = 0; i < 4; i++) {
-    Stats[i] =  start[i];
+        Stats[i] =  start[i];
     }
 }
 
-template <typename st_t>
-void BaseModel<st_t>::reset() {
+template <typename T>
+void BaseModel<T>::reset() {
     for ( int i=0; i<4; i++ )
     Stats[i] = 3*STEP;
 }
 
-template <typename st_t>
-void BaseModel<st_t>::reset(int *start) {
+template <typename T>
+void BaseModel<T>::reset(int* start) {
     for (int i = 0; i < 4; i++) {
-    Stats[i] =  start[i];
+        Stats[i] =  start[i];
     }
 }
 
-template <typename st_t>
-void BaseModel<st_t>::rescaleRare()
+template <typename T>
+void BaseModel<T>::rescaleRare()
 {
     Stats[0] -= (Stats[0] >> 1);
     Stats[1] -= (Stats[1] >> 1);
@@ -110,8 +110,8 @@ void BaseModel<st_t>::rescaleRare()
  * => about 3-5% faster. Worth it?
  */
 
-template <typename st_t>
-inline void BaseModel<st_t>::EncodeSymbol(RangeCoder *rc, uint32_t sym) {
+template <typename T>
+inline void BaseModel<T>::EncodeSymbol(RangeCoder *rc, uint32_t sym) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     if ( SummFreq>=WSIZ ) {
         rescaleRare();
@@ -150,8 +150,8 @@ inline void BaseModel<st_t>::EncodeSymbol(RangeCoder *rc, uint32_t sym) {
     return;
 }
 
-template <typename st_t>
-inline void BaseModel<st_t>::UpdateSymbol(uint32_t sym) {
+template <typename T>
+inline void BaseModel<T>::UpdateSymbol(uint32_t sym) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     if ( SummFreq>=WSIZ ) {
         rescaleRare();
@@ -166,19 +166,19 @@ inline void BaseModel<st_t>::UpdateSymbol(uint32_t sym) {
  * This is a measure of how well adapted this model thinks it is to the
  * incoming probabilities.
  */
-template <typename st_t>
-inline uint32_t BaseModel<st_t>::GetTopSym(void) {
+template <typename T>
+inline uint32_t BaseModel<T>::GetTopSym(void) {
     return M4(Stats);
 }
 
-template <typename st_t>
-inline uint32_t BaseModel<st_t>::GetSummFreq(void) {
+template <typename T>
+inline uint32_t BaseModel<T>::GetSummFreq(void) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     return SummFreq;
 }
 
-template <typename st_t>
-inline uint32_t BaseModel<st_t>::DecodeSymbol(RangeCoder *rc) {
+template <typename T>
+inline uint32_t BaseModel<T>::DecodeSymbol(RangeCoder *rc) {
     int SummFreq = (Stats[0] + Stats[1]) + (Stats[2] + Stats[3]);
     if ( SummFreq>=WSIZ) {
         rescaleRare();
@@ -188,7 +188,7 @@ inline uint32_t BaseModel<st_t>::DecodeSymbol(RangeCoder *rc) {
     uint32_t count=rc->GetFreq256(SummFreq);
     uint32_t HiCount=0;
 
-    st_t* p=Stats;
+    T* p=Stats;
     if ((HiCount += *p) > count) {
         rc->Decode(0, *p, SummFreq);
         Stats[0] += STEP;

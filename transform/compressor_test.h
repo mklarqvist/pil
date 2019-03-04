@@ -292,6 +292,155 @@ TEST(DeltaTests, EncodeDecodeColumnSetColumnSplitFail) {
     ASSERT_EQ(-4, transformer.Encode(cset, field));
 }
 
+TEST(QualityTests, EncodeDecode) {
+    QualityCompressor transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilderTensor<uint8_t> > builder = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(cset);
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<uint8_t> distr(0, 66);
+    std::vector<uint8_t> data(100);
+    for(int i = 0; i < 10000; ++i) {
+        for(int j = 0; j < 100; ++j) data[j] = distr(eng);
+        ASSERT_EQ(1, builder->Append(data));
+    }
+    ASSERT_EQ(2, cset->size());
+
+    ASSERT_EQ(10001, cset->columns[0]->size());
+    ASSERT_EQ(10000 * 100, cset->columns[1]->n_elements);
+
+    cset->columns[0]->ComputeChecksum();
+    cset->columns[1]->ComputeChecksum();
+    ASSERT_GT(transformer.Compress(cset, field.cstore), 0);
+
+    // Make sure the MD5 checksum is not the same
+    ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
+
+    transformer.Decompress2(cset, field.cstore);
+    uint8_t md5[16]; memset(md5, 0, 16);
+    Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
+    ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));
+}
+
+TEST(QualityTests, EncodeDecodeLong100kb) {
+    QualityCompressor transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilderTensor<uint8_t> > builder = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(cset);
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<uint8_t> distr(0, 66);
+    std::vector<uint8_t> data(100000);
+    for(int i = 0; i < 50; ++i) {
+        for(int j = 0; j < 100000; ++j) data[j] = distr(eng);
+        ASSERT_EQ(1, builder->Append(data));
+    }
+    ASSERT_EQ(2, cset->size());
+
+    ASSERT_EQ(51, cset->columns[0]->size());
+    ASSERT_EQ(50 * 100000, cset->columns[1]->n_elements);
+
+    cset->columns[0]->ComputeChecksum();
+    cset->columns[1]->ComputeChecksum();
+    ASSERT_GT(transformer.Compress(cset, field.cstore), 0);
+
+    // Make sure the MD5 checksum is not the same
+    ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
+
+    transformer.Decompress2(cset, field.cstore);
+    uint8_t md5[16]; memset(md5, 0, 16);
+    Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
+    ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));
+}
+
+TEST(QualityTests, EncodeDecodeLong1mb) {
+    QualityCompressor transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilderTensor<uint8_t> > builder = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(cset);
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<uint8_t> distr(0, 66);
+    std::vector<uint8_t> data(1000000);
+    for(int i = 0; i < 2; ++i) {
+        for(int j = 0; j < 1000000; ++j) data[j] = distr(eng);
+        ASSERT_EQ(1, builder->Append(data));
+    }
+    ASSERT_EQ(2, cset->size());
+
+    ASSERT_EQ(3, cset->columns[0]->size());
+    ASSERT_EQ(2 * 1000000, cset->columns[1]->n_elements);
+
+    cset->columns[0]->ComputeChecksum();
+    cset->columns[1]->ComputeChecksum();
+    ASSERT_GT(transformer.Compress(cset, field.cstore), 0);
+
+    // Make sure the MD5 checksum is not the same
+    ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
+
+    transformer.Decompress2(cset, field.cstore);
+    uint8_t md5[16]; memset(md5, 0, 16);
+    Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
+    ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));
+}
+
+TEST(SeqTests, EncodeDecode) {
+    SequenceCompressor transformer;
+
+    DictionaryFieldType field;
+    field.cstore = PIL_CSTORE_TENSOR;
+    field.ptype  = PIL_TYPE_UINT32;
+
+    std::shared_ptr<ColumnSet > cset = std::make_shared<ColumnSet>();
+    std::shared_ptr<ColumnSetBuilderTensor<uint8_t> > builder = std::static_pointer_cast< ColumnSetBuilderTensor<uint8_t> >(cset);
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<uint8_t> distr(0, 3); // right inclusive
+    std::vector<uint8_t> data(100);
+    char map[] = {'A', 'T', 'G', 'C', 'N'};
+    for(int i = 0; i < 10000; ++i) {
+        for(int j = 0; j < 100; ++j) data[j] = map[distr(eng)];
+        if(i < 2) {
+            for(int j = 0; j < 100; ++j) std::cerr << data[j];
+            std::cerr << std::endl;
+        }
+        ASSERT_EQ(1, builder->Append(data));
+    }
+    ASSERT_EQ(2, cset->size());
+
+    ASSERT_EQ(10001, cset->columns[0]->size());
+    ASSERT_EQ(10000 * 100, cset->columns[1]->n_elements);
+
+    cset->columns[0]->ComputeChecksum();
+    cset->columns[1]->ComputeChecksum();
+    ASSERT_GT(transformer.Compress(cset, field.cstore), 0);
+
+    // Make sure the MD5 checksum is not the same
+    ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
+
+    transformer.Decompress(cset, field);
+    uint8_t md5[16]; memset(md5, 0, 16);
+    Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
+    ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));
+}
+
 }
 
 

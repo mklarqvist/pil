@@ -58,7 +58,7 @@ TEST(TransformerTests, ValidityIllegalDictOrder2) {
 TEST(TransformerTests, ValidityComplex) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
-        {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_CIGAR_NIBBLE,PIL_ENCODE_DELTA_DELTA,
+        {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_DELTA_DELTA,
          PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL};
 
     ASSERT_EQ(true, Transformer::ValidTransformationOrder(ctypes));
@@ -67,7 +67,7 @@ TEST(TransformerTests, ValidityComplex) {
 TEST(TransformerTests, ValidityComplex2) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
-        {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_CIGAR_NIBBLE,PIL_ENCODE_DELTA_DELTA,
+        {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_DELTA_DELTA,
          PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL, PIL_COMPRESS_RC_ILLUMINA_NAME,
          PIL_COMPRESS_RC_BASES};
 
@@ -77,7 +77,7 @@ TEST(TransformerTests, ValidityComplex2) {
 TEST(TransformerTests, ValidityIllegalDuplicate) {
     //Encoder encoder;
     std::vector<PIL_COMPRESSION_TYPE> ctypes =
-        {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_CIGAR_NIBBLE,PIL_ENCODE_DELTA_DELTA,
+        {PIL_ENCODE_BASES_2BIT,PIL_ENCODE_DELTA_DELTA,
          PIL_ENCODE_DICT,PIL_ENCODE_DICT, PIL_COMPRESS_RC_QUAL};
 
     ASSERT_EQ(false, Transformer::ValidTransformationOrder(ctypes));

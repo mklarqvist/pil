@@ -7,8 +7,8 @@ namespace pil {
 
 class FqzCompQual {
 public:
-    uint8_t* Compress(int vers, int level, std::shared_ptr<ColumnSet> quals, size_t& out_size);
-    uint8_t* Decompress(uint8_t *in, size_t in_size, size_t& out_size);
+    int Compress(int vers, int level, std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size);
+    int Decompress(std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size);
 };
 
 }

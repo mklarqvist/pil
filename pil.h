@@ -49,8 +49,7 @@ typedef enum {
     PIL_ENCODE_DICT, /** Dictionary encoding **/
     PIL_ENCODE_DELTA, /** Delta encoding of arithmetic progression - requires uint32_t **/
     PIL_ENCODE_DELTA_DELTA, /** Delta of deltas **/
-    PIL_ENCODE_BASES_2BIT, /** 2-bit encoding of sequence bases with additional mask **/
-    PIL_ENCODE_CIGAR_NIBBLE /** Nibble-encoding of CIGAR strings **/
+    PIL_ENCODE_BASES_2BIT /** 2-bit encoding of sequence bases with additional mask **/
 } PIL_COMPRESSION_TYPE;
 
 const std::string PIL_TRANSFORM_TYPE_STRING[] = {"AUTO","ZSTD","NONE","RC_QUAL","RC_BASES","RC_ILLUMINA_NAME","DICT","DELTA","DELTA_DELTA","BASES_2BIT","CIGAR_NIBBLE"};
