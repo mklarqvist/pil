@@ -5,6 +5,8 @@
 
 #include "variant_digest_manager.h"
 
+#include <xmmintrin.h>
+
 namespace pil {
 
 int ZstdCompressor::Compress(std::shared_ptr<ColumnSet> cset, const PIL_CSTORE_TYPE& field_type, const int compression_level) {
@@ -122,6 +124,13 @@ int QualityCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE
 
         static_cast<DeltaEncoder*>(static_cast<Transformer*>(this))->UnsafeEncode(cset->columns[0]);
 
+        // temp
+#define compress2 1
+#ifdef compress2
+        ret += Compress2(cset,cstore);
+#else
+        //
+
         // Compress QUALs from Column 1 with the SEQ lengths from Column 0
         int64_t n_in = cset->columns[1]->buffer.length();
         int ret2 = Compress(cset->columns[1]->buffer.mutable_data(),
@@ -136,6 +145,7 @@ int QualityCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE
         cset->columns[1]->transformation_args.back()->ComputeChecksum(cset->columns[1]->buffer.mutable_data(), ret2);
 
         ret += ret2;
+#endif
 
         int64_t n_in0 = cset->columns[0]->buffer.length();
         int ret1 = reinterpret_cast<ZstdCompressor*>(this)->Compress(
@@ -239,7 +249,7 @@ int QualityCompressor::Compress(uint8_t* qual, const uint32_t n_src, const uint3
 
     RangeCoder rc;
     rc.StartEncode();
-    rc.output(reinterpret_cast<char*>(buffer->mutable_data()));
+    rc.SetOutput(reinterpret_cast<char*>(buffer->mutable_data()));
 
     uint32_t cum_offset = 0;
     for(int i = 0; i < n_lengths; ++i){
@@ -253,13 +263,34 @@ int QualityCompressor::Compress(uint8_t* qual, const uint32_t n_src, const uint3
 
     delete[] model_qual;
 
-    return(rc.size_out());
+    return(rc.OutSize());
+}
+
+int QualityCompressor::Compress2(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore) {
+    int vers = 4;
+    //vers += 256;
+
+    size_t out_size = 0;
+    std::cerr << "entering qual compressor2: " << vers << "," << 0 << "," << (cset.get() == nullptr) << "," << out_size << std::endl;
+    FqzCompQual fqz;
+    int64_t n_in = cset->columns[1]->buffer.length();
+    uint8_t* comp_quals = fqz.Compress(vers, 0, cset, out_size);
+    std::cerr << "out-size=" << out_size << std::endl;
+    memcpy(cset->columns[1]->mutable_data(), comp_quals, out_size);
+    cset->columns[1]->compressed_size = out_size;
+    cset->columns[1]->buffer.UnsafeSetLength(out_size);
+    cset->columns[1]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_RC_QUAL, n_in, out_size));
+    cset->columns[1]->transformation_args.back()->ComputeChecksum(cset->columns[1]->buffer.mutable_data(), out_size);
+    delete[] comp_quals;
+
+    return(out_size);
 }
 
 // sequence
 
 int SequenceCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore) {
     if(cset.get() == nullptr) return(-1);
+    std::cerr << "sequence compressor" << std::endl;
 
     int ret = 0;
     if(cstore == PIL_CSTORE_COLUMN) {
@@ -306,7 +337,7 @@ int SequenceCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYP
         cset->columns[0]->compressed_size = ret1;
         cset->columns[0]->buffer.UnsafeSetLength(ret1);
         cset->columns[0]->transformation_args.push_back(std::make_shared<TransformMeta>(PIL_COMPRESS_ZSTD, n_in0, ret1));
-        cset->columns[0]->transformation_args.back()->ComputeChecksum(cset->columns[0]->buffer.mutable_data(), ret2);
+        cset->columns[0]->transformation_args.back()->ComputeChecksum(cset->columns[0]->buffer.mutable_data(), ret1);
 
         ret += ret2;
     } else {
@@ -314,16 +345,18 @@ int SequenceCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYP
         return(-1);
     }
 
+    std::cerr << "done sequence compressor" << std::endl;
+
     return(ret);
 }
 
 int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths) {
     if(buffer.get() == nullptr) {
-        assert(AllocateResizableBuffer(pool_, n_src + 16384, &buffer) == 1);
+        assert(AllocateResizableBuffer(pool_, n_src + 65536, &buffer) == 1);
     }
 
-    if(buffer->capacity() < n_src + 16384){
-        assert(buffer->Reserve(n_src + 16384) == 1);
+    if(buffer->capacity() < n_src + 65536){
+        assert(buffer->Reserve(n_src + 65536) == 1);
     }
 
     // slevel in range [1,9);
@@ -347,10 +380,11 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
 
     RangeCoder rc;
     rc.StartEncode();
-    rc.output(reinterpret_cast<char*>(buffer->mutable_data()));
+    rc.SetOutput(reinterpret_cast<char*>(buffer->mutable_data()));
 
 
-    for(int i = 0; i < n_lengths; ++i) {
+    for(int i = 1; i < n_lengths; ++i) {
+        assert(lengths[i] != 0);
         /* Corresponds to a 12-mer word that doesn't occur in human genome. */
         last  = 0x7616c7 & NS_MASK;
         last2 = (0x2c6b62ff >> (32 - 2*NS)) & NS_MASK;
@@ -366,10 +400,10 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
     }
 
    rc.FinishEncode();
-   //std::cerr << "BASES encodings=" << n_src << "->" << rc.size_out() << " (" << (float)n_src/rc.size_out() << "-fold)" << std::endl;
+   //std::cerr << "BASES encodings=" << n_src << "->" << rc.OutSize() << " (" << (float)n_src/rc.OutSize() << "-fold)" << std::endl;
 
    delete[] model_seq16;
-   return(rc.size_out());
+   return(rc.OutSize());
 }
 
 

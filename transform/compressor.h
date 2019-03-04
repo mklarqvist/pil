@@ -6,9 +6,13 @@
 #include "zstd.h"
 #include "zstd_errors.h"
 
+
+#include "fqzcomp_qual.h"
+
 #include "transformer.h"
 #include "base_model.h"
 #include "frequency_model.h"
+
 
 #define PIL_ZSTD_DEFAULT_LEVEL 1
 
@@ -59,12 +63,6 @@ public:
 #define QBITS 12
 #define QSIZE (1 << QBITS)
 
-#ifdef __SSE__
-#   include <xmmintrin.h>
-#else
-#   define _mm_prefetch(a,b)
-#endif
-
 // Unsafe
 #define ABS(a)   ((a)>0?(a):-(a))
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -82,6 +80,8 @@ public:
 
     int Compress(uint8_t* qual, const uint32_t n_src, const uint32_t* lengths, const uint32_t n_lengths);
     int Decompress(){ return -1; }
+
+    int Compress2(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
 };
 
 class SequenceCompressor : public Compressor {

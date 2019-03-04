@@ -8,6 +8,7 @@ CPP_SRCS += \
 ../transform/dictionary_builder.cpp \
 ../transform/encoder.cpp \
 ../transform/fastdelta.cpp \
+../transform/fqzcomp_qual.cpp \
 ../transform/transformer.cpp 
 
 OBJS += \
@@ -15,6 +16,7 @@ OBJS += \
 ./transform/dictionary_builder.o \
 ./transform/encoder.o \
 ./transform/fastdelta.o \
+./transform/fqzcomp_qual.o \
 ./transform/transformer.o 
 
 CPP_DEPS += \
@@ -22,6 +24,7 @@ CPP_DEPS += \
 ./transform/dictionary_builder.d \
 ./transform/encoder.d \
 ./transform/fastdelta.d \
+./transform/fqzcomp_qual.d \
 ./transform/transformer.d 
 
 
