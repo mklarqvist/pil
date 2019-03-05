@@ -196,7 +196,7 @@ int FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> quals,
         else
             qhist1[in[i]][j&(NP-1)]++, t1[j&(NP-1)]++;
     }
-    do_dedup = ((rec+1)/(do_dedup+1) < 500);
+    do_dedup = ((rec+1) / (do_dedup+1) < 500);
     rec = 0;
     last_len = 0;
 
@@ -226,19 +226,17 @@ int FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> quals,
     }
     int fixed_len = (i == n_records);
 
-    int store_qtab = 0; // unused by current encoder
-    int q_qctxbits = strat_opts[strat][0];
-    int q_qctxshift= strat_opts[strat][1];
-    int q_pctxbits = strat_opts[strat][2];
-    int q_pctxshift= strat_opts[strat][3];
-    int q_dctxbits = strat_opts[strat][4];
-    int q_dctxshift= strat_opts[strat][5];
-    int q_qloc     = strat_opts[strat][6];
-    int q_sloc     = strat_opts[strat][7];
-    int q_ploc     = strat_opts[strat][8];
-    int q_dloc     = strat_opts[strat][9];
-
-    std::cerr << "strat options=" << strat << std::endl;
+    int store_qtab  = 0; // unused by current encoder
+    int q_qctxbits  = strat_opts[strat][0];
+    int q_qctxshift = strat_opts[strat][1];
+    int q_pctxbits  = strat_opts[strat][2];
+    int q_pctxshift = strat_opts[strat][3];
+    int q_dctxbits  = strat_opts[strat][4];
+    int q_dctxshift = strat_opts[strat][5];
+    int q_qloc      = strat_opts[strat][6];
+    int q_sloc      = strat_opts[strat][7];
+    int q_ploc      = strat_opts[strat][8];
+    int q_dloc      = strat_opts[strat][9];
 
     if (strat >= 4) {
         goto manually_set; // used in TEST_MAIN for debugging
@@ -258,10 +256,10 @@ int FqzCompQual::Compress(int vers, int level, std::shared_ptr<ColumnSet> quals,
         }
     } else if (nsym <= 8) {
         // HiSeqX
-        q_qctxbits = UNSAFE_MIN(q_qctxbits,9);
+        q_qctxbits = UNSAFE_MIN(q_qctxbits, 9);
         q_qctxshift = 3;
         if (in_size < 5000000)
-            q_qctxbits =6 ;
+            q_qctxbits = 6 ;
     }
 
     if (in_size < 300000) {

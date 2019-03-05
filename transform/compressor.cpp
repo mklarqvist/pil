@@ -435,6 +435,7 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
     int last  = 0x7616c7 & NS_MASK;
     int last2 = (0x2c6b62ff >> (32 - 2*NS)) & NS_MASK;
     BaseModel<uint16_t>* model_seq16 = new BaseModel<uint16_t>[1 << (2 * NS)];
+    FrequencyModel<2> model_null(2);
 
     int L[256];
     /* ACGTN* */
@@ -457,10 +458,15 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
             //    std::cerr << bases[cum_offset + j];
             //}
             const uint8_t b = L[(uint8_t)bases[cum_offset + j]];
-            model_seq16[last].EncodeSymbol(&rc, b);
-            last = (last*4 + b) & NS_MASK;
-            //volatile int p = *(int *)&model_seq16[last];
-            _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
+            if(b == 4) model_null.EncodeSymbol(&rc, 1);
+            else {
+                model_null.EncodeSymbol(&rc, 0);
+                //const uint8_t b = L[(uint8_t)bases[cum_offset + j]];
+                model_seq16[last].EncodeSymbol(&rc, b);
+                last = (last*4 + b) & NS_MASK;
+                //volatile int p = *(int *)&model_seq16[last];
+                _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
+            }
         }
         //if(i < 3) {
         //    std::cerr << std::endl;
@@ -496,6 +502,7 @@ int SequenceCompressor::Decompress(std::shared_ptr<ColumnSet> cset, const Dictio
     int NS = 7 + slevel;
     const int NS_MASK = ((1 << (2*NS)) - 1);
     BaseModel<uint16_t>* model_seq16 = new BaseModel<uint16_t>[1 << (2 * NS)];
+    FrequencyModel<2> model_null(2);
     uint8_t* out = buffer->mutable_data();
 
     const char* dec = "ACGTN";
@@ -510,13 +517,20 @@ int SequenceCompressor::Decompress(std::shared_ptr<ColumnSet> cset, const Dictio
 
     for (int i = 0; i < u_sz; i++) {
         //if(i % 100 == 0 && i != 0) last  = 0x7616c7 & NS_MASK;
-        const uint8_t b = model_seq16[last].DecodeSymbol(&rc);
-        out[i] = dec[b];
-        if(i == 100) std::cerr << std::endl;
-        if(i < 200) std::cerr << dec[b];
-        last = (last*4 + b) & NS_MASK;
-        _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
+        //if(i == 100) std::cerr << std::endl;
 
+        const uint8_t null = model_null.DecodeSymbol(&rc);
+        if(null == 0) {
+            const uint8_t b = model_seq16[last].DecodeSymbol(&rc);
+            out[i] = dec[b];
+
+            //if(i < 200) std::cerr << dec[b];
+            last = (last*4 + b) & NS_MASK;
+            _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
+        } else {
+            out[i] = 'N';
+            //if(i < 200) std::cerr << 'N';
+        }
         /*
         if (both_strands) {
             int b2 = last2 & 3;

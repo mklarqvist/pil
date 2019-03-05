@@ -412,7 +412,7 @@ TEST(SeqTests, EncodeDecode) {
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
-    std::uniform_int_distribution<uint8_t> distr(0, 3); // right inclusive
+    std::uniform_int_distribution<uint8_t> distr(0, 4); // right inclusive
     std::vector<uint8_t> data(100);
     char map[] = {'A', 'T', 'G', 'C', 'N'};
     for(int i = 0; i < 10000; ++i) {

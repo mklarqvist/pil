@@ -35,6 +35,7 @@ class Encoder : public Transformer {
 public:
     Encoder(){}
     Encoder(std::shared_ptr<ResizableBuffer> data) : Transformer(data){}
+    virtual ~Encoder(){}
 
     inline std::shared_ptr<ResizableBuffer> data() const { return(buffer); }
 };
