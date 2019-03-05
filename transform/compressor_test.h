@@ -322,7 +322,7 @@ TEST(QualityTests, EncodeDecode) {
     // Make sure the MD5 checksum is not the same
     ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
 
-    transformer.Decompress2(cset, field.cstore);
+    transformer.Decompress(cset, field.cstore);
     uint8_t md5[16]; memset(md5, 0, 16);
     Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
     ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));
@@ -358,7 +358,7 @@ TEST(QualityTests, EncodeDecodeLong100kb) {
     // Make sure the MD5 checksum is not the same
     ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
 
-    transformer.Decompress2(cset, field.cstore);
+    transformer.Decompress(cset, field.cstore);
     uint8_t md5[16]; memset(md5, 0, 16);
     Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
     ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));
@@ -394,7 +394,7 @@ TEST(QualityTests, EncodeDecodeLong1mb) {
     // Make sure the MD5 checksum is not the same
     ASSERT_NE(0, memcmp(cset->columns[1]->md5_checksum, cset->columns[1]->transformation_args.back()->md5_checksum, 16));
 
-    transformer.Decompress2(cset, field.cstore);
+    transformer.Decompress(cset, field.cstore);
     uint8_t md5[16]; memset(md5, 0, 16);
     Digest::GenerateMd5(cset->columns[1]->mutable_data(), cset->columns[1]->buffer.length(), md5);
     ASSERT_EQ(0, memcmp(cset->columns[1]->md5_checksum, md5, 16));

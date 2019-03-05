@@ -17,6 +17,104 @@
 #include "table_meta_test.h"
 #include "transform/compressor_test.h"
 
+//
+#include <random>
+#include <chrono>
+
+void flag_test(uint32_t n, uint32_t cycles = 1) {
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 eng(rd()); // seed the generator
+    std::uniform_int_distribution<uint16_t> distr(1, std::numeric_limits<uint16_t>::max()); // right inclusive
+    std::cerr << "before allcoate" << std::endl;
+    uint16_t* vals = new uint16_t[n];
+    std::cerr << "after allocate" << std::endl;
+
+    uint64_t times[3] = {0};
+
+    for(int c = 0; c < cycles; ++c) {
+        std::cerr << "generarting flags: " << n << std::endl;
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+        for(uint32_t i = 0; i < n; ++i) {
+            vals[i] = distr(eng);
+        }
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+        std::cerr << "Elapsed: " << time_span.count() << " us." << std::endl;
+        times[0] += time_span.count();
+
+        // done
+
+        t1 = std::chrono::high_resolution_clock::now();
+        uint64_t flag_truth[16];
+        memset(flag_truth, 0, 16*sizeof(uint64_t));
+
+        for(int i = 0; i < n; ++i) {
+            for(int j = 0; j < 16; ++j) {
+                //if(vals[i] & (1 << j)) std::cerr << "add=" << j << std::endl;
+                flag_truth[j] += ((vals[i] & (1 << j)) >> j);
+            }
+        }
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+        std::cerr << "Elapsed: " << time_span.count() << " us." << std::endl;
+        times[1] += time_span.count();
+
+        // done
+
+        t1 = std::chrono::high_resolution_clock::now();
+        uint64_t low[256], high[256];
+       memset(low,  0, 256*sizeof(uint64_t));
+       memset(high, 0, 256*sizeof(uint64_t));
+
+        for(int i = 0; i < n; ++i) {
+            ++low[vals[i] & 255];
+            ++high[(vals[i] >> 8) & 255];
+        }
+
+        //uint64_t n_total = 0;
+        //for(int i = 0; i < 256; ++i) n_total += low[i] + high[i];
+        //std::cerr << "n_total=" << n_total << " exp=" << 2*n << std::endl;
+
+        uint64_t flag[16];
+        memset(flag, 0, 16*sizeof(uint64_t));
+
+        bool skip = false;
+        for(int i = 0; i < 256; ++i) {
+            skip = (low[i] == 0);
+            for(int k = 0; k < 8*skip; ++k) {
+                flag[k] += ((i & (1 << k)) >> k) * low[i];
+            }
+        }
+
+        for(int i = 0; i < 256; ++i) {
+            skip = (high[i] == 0);
+            for(int k = 0; k < 8*skip; ++k) {
+                flag[k+8] += ((i & (1 << k)) >> k) * high[i];
+            }
+        }
+
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+        std::cerr << "Elapsed: " << time_span.count() << " us." << std::endl;
+        times[2] += time_span.count();
+        // done
+    }
+
+    std::cerr << "average times=" << (double)times[0]/cycles << " " << (double)times[1]/cycles << " " << (double)times[2]/cycles << std::endl;
+
+    // test
+    /*
+    uint64_t a = 0, b = 0;
+    for(int i = 0; i < 16; ++i) {
+        a += flag[i]; b += flag_truth[i];
+        std::cerr << flag[i] << "\t" << flag_truth[i] << std::endl;
+    }
+    std::cerr << "total= " << a << ", " << b << std::endl;
+    */
+    delete[] vals;
+}
+
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {
     std::vector<std::string> results;
@@ -47,6 +145,10 @@ int google_test(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+    //flag_test(100000000, 20);
+    //return(1);
+    //
+
     // todo: fix tests in makefile
     int test_return = google_test(argc, argv);
     std::cerr << "google returned=" << test_return << std::endl;
@@ -156,7 +258,7 @@ int main(int argc, char **argv) {
                 rbuild.AddArray<uint8_t>("NAME-5", pil::PIL_TYPE_UINT8, reinterpret_cast<uint8_t*>(&right[2][0]), right[2].size());
 
                 uint8_t name5 = std::atoi(right[3].c_str());
-                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT8, name5);
+                rbuild.Add<uint32_t>("NAME-6", pil::PIL_TYPE_UINT32, name5);
 
                 uint32_t name6 = std::atoi(right[4].c_str());
                 rbuild.Add<uint32_t>("NAME-7", pil::PIL_TYPE_UINT32, name6);
@@ -210,10 +312,10 @@ int main(int argc, char **argv) {
     if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
-        //ss.open("/Users/Mivagallery/Downloads/NA12877_S1_10m.sam", std::ios::ate | std::ios::in);
+        ss.open("/Users/Mivagallery/Downloads/NA12877_S1_10m.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/08dcb478-5359-41f4-97c8-469190c8a034/NA12878/nanopore/rel5-guppy-0.3.0-chunk10k.sorted.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
@@ -228,8 +330,8 @@ int main(int argc, char **argv) {
 
         //table.single_archive = true;
         //table.batch_size = 65536;
-        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
-        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
 
         if(table.out_stream.good() == false) {
