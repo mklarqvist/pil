@@ -71,7 +71,6 @@ public:
 class QualityCompressor : public Compressor {
 public:
     int Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
-    //int Compress2(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
     int Decompress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore);
 };
 

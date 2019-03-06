@@ -217,7 +217,6 @@ int QualityCompressor::Decompress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TY
 
 int SequenceCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE cstore) {
     if(cset.get() == nullptr) return(-1);
-    std::cerr << "sequence compressor" << std::endl;
 
     int ret = 0;
     if(cstore == PIL_CSTORE_COLUMN) {
@@ -289,8 +288,6 @@ int SequenceCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYP
         return(-1);
     }
 
-    std::cerr << "done sequence compressor" << std::endl;
-
     return(ret);
 }
 
@@ -309,13 +306,13 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
     const int NS_MASK = ((1 << (2*NS)) - 1);
     /* Corresponds to a 12-mer word that doesn't occur in human genome. */
     int last  = 0x7616c7 & NS_MASK;
-    //int last2 = (0x2c6b62ff >> (32 - 2*NS)) & NS_MASK;
+
     BaseModel<uint16_t>* model_seq16 = new BaseModel<uint16_t>[1 << (2 * NS)];
     FrequencyModel<2> model_null(2);
 
     int L[256];
     /* ACGTN* */
-    for (int i = 0; i < 256; i++) L[i] = 0;
+    for (int i = 0; i < 256; i++) L[i] = -1;
     L['A'] = L['a'] = 0;
     L['C'] = L['c'] = 1;
     L['G'] = L['g'] = 2;
@@ -328,11 +325,7 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
 
     uint32_t cum_offset = 0;
     for(int i = 1; i < n_lengths; ++i) {
-
         for (int j = 0; j < lengths[i]; ++j) {
-            //if(i < 3) {
-            //    std::cerr << bases[cum_offset + j];
-            //}
             const uint8_t b = L[(uint8_t)bases[cum_offset + j]];
             if(b == 4) model_null.EncodeSymbol(&rc, 1);
             else {
@@ -344,15 +337,10 @@ int SequenceCompressor::Compress(const uint8_t* bases, const uint32_t n_src, con
                 _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
             }
         }
-        //if(i < 3) {
-        //    std::cerr << std::endl;
-        //}
-        //last  = 0x7616c7 & NS_MASK;
         cum_offset += lengths[i];
     }
 
    rc.FinishEncode();
-   //std::cerr << "BASES encodings=" << n_src << "->" << rc.OutSize() << " (" << (float)n_src/rc.OutSize() << "-fold)" << std::endl;
    delete[] model_seq16;
 
    return(rc.OutSize());
@@ -369,7 +357,6 @@ int SequenceCompressor::DecompressStrides(std::shared_ptr<ColumnSet> cset, const
     }
 
     if(buffer->capacity() < cset->columns[0]->transformation_args.back()->u_sz + 16384){
-        //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
         assert(buffer->Reserve(cset->columns[0]->transformation_args.back()->u_sz + 16384) == 1);
     }
 
@@ -400,7 +387,6 @@ int SequenceCompressor::Decompress(std::shared_ptr<ColumnSet> cset, const Dictio
     }
 
     if(buffer->capacity() < cset->columns[1]->transformation_args.back()->u_sz + 16384){
-        //std::cerr << "here in limit=" << n*sizeof(T) << "/" << buffer->capacity() << std::endl;
         assert(buffer->Reserve(cset->columns[1]->transformation_args.back()->u_sz + 16384) == 1);
     }
 
@@ -414,11 +400,8 @@ int SequenceCompressor::Decompress(std::shared_ptr<ColumnSet> cset, const Dictio
     BaseModel<uint16_t>* model_seq16 = new BaseModel<uint16_t>[1 << (2 * NS)];
     FrequencyModel<2> model_null(2);
     uint8_t* out = buffer->mutable_data();
-
     const char* dec = "ACGTN";
     int last  = 0x7616c7 & NS_MASK;
-    //int last2 = (0x2c6b62ff >> (32 - 2*NS)) & NS_MASK;
-
     const uint32_t u_sz = cset->columns[1]->transformation_args.back()->u_sz;
 
     RangeCoder rc;
@@ -426,30 +409,15 @@ int SequenceCompressor::Decompress(std::shared_ptr<ColumnSet> cset, const Dictio
     rc.StartDecode();
 
     for (int i = 0; i < u_sz; i++) {
-        //if(i % 100 == 0 && i != 0) last  = 0x7616c7 & NS_MASK;
-        //if(i == 100) std::cerr << std::endl;
-
         const uint8_t null = model_null.DecodeSymbol(&rc);
         if(null == 0) {
             const uint8_t b = model_seq16[last].DecodeSymbol(&rc);
             out[i] = dec[b];
-
-            //if(i < 200) std::cerr << dec[b];
             last = (last*4 + b) & NS_MASK;
             _mm_prefetch((const char *)&model_seq16[last], _MM_HINT_T0);
         } else {
             out[i] = 'N';
-            //if(i < 200) std::cerr << 'N';
         }
-        /*
-        if (both_strands) {
-            int b2 = last2 & 3;
-            last2 = last2/4 + ((3-b) << (2*NS-2));
-            _mm_prefetch((const char *)&model_seq16[last2], _MM_HINT_T0);
-            model_seq16[last2].UpdateSymbol(b2);
-        }
-        */
-
     }
     rc.FinishDecode();
     delete[] model_seq16;
