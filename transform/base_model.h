@@ -74,8 +74,8 @@ namespace pil {
 template <typename T>
 class BaseModel {
 private:
-    static const int STEP = sizeof(T) == 1 ? 1 : 8;
-    static const int WSIZ = (1 << 8*sizeof(T)) - 2*STEP;
+    static constexpr int STEP = sizeof(T) == 1 ? 1 : 8;
+    static constexpr int WSIZ = (1 << 8*sizeof(T)) - 2*STEP;
 
 public:
     BaseModel();

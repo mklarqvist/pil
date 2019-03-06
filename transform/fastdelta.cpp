@@ -1,4 +1,4 @@
-#include "../transform/fastdelta.h"
+#include "fastdelta.h"
 
 #if defined(_MSC_VER)
      /* Microsoft C/C++-compatible compiler */

@@ -21,17 +21,263 @@
 #include <random>
 #include <chrono>
 
+// temp
+#include <immintrin.h>
+
+#ifdef _mm_popcnt_u64
+#define PIL_POPCOUNT   _mm_popcnt_u64
+#else
+#define PIL_POPCOUNT   __builtin_popcountll
+#endif
+
+__attribute__((always_inline))
+static inline void PIL_POPCOUNT_SSE(uint64_t& a, const __m128i n) {
+    a += PIL_POPCOUNT(_mm_cvtsi128_si64(n)) + PIL_POPCOUNT(_mm_cvtsi128_si64(_mm_unpackhi_epi64(n, n)));
+}
+
+#define PIL_POPCOUNT_AVX2(A, B) {                  \
+    A += PIL_POPCOUNT(_mm256_extract_epi64(B, 0)); \
+    A += PIL_POPCOUNT(_mm256_extract_epi64(B, 1)); \
+    A += PIL_POPCOUNT(_mm256_extract_epi64(B, 2)); \
+    A += PIL_POPCOUNT(_mm256_extract_epi64(B, 3)); \
+}
+
+uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    // 1 load data
+    // 2 x | (((data[x] & mask[i]) >> i) << j)
+    // 3 popcount
+    __m256i masks[16];
+    __m256i stubs[16];
+    for(int i = 0; i < 16; ++i) {
+        masks[i] = _mm256_set1_epi16(1 << i);
+        stubs[i] = _mm256_set1_epi16(0);
+    }
+
+    uint32_t out_counters[16];
+    memset(out_counters, 0, sizeof(uint32_t)*16);
+
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const uint32_t n_cycles = n / 16;
+    const uint32_t n_cycles_updates = n_cycles / 16;
+
+#define UPDATE(idx, shift) stubs[idx] = _mm256_or_si256(stubs[idx], _mm256_slli_epi16(_mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx), shift));
+#define ITERATION(idx) {                                               \
+        UPDATE(idx,0);  UPDATE(idx,1);  UPDATE(idx,2);  UPDATE(idx,3); \
+        UPDATE(idx,4);  UPDATE(idx,5);  UPDATE(idx,6);  UPDATE(idx,7); \
+        UPDATE(idx,8);  UPDATE(idx,9);  UPDATE(idx,10); UPDATE(idx,11);\
+        UPDATE(idx,12); UPDATE(idx,13); UPDATE(idx,14); UPDATE(idx,15);\
+        ++pos;                                                         \
+}
+#define BLOCK() {                                                  \
+        ITERATION(0);  ITERATION(1);  ITERATION(2);  ITERATION(3); \
+        ITERATION(4);  ITERATION(5);  ITERATION(6);  ITERATION(7); \
+        ITERATION(8);  ITERATION(9);  ITERATION(10); ITERATION(11);\
+        ITERATION(12); ITERATION(13); ITERATION(14); ITERATION(15);\
+}
+
+    uint32_t pos = 0;
+    for(int i = 0; i < n_cycles_updates; ++i) {
+        BLOCK() // unrolled
+
+        /*
+        // Not unrolled
+        for(int c = 0; c < 16; ++c, ++pos) { // 16 iterations per register
+            for(int j = 0; j < 16; ++j) { // each 1-hot per register
+                UPDATE(j,c)
+            }
+        }
+        */
+
+        for(int j = 0; j < 16; ++j) {
+            PIL_POPCOUNT_AVX2(out_counters[j], stubs[j])
+            stubs[j] = _mm256_set1_epi16(0);
+        }
+    }
+
+    // residual
+    for(int i = pos*16; i < n; ++i) {
+        for(int j = 0; j < 16; ++j) {
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    //std::cerr << "popcnt=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
+
+#undef BLOCK
+#undef ITERATION
+#undef UPDATE
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    memset(flags, 0, 16*sizeof(uint32_t));
+
+    for(int i = 0; i < n; ++i) {
+        for(int j = 0; j < 16; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    uint32_t low[256], high[256];
+    memset(low,  0, 256*sizeof(uint32_t));
+    memset(high, 0, 256*sizeof(uint32_t));
+
+    for(int i = 0; i < n; ++i) {
+        ++low[data[i] & 255];
+        ++high[(data[i] >> 8) & 255];
+    }
+
+    for(int i = 0; i < 256; ++i) {
+        for(int k = 0; k < 8; ++k) {
+            flags[k] += ((i & (1 << k)) >> k) * low[i];
+        }
+    }
+
+    for(int i = 0; i < 256; ++i) {
+        for(int k = 0; k < 8; ++k) {
+            flags[k+8] += ((i & (1 << k)) >> k) * high[i];
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flag_truth[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    // 1 load data
+    // 2 data[x] & mask[i]
+    // 3 data[x] == 0
+    // 4 add count + (data[x] == 0)
+    // 5: if mod val then popcount
+    // _mm256_and_si256
+    // _mm256_cmpeq_epi16()
+    // _mm256_add_epi16 OR _mm256_slli_si256
+    // _mm_popcnt_u64
+
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    __m256i masks[16];
+    __m256i counters[16];
+    for(int i = 0; i < 16; ++i) {
+        masks[i]    = _mm256_set1_epi16(1 << i);
+        counters[i] = _mm256_set1_epi16(0);
+    }
+    uint32_t out_counters[16];
+    memset(out_counters, 0, sizeof(uint32_t)*16);
+
+    const __m256i hi_mask = _mm256_set1_epi32(0xFFFF0000);
+    const __m256i lo_mask = _mm256_set1_epi32(0x0000FFFF);
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const uint32_t n_cycles = n / 16;
+    const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
+    //std::cerr << n << " values and " << n_cycles << " cycles " << n_residual << " residual cycles" << std::endl;
+
+#define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
+#define ITERATION  {                                   \
+        UPDATE(0);  UPDATE(1);  UPDATE(2);  UPDATE(3); \
+        UPDATE(4);  UPDATE(5);  UPDATE(6);  UPDATE(7); \
+        UPDATE(8);  UPDATE(9);  UPDATE(10); UPDATE(11);\
+        UPDATE(12); UPDATE(13); UPDATE(14); UPDATE(15);\
+        ++pos; ++k;                                    \
+}
+
+    uint32_t pos = 0;
+    for(int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
+        for(int k = 0; k < 65536; ) { // max sum of each 16-bit value in a register
+            ITERATION // unrolled
+        }
+
+        // Compute vector sum
+        for(int k = 0; k < 16; ++k) { // each flag register
+            // Accumulator
+            // ((16-bit high & 16 high) >> 16) + (16-bit low & 16-low)
+            __m256i x = _mm256_add_epi32(
+                           _mm256_srli_epi32(_mm256_and_si256(counters[k], hi_mask), 16),
+                           _mm256_and_si256(counters[k], lo_mask));
+            __m256i t1 = _mm256_hadd_epi32(x,x);
+            __m256i t2 = _mm256_hadd_epi32(t1,t1);
+            __m128i t4 = _mm_add_epi32(_mm256_castsi256_si128(t2),_mm256_extractf128_si256(t2,1));
+            out_counters[k] += _mm_cvtsi128_si32(t4);
+
+            /*
+            // Naive counter
+            uint16_t* d = reinterpret_cast<uint16_t*>(&counters[k]);
+            for(int j = 0; j < 16; ++j) { // each uint16_t in the register
+                out_counters[k] += d[j];
+            }
+            */
+
+            counters[k] = _mm256_set1_epi16(0);
+        }
+    }
+
+    // residual
+    for(int i = pos*16; i < n; ++i) {
+        for(int j = 0; j < 16; ++j) {
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
+
+#undef ITERATION
+#undef UPDATE
+
+    return(time_span.count());
+
+}
+
 void flag_test(uint32_t n, uint32_t cycles = 1) {
     std::cerr << "Generating flags: " << n << std::endl;
 
     std::random_device rd; // obtain a random number from hardware
     std::mt19937 eng(rd()); // seed the generator
-    uint16_t* vals = new uint16_t[n];
 
-    uint64_t times[3] = {0};
-    uint64_t times_local[3];
+    //uint16_t* vals = new uint16_t[n];
+    uint16_t* vals;
+    assert(!posix_memalign((void**)&vals, 32, n*sizeof(uint16_t)));
 
-    std::vector<uint32_t> ranges = {16, 64, 1024, 4096, 65536};
+    uint64_t times[5] = {0};
+    uint64_t times_local[5];
+
+    std::vector<uint32_t> ranges = {16, 64, 256, 512, 1024, 4096, 65536};
     for(int r = 0; r < ranges.size(); ++r) {
         std::uniform_int_distribution<uint16_t> distr(1, ranges[r]); // right inclusive
 
@@ -43,72 +289,38 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             }
             std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
             auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-            //std::cerr << "Elapsed: " << time_span.count() << " us." << std::endl;
             times[0] += time_span.count();
             times_local[0] = time_span.count();
 
-            // done
+            // start tests
+            // scalar naive
+            uint32_t flags[16];
+            uint32_t time_naive = flag_stats_scalar_naive(vals, n, &flags[0]);
+            times[1] += time_naive;
+            times_local[1] = time_naive;
 
-            t1 = std::chrono::high_resolution_clock::now();
-            uint32_t flag_truth[16];
-            memset(flag_truth, 0, 16*sizeof(uint32_t));
+            // scalar partition
+            uint32_t flags2[16]; memset(flags2, 0, sizeof(uint32_t)*16);
+            uint32_t time_partition = flag_stats_scalar_partition(vals, n, &flags2[0]);
+            times[2] += time_partition;
+            times_local[2] = time_partition;
 
-            for(int i = 0; i < n; ++i) {
-                for(int j = 0; j < 16; ++j) {
-                    //if(vals[i] & (1 << j)) std::cerr << "add=" << j << std::endl;
-                    flag_truth[j] += ((vals[i] & (1 << j)) >> j);
-                }
-            }
-            t2 = std::chrono::high_resolution_clock::now();
-            time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-            //std::cerr << "Elapsed: " << time_span.count() << " us." << std::endl;
-            times[1] += time_span.count();
-            times_local[1] = time_span.count();
+            // avx2 aggl
+            memset(flags2, 0, sizeof(uint32_t)*16);
+            uint32_t avx2_timing = flag_stats_avx2(vals, n, &flags2[0]);
+            times[3] += avx2_timing;
+            times_local[3] = avx2_timing;
 
-            // done
+            // avx2 popcnt
+            memset(flags2, 0, sizeof(uint32_t)*16);
+            uint32_t popcnt_timing = flag_stats_avx2_popcnt(vals, n, &flags2[0]);
+            times[4] += popcnt_timing;
+            times_local[4] = popcnt_timing;
 
-            t1 = std::chrono::high_resolution_clock::now();
-            uint32_t low[256], high[256];
-            memset(low,  0, 256*sizeof(uint32_t));
-            memset(high, 0, 256*sizeof(uint32_t));
-
-            for(int i = 0; i < n; ++i) {
-                ++low[vals[i] & 255];
-                ++high[(vals[i] >> 8) & 255];
-            }
-
-            //uint64_t n_total = 0;
-            //for(int i = 0; i < 256; ++i) n_total += low[i] + high[i];
-            //std::cerr << "n_total=" << n_total << " exp=" << 2*n << std::endl;
-
-            uint32_t flag[16];
-            memset(flag, 0, 16*sizeof(uint32_t));
-
-            bool skip = false;
-            for(int i = 0; i < 256; ++i) {
-                skip = (low[i] == 0);
-                for(int k = 0; k < 8*skip; ++k) {
-                    flag[k] += ((i & (1 << k)) >> k) * low[i];
-                }
-            }
-
-            for(int i = 0; i < 256; ++i) {
-                skip = (high[i] == 0);
-                for(int k = 0; k < 8*skip; ++k) {
-                    flag[k+8] += ((i & (1 << k)) >> k) * high[i];
-                }
-            }
-
-            t2 = std::chrono::high_resolution_clock::now();
-            time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-            //std::cerr << "Elapsed: " << time_span.count() << " us." << std::endl;
-            times[2] += time_span.count();
-            times_local[2] = time_span.count();
-            // done
-            std::cerr << ranges[r] << "\t" << c << "\t" << times_local[0] << "\t" << times_local[1] << "\t" << times_local[2] << std::endl;
+            std::cerr << ranges[r] << "\t" << c << "\t" << times_local[0] << "\t" << times_local[1] << "\t" << times_local[2] << "\t" << times_local[3] << "\t" << times_local[4] << std::endl;
         }
-        std::cerr << "average times=" << (double)times[0]/cycles << " " << (double)times[1]/cycles << " " << (double)times[2]/cycles << std::endl;
-        memset(times, 0, sizeof(uint64_t)*3);
+        std::cerr << "average times=" << (double)times[0]/cycles << " " << (double)times[1]/cycles << " " << (double)times[2]/cycles << " " << (double)times[3]/cycles << " " << (double)times[4]/cycles << std::endl;
+        memset(times, 0, sizeof(uint64_t)*5);
     }
 
     delete[] vals;
@@ -144,13 +356,13 @@ int google_test(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-    //flag_test(100000000, 20);
-    //return(1);
+    flag_test(100000000, 10);
+    return(1);
     //
 
     // todo: fix tests in makefile
     int test_return = google_test(argc, argv);
-    std::cerr << "google returned=" << test_return << std::endl;
+    //std::cerr << "gtest returned=" << test_return << std::endl;
     if(test_return != 0) return(1);
     //
 

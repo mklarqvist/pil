@@ -112,13 +112,12 @@ public:
      * in the values in the map.  Specify not to use a map simply
      * disables that context type (our map is essentially 0-M -> 0).
      * @param vers
-     * @param level
      * @param quals
      * @param out
      * @param out_size
      * @return
      */
-    int Compress(int vers, int level, std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size);
+    int Compress(int vers, std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size);
     int Decompress(std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size);
 };
 

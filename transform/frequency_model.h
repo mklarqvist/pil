@@ -84,8 +84,8 @@ namespace pil {
 template <int NSYM>
 class FrequencyModel {
 private:
-    static const int PIL_FREQUENCY_MODEL_STEP = 8;
-    static const int PIL_FREQUENCY_MODEL_MAX = (1 << 16) - 16;
+    static constexpr int PIL_FREQUENCY_MODEL_STEP = 8;
+    static constexpr int PIL_FREQUENCY_MODEL_MAX = (1 << 16) - 16;
 
     typedef struct {
         uint16_t Freq;

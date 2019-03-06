@@ -1,8 +1,8 @@
-#ifndef ALGORITHM_DIGEST_DIGEST_H_
-#define ALGORITHM_DIGEST_DIGEST_H_
+#ifndef ALGORITHM_DIGEST_H_
+#define ALGORITHM_DIGEST_H_
 
-#include <openssl/sha.h>
 #include <fstream>
+#include <openssl/sha.h>
 
 namespace pil {
 
@@ -76,4 +76,4 @@ public:
 
 
 
-#endif /* ALGORITHM_DIGEST_DIGEST_H_ */
+#endif /* ALGORITHM_DIGEST_H_ */

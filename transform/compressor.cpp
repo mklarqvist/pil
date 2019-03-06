@@ -170,7 +170,7 @@ int QualityCompressor::Compress(std::shared_ptr<ColumnSet> cset, PIL_CSTORE_TYPE
 
         size_t out_size = 0;
         int64_t n_in = cset->columns[1]->buffer.length();
-        ret += Compress(vers, 0, cset, buffer, out_size);
+        ret += Compress(vers, cset, buffer, out_size);
         memcpy(cset->columns[1]->mutable_data(), buffer->mutable_data(), out_size);
         cset->columns[1]->compressed_size = out_size;
         cset->columns[1]->buffer.UnsafeSetLength(out_size);
@@ -538,17 +538,28 @@ static int read_array(uint8_t *in, uint32_t *array, int size) {
     return k;
 }
 
-// FIXME: how to auto-tune these rather than trial and error?
-static int strat_opts[][10] = {
-    {10, 5, 4, -1, 2, 1, 0, 9, 10, 14}, // basic options (level < 7)
-  //{10, 5, 7, 0, 2, 1, 0, 15, 9, 14},  // e.g. HiSeq 2000
-    {9, 5, 7, 0, 2, 0, 7, 15, 0, 14},   // e.g. HiSeq 2000, ~2.1% smaller than above
-    {12, 6, 2, 0, 2, 3, 0, 9, 12, 14},  // e.g. MiSeq
-    {12, 6, 0, 0, 0, 0, 0, 12, 0, 0},   // e.g. IonTorrent; adaptive O1
-    {0, 0, 0, 0, 0,  0, 0, 0, 0, 0},    // custom
+/**<
+ *  q_qctxbits  = Quality context bits
+ *  q_qctxshift = Quality context shift
+ *  q_pctxbits  = Position context bits
+ *  q_pctxshift = Position context shift
+ *  q_dctxbits  = Delta context bits
+ *  q_dctxshift = Delta context shift
+ *  q_qloc      = Quality location
+ *  q_sloc      = Strand location
+ *  q_ploc      = ?
+ *  q_dloc      = Delta location
+ */
+static int PIL_QUAL_COMPRESS_PRESETS[][10] = {
+    {10, 5, 4, -1, 2, 1, 0,  9, 10, 14}, // basic options (level < 7)
+  //{10, 5, 7,  0, 2, 1, 0, 15,  9, 14}, // e.g. HiSeq 2000
+    {9,  5, 7,  0, 2, 0, 7, 15,  0, 14}, // e.g. HiSeq 2000, ~2.1% smaller than above
+    {12, 6, 2,  0, 2, 3, 0,  9, 12, 14}, // e.g. MiSeq
+    {12, 6, 0,  0, 0, 0, 0, 12,  0,  0}, // e.g. IonTorrent; adaptive O1
+    {0,  0, 0,  0, 0, 0, 0,  0,  0,  0}, // custom
 };
 
-int QualityCompressor::Compress(int vers, int level, std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size)
+int QualityCompressor::Compress(int vers, std::shared_ptr<ColumnSet> quals, std::shared_ptr<ResizableBuffer> out, size_t& out_size)
 {
     //approx sqrt(delta), must be sequential
     int dsqr[] = {
@@ -643,16 +654,16 @@ int QualityCompressor::Compress(int vers, int level, std::shared_ptr<ColumnSet> 
     int fixed_len = (i == n_records);
 
     int store_qtab  = 0; // unused by current encoder
-    int q_qctxbits  = strat_opts[strat][0];
-    int q_qctxshift = strat_opts[strat][1];
-    int q_pctxbits  = strat_opts[strat][2];
-    int q_pctxshift = strat_opts[strat][3];
-    int q_dctxbits  = strat_opts[strat][4];
-    int q_dctxshift = strat_opts[strat][5];
-    int q_qloc      = strat_opts[strat][6];
-    int q_sloc      = strat_opts[strat][7];
-    int q_ploc      = strat_opts[strat][8];
-    int q_dloc      = strat_opts[strat][9];
+    int q_qctxbits  = PIL_QUAL_COMPRESS_PRESETS[strat][0];
+    int q_qctxshift = PIL_QUAL_COMPRESS_PRESETS[strat][1];
+    int q_pctxbits  = PIL_QUAL_COMPRESS_PRESETS[strat][2];
+    int q_pctxshift = PIL_QUAL_COMPRESS_PRESETS[strat][3];
+    int q_dctxbits  = PIL_QUAL_COMPRESS_PRESETS[strat][4];
+    int q_dctxshift = PIL_QUAL_COMPRESS_PRESETS[strat][5];
+    int q_qloc      = PIL_QUAL_COMPRESS_PRESETS[strat][6];
+    int q_sloc      = PIL_QUAL_COMPRESS_PRESETS[strat][7];
+    int q_ploc      = PIL_QUAL_COMPRESS_PRESETS[strat][8];
+    int q_dloc      = PIL_QUAL_COMPRESS_PRESETS[strat][9];
 
     if (strat >= 4) {
         goto manually_set; // used in TEST_MAIN for debugging
@@ -791,7 +802,7 @@ int QualityCompressor::Compress(int vers, int level, std::shared_ptr<ColumnSet> 
     }
 
     if (do_strand)
-        stab[1] = 1<<q_sloc;
+        stab[1] = 1 << q_sloc;
 
     const uint32_t n_qmodels = (1 << 16);
     FrequencyModel<QMAX>* model_qual = new FrequencyModel<QMAX>[n_qmodels];
@@ -1088,8 +1099,8 @@ int QualityCompressor::Decompress(std::shared_ptr<ColumnSet> quals, std::shared_
         Q = model_qual[last].DecodeSymbol(&rc);
         q = qmap[Q];
 
-        qlast = (qlast<<q_qctxshift) + qtab[Q];
-        last = (qlast & ((1<<q_qctxbits)-1)) << q_qloc;
+        qlast = (qlast << q_qctxshift) + qtab[Q];
+        last = (qlast & ((1 << q_qctxbits) - 1)) << q_qloc;
         last += ptab[UNSAFE_MIN(j,1024)]; //limits max pos
         last += stab[read2];
         last += dtab[delta];
