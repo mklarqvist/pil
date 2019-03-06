@@ -1,122 +1,89 @@
+/*
+* Copyright (c) 2019 Marcus D. R. Klarqvist
+* Author(s): Marcus D. R. Klarqvist
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*   http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing,
+* software distributed under the License is distributed on an
+* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+* KIND, either express or implied.  See the License for the
+* specific language governing permissions and limitations
+* under the License.
+*/
+/*
+ * Copyright (c) 2013-2019 Genome Research Ltd.
+ * Author(s): James Bonfield
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *    1. Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *
+ *    2. Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *    3. Neither the names Genome Research Ltd and Wellcome Trust Sanger
+ *    Institute nor the names of its contributors may be used to endorse
+ *    or promote products derived from this software without specific
+ *    prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY GENOME RESEARCH LTD AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL GENOME RESEARCH
+ * LTD OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 #ifndef RANGER_CODER_H
 #define RANGER_CODER_H
 
-#include <xmmintrin.h>
+#include <stddef.h> //size_t
+#include <cstdint>
 
-#define  DO(n) int _;for (_=0; _<n; _++)
-#define  TOP   (1<<24)
+#ifdef __SSE__
+#   include <xmmintrin.h>
+#else
+#   define _mm_prefetch(a,b)
+#endif
 
 namespace pil {
 
 class RangeCoder {
 public:
-    void SetInput(char *in) { out_buf = in_buf = (uint8_t*)in; }
-    void SetOutput(char *out) { in_buf = out_buf = (uint8_t*)out; }
+    void SetInput(uint8_t* in) { out_buf = in_buf = (uint8_t*)in; }
+    void SetOutput(uint8_t* out) { in_buf = out_buf = (uint8_t*)out; }
     char *GetInput() { return (char *)in_buf; }
     char *GetOutput() { return (char *)out_buf; }
     size_t OutSize() { return out_buf - in_buf; }
     size_t InSize() { return in_buf - out_buf; }
 
-    void StartEncode()
-    {
-        low=0;
-        range=(uint32_t)-1;
-    }
-
-    void StartDecode()
-    {
-        code = low = 0;
-        range = (uint32_t)-1;
-        DO(8) code = (code<<8) | *in_buf++;
-    }
-
-    void FinishEncode()
-    {
-        DO(8) (*out_buf++ = low>>56), low<<=8;
-    }
-
-    void FinishDecode() {}
-
-    #if DIV_RCP
-    static uint64_t rcp[65536];
-    void build_rcp_freq(void) {
-        int i;
-        for (i = 1; i < 65536; i++)
-        rcp[i] = (((uint64_t)1<<32)) / i;
-    }
-    #else
-    void build_rcp_freq(void) {}
-    #endif
-
-    void Encode (uint32_t cumFreq, uint32_t freq, uint32_t totFreq)
-    {
-        //fprintf(stderr, "                       RC %d+%d of %d\n", cumFreq, freq, totFreq);
-
-        // division-less doesn't help much in this case as only a single division anyway
-        //uint32_t d = (rcp[totFreq] * range)>>32;
-        //d += (range - totFreq * d >= totFreq);
-        //low  += cumFreq * (range = d);
-
-        low  += cumFreq * (range/= totFreq);
-        range*= freq;
-
-        if (cumFreq + freq > totFreq) {
-        fprintf(stderr, "cumFreq %d + freq %d > tot %d\n", cumFreq, freq, totFreq);
-        abort();
-        }
-
-        while( range<TOP ) {
-        // range = 0x00ffffff..
-        // low/high may be matching
-        //       eg 88332211/88342211 (range 00010000)
-        // or differing
-        //       eg 88ff2211/89002211 (range 00010000)
-        //
-        // If the latter, we need to reduce range down
-        // such that high=88ffffff.
-        // Eg. top-1      == 00ffffff
-        //     low|top-1  == 88ffffff
-        //     ...-low    == 0000ddee
-        if ( (uint8_t)((low^(low+range))>>56) )
-            range = (((uint32_t)(low)|(TOP-1))-(uint32_t)(low));
-        *out_buf++ = low>>56, range<<=8, low<<=8;
-        }
-    }
-
-    uint32_t GetFreq (uint32_t totFreq) {
-    #if DIV_RCP
-        // Replacing two divisions by one is beneficial as they get stuck waiting.
-        // 2.53s
-        uint32_t d = (rcp[totFreq] * range)>>32;
-        d += (range - totFreq * d >= totFreq);
-        return code/(range=d);
-    #else
-        // 2.67s
-        return code/(range/=totFreq);
-    #endif
-    }
-
-    void Decode (uint32_t cumFreq, uint32_t freq, uint32_t totFreq)
-    {
-        //fprintf(stderr, "                       RC %d+%d of %d\n", cumFreq, freq, totFreq);
-
-        uint32_t temp = cumFreq*range;
-        low  += temp;
-        code -= temp;
-        range*= freq;
-
-        while( range<TOP ) {
-            if ( (uint8_t)((low^(low+range))>>56) )
-                range = (((uint32_t)(low)|(TOP-1))-(uint32_t)(low));
-            code = (code<<8) | *in_buf++, range<<=8, low<<=8;
-        }
-    }
+    void StartEncode();
+    void StartDecode();
+    void FinishEncode();
+    void FinishDecode();
+    void build_rcp_freq(void);
+    void Encode (uint32_t cumFreq, uint32_t freq, uint32_t totFreq);
+    uint32_t GetFreq (uint32_t totFreq);
+    void Decode (uint32_t cumFreq, uint32_t freq, uint32_t totFreq);
 
 public:
     uint64_t low;
     uint32_t range, code;
-    uint8_t*in_buf;
-    uint8_t*out_buf;
+    uint8_t* in_buf;
+    uint8_t* out_buf;
 };
 
 }

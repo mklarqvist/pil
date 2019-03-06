@@ -2,9 +2,9 @@
 #define ALGORITHM_DIGEST_VARIANT_DIGEST_MANAGER_H_
 
 #include <cstdint>
+#include <openssl/md5.h>
 
 #include "../buffer.h"
-#include "openssl/md5.h"
 
 namespace pil {
 

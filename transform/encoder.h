@@ -6,10 +6,8 @@
 #include <unordered_map>
 
 #include "../pil.h"
-#include "transformer.h"
 #include "../buffer.h"
-
-#include "fastdelta.h"
+#include "transformer.h"
 
 namespace pil {
 

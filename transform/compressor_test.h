@@ -417,10 +417,6 @@ TEST(SeqTests, EncodeDecode) {
     char map[] = {'A', 'T', 'G', 'C', 'N'};
     for(int i = 0; i < 10000; ++i) {
         for(int j = 0; j < 100; ++j) data[j] = map[distr(eng)];
-        if(i < 2) {
-            for(int j = 0; j < 100; ++j) std::cerr << data[j];
-            std::cerr << std::endl;
-        }
         ASSERT_EQ(1, builder->Append(data));
     }
     ASSERT_EQ(2, cset->size());
