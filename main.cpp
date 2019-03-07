@@ -154,11 +154,13 @@ uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t
     auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
 
     //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flag_truth[i];
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
     //std::cerr << std::endl;
 
     return(time_span.count());
 }
+
+#define SIMD_VERSION 5 // temp
 
 #if SIMD_VERSION >= 5
 #define PIL_POPCOUNT_AVX2(A, B) {                  \
@@ -195,7 +197,7 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
         UPDATE(idx,12); UPDATE(idx,13); UPDATE(idx,14); UPDATE(idx,15);\
         ++pos;                                                         \
 }
-#define BLOCK() {                                                  \
+#define BLOCK {                                                    \
         ITERATION(0);  ITERATION(1);  ITERATION(2);  ITERATION(3); \
         ITERATION(4);  ITERATION(5);  ITERATION(6);  ITERATION(7); \
         ITERATION(8);  ITERATION(9);  ITERATION(10); ITERATION(11);\
@@ -204,7 +206,7 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
 
     uint32_t pos = 0;
     for(int i = 0; i < n_cycles_updates; ++i) {
-        BLOCK() // unrolled
+        BLOCK // unrolled
 
         /*
         // Not unrolled
@@ -245,16 +247,6 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
 }
 
 uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
-    // 1 load data
-    // 2 data[x] & mask[i]
-    // 3 data[x] == 0
-    // 4 add count + (data[x] == 0)
-    // 5: if mod val then popcount
-    // _mm256_and_si256
-    // _mm256_cmpeq_epi16()
-    // _mm256_add_epi16 OR _mm256_slli_si256
-    // _mm_popcnt_u64
-
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     __m256i masks[16];
@@ -271,7 +263,6 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
     const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
     const uint32_t n_cycles = n / 16;
     const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
-    //std::cerr << n << " values and " << n_cycles << " cycles " << n_residual << " residual cycles" << std::endl;
 
 #define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
 #define ITERATION  {                                   \
@@ -284,9 +275,8 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
 
     uint32_t pos = 0;
     for(int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
-        for(int k = 0; k < 65536; ) { // max sum of each 16-bit value in a register
+        for(int k = 0; k < 65536; ) // max sum of each 16-bit value in a register
             ITERATION // unrolled
-        }
 
         // Compute vector sum
         for(int k = 0; k < 16; ++k) { // each flag register
@@ -314,9 +304,8 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
 
     // residual
     for(int i = pos*16; i < n; ++i) {
-        for(int j = 0; j < 16; ++j) {
+        for(int j = 0; j < 16; ++j)
             out_counters[j] += ((data[i] & (1 << j)) >> j);
-        }
     }
 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
@@ -330,6 +319,120 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
 
 #undef ITERATION
 #undef UPDATE
+
+    return(time_span.count());
+
+}
+
+uint32_t flag_stats_avx2_naive_counter(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    __m256i masks[16];
+    __m256i counters[16];
+    for(int i = 0; i < 16; ++i) {
+        masks[i]    = _mm256_set1_epi16(1 << i);
+        counters[i] = _mm256_set1_epi16(0);
+    }
+    uint32_t out_counters[16];
+    memset(out_counters, 0, sizeof(uint32_t)*16);
+
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const uint32_t n_cycles = n / 16;
+    const uint32_t n_update_cycles = std::floor((double)n_cycles / 65536);
+    //std::cerr << n << " values and " << n_cycles << " cycles " << n_residual << " residual cycles" << std::endl;
+
+#define UPDATE(idx) counters[idx]  = _mm256_add_epi16(counters[idx],  _mm256_srli_epi16(_mm256_and_si256(data_vectors[pos], masks[idx]),  idx))
+
+    uint32_t pos = 0;
+    for(int i = 0; i < n_update_cycles; ++i) { // each block of 2^16 values
+        for(int k = 0; k < 65536; ++pos,++k) { // max sum of each 16-bit value in a register
+            for(int p = 0; p < 16; ++p) // Not unrolled
+                UPDATE(p);
+        }
+
+        // Compute vector sum
+        for(int k = 0; k < 16; ++k) { // each flag register
+            // Naive counter
+            uint16_t* d = reinterpret_cast<uint16_t*>(&counters[k]);
+            for(int j = 0; j < 16; ++j) // each uint16_t in the register
+                out_counters[k] += d[j];
+
+            counters[k] = _mm256_set1_epi16(0);
+        }
+    }
+
+    // residual
+    for(int i = pos*16; i < n; ++i) {
+        for(int j = 0; j < 16; ++j)
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
+
+#undef UPDATE
+
+    return(time_span.count());
+}
+
+uint32_t flag_stats_avx2_single(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    __m256i counter = _mm256_set1_epi16(0);
+    const __m256i one_mask =  _mm256_set1_epi16(1);
+    const __m256i masks = _mm256_set_epi16(1 << 15, 1 << 14, 1 << 13, 1 << 12,
+                                           1 << 11, 1 << 10, 1 << 9,  1 << 8,
+                                           1 << 7,  1 << 6,  1 << 5,  1 << 4,
+                                           1 << 3,  1 << 2,  1 << 1,  1 << 0);
+    uint32_t out_counters[16] = {0};
+    const __m256i* data_vectors = reinterpret_cast<const __m256i*>(data);
+    const uint32_t n_cycles = n / 16;
+    const uint32_t n_update_cycles = std::floor((double)n_cycles / 4096);
+
+#define UPDATE(idx) counter = _mm256_add_epi16(counter, _mm256_and_si256(_mm256_cmpeq_epi16(_mm256_and_si256(_mm256_set1_epi16(_mm256_extract_epi16(data_vectors[pos], idx)), masks), masks), one_mask));
+#define BLOCK {                                 \
+    UPDATE(0)  UPDATE(1)  UPDATE(2)  UPDATE(3)  \
+    UPDATE(4)  UPDATE(5)  UPDATE(6)  UPDATE(7)  \
+    UPDATE(8)  UPDATE(9)  UPDATE(10) UPDATE(11) \
+    UPDATE(12) UPDATE(13) UPDATE(14) UPDATE(15) \
+}
+
+    uint32_t pos = 0;
+    for(int i = 0; i < n_update_cycles; ++i) { // each block of 65536 values
+        for(int k = 0; k < 4096; ++k, ++pos) { // max sum of each 16-bit value in a register (65536/16)
+            BLOCK
+        }
+
+        // Compute vector sum
+        for(int k = 0; k < 16; ++k) // each flag register
+            out_counters[k] += _mm256_extract_epi16(counter, k);
+
+        counter = _mm256_set1_epi16(0);
+    }
+
+#undef UPDATE
+#undef BLOCK
+
+    // residual
+    for(int i = pos*16; i < n; ++i) {
+        for(int j = 0; j < 16; ++j)
+            out_counters[j] += ((data[i] & (1 << j)) >> j);
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    for(int i = 0; i < 16; ++i) flags[i] = out_counters[i];
+
+    //std::cerr << "simd=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << out_counters[i];
+    //std::cerr << std::endl;
 
     return(time_span.count());
 
@@ -349,8 +452,8 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
     uint16_t* vals;
     assert(!posix_memalign((void**)&vals, 32, n*sizeof(uint16_t)));
 
-    uint64_t times[5] = {0};
-    uint64_t times_local[5];
+    uint64_t times[7] = {0};
+    uint64_t times_local[7];
 
     std::vector<uint32_t> ranges = {16, 64, 256, 512, 1024, 4096, 65536};
     for(int r = 0; r < ranges.size(); ++r) {
@@ -391,16 +494,26 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             times[3] += avx2_timing;
             times_local[3] = avx2_timing;
 
+            memset(flags2, 0, sizeof(uint32_t)*16);
+            uint32_t avx2_timing_naive = flag_stats_avx2_naive_counter(vals, n, &flags2[0]);
+            times[6] += avx2_timing_naive;
+            times_local[6] = avx2_timing_naive;
+
             // avx2 popcnt
             memset(flags2, 0, sizeof(uint32_t)*16);
             uint32_t popcnt_timing = flag_stats_avx2_popcnt(vals, n, &flags2[0]);
             times[4] += popcnt_timing;
             times_local[4] = popcnt_timing;
 
-            std::cerr << ranges[r] << "\t" << c << "\t" << times_local[0] << "\t" << times_local[1] << "\t" << times_local[2] << "\t" << times_local[3] << "\t" << times_local[4] << std::endl;
+            memset(flags2, 0, sizeof(uint32_t)*16);
+            uint32_t avx2_single_timing = flag_stats_avx2_single(vals, n, &flags2[0]);
+            times[5] += avx2_single_timing;
+            times_local[5] = avx2_single_timing;
+
+            std::cerr << ranges[r] << "\t" << c << "\t" << times_local[0] << "\t" << times_local[1] << "\t" << times_local[2] << "\t" << times_local[3] << "\t" << times_local[4] << "\t" << times_local[5] << "\t" << times_local[6] << std::endl;
         }
-        std::cerr << "average times=" << (double)times[0]/cycles << " " << (double)times[1]/cycles << " " << (double)times[2]/cycles << " " << (double)times[3]/cycles << " " << (double)times[4]/cycles << std::endl;
-        memset(times, 0, sizeof(uint64_t)*5);
+        std::cerr << "average times=" << (double)times[0]/cycles << " " << (double)times[1]/cycles << " " << (double)times[2]/cycles << " " << (double)times[3]/cycles << " " << (double)times[4]/cycles << " " << (double)times[5]/cycles << " " << (double)times[6]/cycles << std::endl;
+        memset(times, 0, sizeof(uint64_t)*7);
     }
 
     delete[] vals;
