@@ -21,20 +21,146 @@
 #include <random>
 #include <chrono>
 
+/****************************
+*  SIMD definitions
+****************************/
+#if defined(_MSC_VER)
+     /* Microsoft C/C++-compatible compiler */
+     #include <intrin.h>
+#elif defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
+     /* GCC-compatible compiler, targeting x86/x86-64 */
+     #include <x86intrin.h>
+#elif defined(__GNUC__) && defined(__ARM_NEON__)
+     /* GCC-compatible compiler, targeting ARM with NEON */
+     #include <arm_neon.h>
+#elif defined(__GNUC__) && defined(__IWMMXT__)
+     /* GCC-compatible compiler, targeting ARM with WMMX */
+     #include <mmintrin.h>
+#elif (defined(__GNUC__) || defined(__xlC__)) && (defined(__VEC__) || defined(__ALTIVEC__))
+     /* XLC or GCC-compatible compiler, targeting PowerPC with VMX/VSX */
+     #include <altivec.h>
+#elif defined(__GNUC__) && defined(__SPE__)
+     /* GCC-compatible compiler, targeting PowerPC with SPE */
+     #include <spe.h>
+#endif
+
+#if defined(__AVX512F__) && __AVX512F__ == 1
+#define SIMD_AVAILABLE  1
+#define SIMD_VERSION    6
+#define SIMD_WIDTH      512
+#define SIMD_ALIGNMENT  64
+#elif defined(__AVX2__) && __AVX2__ == 1
+#define SIMD_AVAILABLE  1
+#define SIMD_VERSION    5
+#define SIMD_WIDTH      256
+#define SIMD_ALIGNMENT  32
+#elif defined(__AVX__) && __AVX__ == 1
+#define SIMD_AVAILABLE  1
+#define SIMD_VERSION    4
+#define SIMD_ALIGNMENT  16
+#define SIMD_WIDTH      128
+#elif defined(__SSE4_1__) && __SSE4_1__ == 1
+#define SIMD_AVAILABLE  1
+#define SIMD_VERSION    3
+#define SIMD_ALIGNMENT  16
+#define SIMD_WIDTH      128
+#elif defined(__SSE2__) && __SSE2__ == 1
+#define SIMD_AVAILABLE  1
+#define SIMD_VERSION    2
+#define SIMD_ALIGNMENT  16
+#define SIMD_WIDTH      128
+#elif defined(__SSE__) && __SSE__ == 1
+#define SIMD_AVAILABLE  0 // unsupported version
+#define SIMD_VERSION    1
+#define SIMD_ALIGNMENT  16
+#define SIMD_WIDTH      0
+#else
+#define SIMD_AVAILABLE  0
+#define SIMD_VERSION    0
+#define SIMD_ALIGNMENT  16
+#define SIMD_WIDTH      0
+#endif
+
 // temp
 #include <immintrin.h>
 
 #ifdef _mm_popcnt_u64
-#define PIL_POPCOUNT   _mm_popcnt_u64
+#define PIL_POPCOUNT _mm_popcnt_u64
 #else
-#define PIL_POPCOUNT   __builtin_popcountll
+#define PIL_POPCOUNT __builtin_popcountll
 #endif
 
+#if SIMD_AVAILABLE
 __attribute__((always_inline))
 static inline void PIL_POPCOUNT_SSE(uint64_t& a, const __m128i n) {
     a += PIL_POPCOUNT(_mm_cvtsi128_si64(n)) + PIL_POPCOUNT(_mm_cvtsi128_si64(_mm_unpackhi_epi64(n, n)));
 }
+#endif
 
+template <uint32_t(f)(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags), typename T = uint32_t, int n_flds = 16>
+uint32_t flag_stats_wrapper(const uint16_t* __restrict__ data, uint32_t n, T* __restrict__ flags) {
+    return((*f)(data, n, flags));
+}
+
+template <int n_flds = 16, typename T = uint32_t>
+uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, T* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    memset(flags, 0, n_flds*sizeof(T));
+
+    for(int i = 0; i < n; ++i) {
+        for(int j = 0; j < n_flds; ++j) {
+            flags[j] += ((data[i] & (1 << j)) >> j);
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
+
+template <int n_flds = 16, typename T = uint32_t>
+uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, T* __restrict__ flags) {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+    uint32_t low[256], high[256];
+    memset(low,  0, 256*sizeof(uint32_t));
+    memset(high, 0, 256*sizeof(uint32_t));
+    memset(flags, 0, 16*sizeof(T));
+
+    for(int i = 0; i < n; ++i) {
+        ++low[data[i] & 255];
+        ++high[(data[i] >> 8) & 255];
+    }
+
+    for(int i = 0; i < 256; ++i) {
+        for(int k = 0; k < 8; ++k) {
+            flags[k] += ((i & (1 << k)) >> k) * low[i];
+        }
+    }
+
+    for(int i = 0; i < 256; ++i) {
+        for(int k = 0; k < 8; ++k) {
+            flags[k+8] += ((i & (1 << k)) >> k) * high[i];
+        }
+    }
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+
+    //std::cerr << "truth=";
+    //for(int i = 0; i < 16; ++i) std::cerr << " " << flag_truth[i];
+    //std::cerr << std::endl;
+
+    return(time_span.count());
+}
+
+#if SIMD_VERSION >= 5
 #define PIL_POPCOUNT_AVX2(A, B) {                  \
     A += PIL_POPCOUNT(_mm256_extract_epi64(B, 0)); \
     A += PIL_POPCOUNT(_mm256_extract_epi64(B, 1)); \
@@ -114,61 +240,6 @@ uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, u
 #undef BLOCK
 #undef ITERATION
 #undef UPDATE
-
-    return(time_span.count());
-}
-
-uint32_t flag_stats_scalar_naive(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-
-    memset(flags, 0, 16*sizeof(uint32_t));
-
-    for(int i = 0; i < n; ++i) {
-        for(int j = 0; j < 16; ++j) {
-            flags[j] += ((data[i] & (1 << j)) >> j);
-        }
-    }
-
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flags[i];
-    //std::cerr << std::endl;
-
-    return(time_span.count());
-}
-
-uint32_t flag_stats_scalar_partition(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) {
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-
-    uint32_t low[256], high[256];
-    memset(low,  0, 256*sizeof(uint32_t));
-    memset(high, 0, 256*sizeof(uint32_t));
-
-    for(int i = 0; i < n; ++i) {
-        ++low[data[i] & 255];
-        ++high[(data[i] >> 8) & 255];
-    }
-
-    for(int i = 0; i < 256; ++i) {
-        for(int k = 0; k < 8; ++k) {
-            flags[k] += ((i & (1 << k)) >> k) * low[i];
-        }
-    }
-
-    for(int i = 0; i < 256; ++i) {
-        for(int k = 0; k < 8; ++k) {
-            flags[k+8] += ((i & (1 << k)) >> k) * high[i];
-        }
-    }
-
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto time_span = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-
-    //std::cerr << "truth=";
-    //for(int i = 0; i < 16; ++i) std::cerr << " " << flag_truth[i];
-    //std::cerr << std::endl;
 
     return(time_span.count());
 }
@@ -263,6 +334,10 @@ uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t
     return(time_span.count());
 
 }
+#else
+uint32_t flag_stats_avx2_popcnt(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+uint32_t flag_stats_avx2(const uint16_t* __restrict__ data, uint32_t n, uint32_t* __restrict__ flags) { return(0); }
+#endif
 
 void flag_test(uint32_t n, uint32_t cycles = 1) {
     std::cerr << "Generating flags: " << n << std::endl;
@@ -292,16 +367,21 @@ void flag_test(uint32_t n, uint32_t cycles = 1) {
             times[0] += time_span.count();
             times_local[0] = time_span.count();
 
+
+
             // start tests
             // scalar naive
             uint32_t flags[16];
-            uint32_t time_naive = flag_stats_scalar_naive(vals, n, &flags[0]);
+            uint32_t time_naive = flag_stats_wrapper<&flag_stats_scalar_naive>(vals,n,&flags[0]);
             times[1] += time_naive;
             times_local[1] = time_naive;
 
+            //uint32_t tt = flag_stats_wrapper<&flag_stats_scalar_naive, uint32_t>(vals,n,&flags[0]);
+            //std::cerr << "tt=" << tt << std::endl;
+
             // scalar partition
             uint32_t flags2[16]; memset(flags2, 0, sizeof(uint32_t)*16);
-            uint32_t time_partition = flag_stats_scalar_partition(vals, n, &flags2[0]);
+            uint32_t time_partition = flag_stats_wrapper<&flag_stats_scalar_partition>(vals,n,&flags[0]);
             times[2] += time_partition;
             times_local[2] = time_partition;
 
