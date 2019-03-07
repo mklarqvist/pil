@@ -49,6 +49,23 @@
  */
 
 /*
+ * Code rewritten to templated C++11 and commented by Marcus D. R. Klarqvist
+ */
+
+#ifndef FREQUENCY_MODEL_H_
+#define FREQUENCY_MODEL_H_
+
+#ifdef __SSE__
+#include <xmmintrin.h>
+#else
+#define _mm_prefetch(a,b)
+#endif
+
+#include "range_coder.h"
+
+namespace pil {
+
+/*
  *--------------------------------------------------------------------------
  * A simple frequency model.
  *
@@ -68,18 +85,6 @@
  * avoid frequency counters getting too high).
  *--------------------------------------------------------------------------
  */
-#ifndef FREQUENCY_MODEL_H_
-#define FREQUENCY_MODEL_H_
-
-#ifdef __SSE__
-#   include <xmmintrin.h>
-#else
-#   define _mm_prefetch(a,b)
-#endif
-
-#include "range_coder.h"
-
-namespace pil {
 
 template <int NSYM>
 class FrequencyModel {
@@ -97,8 +102,8 @@ public:
     FrequencyModel(int max_sym);
     void Initiate(int max_sym);
     void Normalize();
-    void EncodeSymbol(RangeCoder *rc, uint16_t sym);
-    uint16_t DecodeSymbol(RangeCoder *rc);
+    void EncodeSymbol(RangeCoder* rc, uint16_t sym);
+    uint16_t DecodeSymbol(RangeCoder* rc);
 
 private:
     uint32_t TotFreq;  // Total frequency

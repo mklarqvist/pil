@@ -47,17 +47,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/*
+ * Code rewritten to templated C++11 and commented by Marcus D. R. Klarqvist
+ */
 #ifndef RANGER_CODER_H
 #define RANGER_CODER_H
 
 #include <stddef.h> //size_t
 #include <cstdint>
-
-#ifdef __SSE__
-#   include <xmmintrin.h>
-#else
-#   define _mm_prefetch(a,b)
-#endif
 
 namespace pil {
 

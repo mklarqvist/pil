@@ -47,12 +47,19 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*
+ * Code rewritten to templated C++11 and commented by Marcus D. R. Klarqvist
+ */
 #ifndef BASE_MODEL_H_
 #define BASE_MODEL_H_
 
 #include "range_coder.h"
 
 namespace pil {
+
+// Small enough to not overflow uint16_t even after +STEP
+#define PIL_BASE_MODEL_M4(a) ((a)[0]>(a)[1]?((a)[0]>(a)[2]?((a)[0]>(a)[3]?(a)[0]:(a)[3]):((a)[2]>(a)[3]?(a)[2]:(a)[3])):((a)[1]>(a)[2]?((a)[1]>(a)[3]?(a)[1]:(a)[3]):((a)[2]>(a)[3]?(a)[2]:(a)[3])))
 
 /*
  * A fixed alphabet encoder for symbols 0 to 5 inclusive.
@@ -67,9 +74,6 @@ namespace pil {
  * Fast mode uses 8-bit counters. It's generally 40% faster or so, but less
  * accurate and so larger file size (maybe only 1% though unless deep data).
  */
-
-// Small enough to not overflow uint16_t even after +STEP
-#define PIL_BASE_MODEL_M4(a) ((a)[0]>(a)[1]?((a)[0]>(a)[2]?((a)[0]>(a)[3]?(a)[0]:(a)[3]):((a)[2]>(a)[3]?(a)[2]:(a)[3])):((a)[1]>(a)[2]?((a)[1]>(a)[3]?(a)[1]:(a)[3]):((a)[2]>(a)[3]?(a)[2]:(a)[3])))
 
 template <typename T>
 class BaseModel {

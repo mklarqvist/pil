@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <cstdlib> // abort
 
+#ifdef __SSE__
+#include <xmmintrin.h>
+#else
+#define _mm_prefetch(a,b)
+#endif
+
 #define  DO(n) int _;for (_=0; _<n; _++)
 #define  TOP   (1<<24)
 
