@@ -4,6 +4,7 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
+../bloom_filter.cpp \
 ../buffer.cpp \
 ../column_dictionary.cpp \
 ../column_store.cpp \
@@ -13,6 +14,7 @@ CPP_SRCS += \
 ../table_meta.cpp 
 
 OBJS += \
+./bloom_filter.o \
 ./buffer.o \
 ./column_dictionary.o \
 ./column_store.o \
@@ -22,6 +24,7 @@ OBJS += \
 ./table_meta.o 
 
 CPP_DEPS += \
+./bloom_filter.d \
 ./buffer.d \
 ./column_dictionary.d \
 ./column_store.d \

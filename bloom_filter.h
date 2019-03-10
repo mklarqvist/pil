@@ -65,38 +65,22 @@ public:
     /// Get the number of bytes of bitset
     virtual uint32_t GetBitsetSize() const = 0;
 
-    /// Compute hash for 32 bits value by using its plain encoding result.
+    /// Compute hash for N bits value by using its plain encoding result.
     ///
     /// @param value the value to hash.
     /// @return hash result.
+    virtual uint64_t Hash(int8_t value) const = 0;
+    virtual uint64_t Hash(int16_t value) const = 0;
     virtual uint64_t Hash(int32_t value) const = 0;
-
-    /// Compute hash for 64 bits value by using its plain encoding result.
-    ///
-    /// @param value the value to hash.
-    /// @return hash result.
     virtual uint64_t Hash(int64_t value) const = 0;
-
-    /// Compute hash for float value by using its plain encoding result.
-    ///
-    /// @param value the value to hash.
-    /// @return hash result.
+    virtual uint64_t Hash(uint8_t value) const = 0;
+    virtual uint64_t Hash(uint16_t value) const = 0;
+    virtual uint64_t Hash(uint32_t value) const = 0;
+    virtual uint64_t Hash(uint64_t value) const = 0;
     virtual uint64_t Hash(float value) const = 0;
-
-    /// Compute hash for double value by using its plain encoding result.
-    ///
-    /// @param value the value to hash.
-    /// @return hash result.
     virtual uint64_t Hash(double value) const = 0;
 
     virtual ~BloomFilter() {}
-
-protected:
-    // Hash strategy available for Bloom filter.
-    enum class HashStrategy : uint32_t { MURMUR3_X64_128 = 0 };
-
-    // Bloom filter algorithm.
-    enum class Algorithm : uint32_t { BLOCK = 0 };
 };
 
 //
@@ -108,7 +92,7 @@ protected:
 // filter is 32 bytes to take advantage of 32-byte SIMD instructions.
 class BlockSplitBloomFilter : public BloomFilter {
 public:
-    /// The constructor of BlockSplitBloomFilter. It uses murmur3_x64_128 as hash function.
+    /// The constructor of BlockSplitBloomFilter. It uses XXHASH64 as hash function.
     BlockSplitBloomFilter();
 
     /// Initialize the BlockSplitBloomFilter. The range of num_bytes should be within
@@ -171,10 +155,17 @@ public:
     void InsertHash(uint64_t hash) override;
 
     uint32_t GetBitsetSize() const override { return num_bytes_; }
+
+    uint64_t Hash(int8_t value) const override;
+    uint64_t Hash(int16_t value) const override;
+    uint64_t Hash(int32_t value) const override;
     uint64_t Hash(int64_t value) const override;
+    uint64_t Hash(uint8_t value) const override;
+    uint64_t Hash(uint16_t value) const override;
+    uint64_t Hash(uint32_t value) const override;
+    uint64_t Hash(uint64_t value) const override;
     uint64_t Hash(float value) const override;
     uint64_t Hash(double value) const override;
-    uint64_t Hash(int32_t value) const override;
 
 private:
     // Bytes in a tiny Bloom filter block.
@@ -185,14 +176,14 @@ private:
 
     // A mask structure used to set bits in each tiny Bloom filter.
     struct BlockMask {
-    uint32_t item[kBitsSetPerBlock];
+        uint32_t item[kBitsSetPerBlock];
     };
 
     // The block-based algorithm needs eight odd SALT values to calculate eight indexes
     // of bit to set, one bit in each 32-bit word.
     static constexpr uint32_t SALT[kBitsSetPerBlock] = {
-      0x47b6137bU, 0x44974d91U, 0x8824ad5bU, 0xa2b7289dU,
-      0x705495c7U, 0x2df1424bU, 0x9efc4947U, 0x5c6bfb31U
+        0x47b6137bU, 0x44974d91U, 0x8824ad5bU, 0xa2b7289dU,
+        0x705495c7U, 0x2df1424bU, 0x9efc4947U, 0x5c6bfb31U
     };
 
     /// Set bits in mask array according to input key.
@@ -208,12 +199,6 @@ private:
 
     // The number of bytes of Bloom filter bitset.
     uint32_t num_bytes_;
-
-    // Hash strategy used in this Bloom filter.
-    HashStrategy hash_strategy_;
-
-    // Algorithm used in this Bloom filter.
-    Algorithm algorithm_;
 };
 
 }
