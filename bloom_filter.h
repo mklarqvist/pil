@@ -79,6 +79,7 @@ public:
     virtual uint64_t Hash(uint64_t value) const = 0;
     virtual uint64_t Hash(float value) const = 0;
     virtual uint64_t Hash(double value) const = 0;
+    virtual uint64_t Hash(char* value, const uint32_t len) const = 0;
 
     virtual ~BloomFilter() {}
 };
@@ -166,6 +167,7 @@ public:
     uint64_t Hash(uint64_t value) const override;
     uint64_t Hash(float value) const override;
     uint64_t Hash(double value) const override;
+    uint64_t Hash(char* value, const uint32_t len) const override;
 
 private:
     // Bytes in a tiny Bloom filter block.

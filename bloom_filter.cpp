@@ -101,5 +101,6 @@ uint64_t BlockSplitBloomFilter::Hash(uint32_t value) const { return(XXH64(&value
 uint64_t BlockSplitBloomFilter::Hash(uint64_t value) const { return(XXH64(&value, sizeof(uint64_t), 1337)); }
 uint64_t BlockSplitBloomFilter::Hash(float value) const { return(XXH64(&value, sizeof(float), 1337)); }
 uint64_t BlockSplitBloomFilter::Hash(double value) const { return(XXH64(&value, sizeof(double), 1337)); }
+uint64_t BlockSplitBloomFilter::Hash(char* value, const uint32_t len) const { return(XXH64(value, len, 1337)); }
 
 }

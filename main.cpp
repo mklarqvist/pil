@@ -16,6 +16,7 @@
 #include "transform/dictionary_builder_test.h"
 #include "table_meta_test.h"
 #include "transform/compressor_test.h"
+#include "bloom_filter_test.h"
 
 std::vector<std::string> inline StringSplit(const std::string &source, const char *delimiter = " ", bool keepEmpty = false)
 {
