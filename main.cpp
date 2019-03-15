@@ -211,10 +211,10 @@ int main(int argc, char **argv) {
     if(1) {
         std::ifstream ss;
         //ss.open("/Users/Mivagallery/Desktop/ERR194146.fastq", std::ios::ate | std::ios::in);
-        //ss.open("/Users/Mivagallery/Downloads/NA12877_S1_10m.sam", std::ios::ate | std::ios::in);
+        ss.open("/Users/Mivagallery/Downloads/NA12877_S1_10m.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12886_S1_10m_complete.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.sam", std::ios::ate | std::ios::in);
-        ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
+        //ss.open("/media/mdrk/NVMe/NA12878J_HiSeqX_R1_50mil.fastq.aligned.sam", std::ios::ate | std::ios::in);
         //ss.open("/media/mdrk/08dcb478-5359-41f4-97c8-469190c8a034/NA12878/nanopore/rel5-guppy-0.3.0-chunk10k.sorted.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/NA12878J_HiSeqX_R1.40m.fastq.sam", std::ios::ate | std::ios::in);
         //ss.open("/home/mk819/Downloads/ont_bwa_Cd630_62793_sort.sam", std::ios::ate | std::ios::in);
@@ -229,8 +229,8 @@ int main(int argc, char **argv) {
 
         //table.single_archive = true;
         //table.batch_size = 65536;
-        table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
-        //table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
+        //table.out_stream.open("/media/mdrk/NVMe/test.pil", std::ios::binary | std::ios::out);
+        table.out_stream.open("/Users/Mivagallery/Desktop/test.pil", std::ios::binary | std::ios::out);
         //table.out_stream.open("/home/mk819/Desktop/test.pil", std::ios::binary | std::ios::out);
 
         if(table.out_stream.good() == false) {

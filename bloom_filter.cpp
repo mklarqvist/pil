@@ -19,22 +19,15 @@ void BlockSplitBloomFilter::Init(uint32_t num_bytes) {
         num_bytes = static_cast<uint32_t>(BitUtils::NextPower2(num_bytes));
     }
 
-    if (num_bytes > kMaximumBloomFilterBytes) {
-        num_bytes = kMaximumBloomFilterBytes;
-    }
-
     num_bytes_ = num_bytes;
     assert(AllocateBuffer(pool_, num_bytes_, &data_) == 1);
     memset(data_->mutable_data(), 0, num_bytes_);
-
-    //this->hasher_.reset(new MurmurHash3());
 }
 
 void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
     assert(bitset != nullptr);
 
-    if (num_bytes < kMinimumBloomFilterBytes || num_bytes > kMaximumBloomFilterBytes ||
-       (num_bytes & (num_bytes - 1)) != 0) {
+    if (num_bytes < kMinimumBloomFilterBytes || (num_bytes & (num_bytes - 1)) != 0) {
         //throw ParquetException("Given length of bitset is illegal");
         exit(1);
     }
@@ -42,8 +35,6 @@ void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
     num_bytes_ = num_bytes;
     assert(AllocateBuffer(pool_, num_bytes_, &data_) == 1);
     memcpy(data_->mutable_data(), bitset, num_bytes_);
-
-    //this->hasher_.reset(new MurmurHash3());
 }
 
 void BlockSplitBloomFilter::SetMask(uint32_t key, BlockMask& block_mask) const {
@@ -91,16 +82,15 @@ void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
     }
 }
 
-uint64_t BlockSplitBloomFilter::Hash(int8_t value) const { return(XXH64(&value, sizeof(int8_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(int16_t value) const { return(XXH64(&value, sizeof(int16_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(int32_t value) const { return(XXH64(&value, sizeof(int32_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(int64_t value) const { return(XXH64(&value, sizeof(int64_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(uint8_t value) const { return(XXH64(&value, sizeof(uint8_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(uint16_t value) const { return(XXH64(&value, sizeof(uint16_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(uint32_t value) const { return(XXH64(&value, sizeof(uint32_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(uint64_t value) const { return(XXH64(&value, sizeof(uint64_t), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(float value) const { return(XXH64(&value, sizeof(float), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(double value) const { return(XXH64(&value, sizeof(double), 1337)); }
-uint64_t BlockSplitBloomFilter::Hash(char* value, const uint32_t len) const { return(XXH64(value, len, 1337)); }
+uint64_t BlockSplitBloomFilter::Hash(int8_t value) const   { return(XXH64(&value, sizeof(int8_t),   912732)); }
+uint64_t BlockSplitBloomFilter::Hash(int16_t value) const  { return(XXH64(&value, sizeof(int16_t),  912732)); }
+uint64_t BlockSplitBloomFilter::Hash(int32_t value) const  { return(XXH64(&value, sizeof(int32_t),  912732)); }
+uint64_t BlockSplitBloomFilter::Hash(int64_t value) const  { return(XXH64(&value, sizeof(int64_t),  912732)); }
+uint64_t BlockSplitBloomFilter::Hash(uint8_t value) const  { return(XXH64(&value, sizeof(uint8_t),  912732)); }
+uint64_t BlockSplitBloomFilter::Hash(uint16_t value) const { return(XXH64(&value, sizeof(uint16_t), 912732)); }
+uint64_t BlockSplitBloomFilter::Hash(uint32_t value) const { return(XXH64(&value, sizeof(uint32_t), 912732)); }
+uint64_t BlockSplitBloomFilter::Hash(uint64_t value) const { return(XXH64(&value, sizeof(uint64_t), 912732)); }
+uint64_t BlockSplitBloomFilter::Hash(float value) const    { return(XXH64(&value, sizeof(float),    912732)); }
+uint64_t BlockSplitBloomFilter::Hash(double value) const   { return(XXH64(&value, sizeof(double),   912732)); }
 
 }

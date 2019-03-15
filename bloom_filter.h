@@ -47,10 +47,6 @@ namespace pil {
 // set of elements, a hash strategy and a Bloom filter algorithm.
 class BloomFilter {
 public:
-    // Maximum Bloom filter size, it sets to HDFS default block size 128MB
-    // This value will be reconsidered when implementing Bloom filter producer.
-    static constexpr uint32_t kMaximumBloomFilterBytes = 128 * 1024 * 1024;
-
     /// Determine whether an element exist in set or not.
     ///
     /// @param hash the element to contain.
@@ -129,11 +125,6 @@ public:
         const double m = -8.0 * ndv / log(1 - pow(fpp, 1.0 / 8));
         uint32_t num_bits = static_cast<uint32_t>(m);
 
-        // Handle overflow.
-        if (m < 0 || m > kMaximumBloomFilterBytes << 3) {
-            num_bits = static_cast<uint32_t>(kMaximumBloomFilterBytes << 3);
-        }
-
         // Round up to lower bound
         if (num_bits < kMinimumBloomFilterBytes << 3) {
             num_bits = kMinimumBloomFilterBytes << 3;
@@ -142,11 +133,6 @@ public:
         // Get next power of 2 if bits is not power of 2.
         if ((num_bits & (num_bits - 1)) != 0) {
             num_bits = static_cast<uint32_t>(BitUtils::NextPower2(num_bits));
-        }
-
-        // Round down to upper bound
-        if (num_bits > kMaximumBloomFilterBytes << 3) {
-            num_bits = kMaximumBloomFilterBytes << 3;
         }
 
         return num_bits;

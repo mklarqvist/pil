@@ -13,6 +13,7 @@
 #include "buffer_builder.h"
 #include "transform/transform_meta.h"
 #include "column_dictionary.h"
+#include "bloom_filter.h"
 
 #include <bitset>
 
@@ -26,7 +27,7 @@ namespace pil {
 class ColumnStore {
 public:
     explicit ColumnStore(MemoryPool* pool = default_memory_pool()) :
-        have_dictionary(false),
+        have_dictionary(false), have_bloom(false),
         n_records(0), n_elements(0), n_null(0), uncompressed_size(0), compressed_size(0),
         m_nullity(0), nullity_u(0), nullity_c(0),
         pool_(pool)
@@ -102,7 +103,7 @@ public:
     bool IsValid(const uint32_t p) { return(reinterpret_cast<uint32_t*>(nullity->mutable_data())[p / 32] & (1 << (p % 32))); }
 
 public:
-    bool have_dictionary;
+    bool have_dictionary, have_bloom;
     uint32_t n_records, n_elements, n_null;
     uint32_t uncompressed_size, compressed_size;
     uint32_t m_nullity, nullity_u, nullity_c; // nullity_u is not required as we can compute it. but is convenient to have during deserialization
@@ -112,6 +113,7 @@ public:
     BufferBuilder buffer;
     std::shared_ptr<ResizableBuffer> nullity; // NULLity vector
     std::shared_ptr<ColumnDictionary> dictionary; // Dictionary used for predicate pushdown
+    std::shared_ptr<BlockSplitBloomFilter> bloom; // Bloom filter used for predicate pushdown
     std::vector< std::shared_ptr<TransformMeta> > transformation_args; // Every transform MUST store a value.
     uint8_t md5_checksum[16]; // **uncompressed** checksum
 };
